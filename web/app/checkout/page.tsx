@@ -2,9 +2,11 @@
 
 import { CheckoutForm } from "@/components/checkout-form";
 import { useCart } from "@/lib/cart-context";
+import { getAppStrings } from "@/lib/i18n";
+import { useLanguage } from "@/lib/language-context";
 import { formatUsd, linesWithItems, totalCents } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
-import { getSelectionDisplayLines } from "@ricos/shared";
+import { getSelectionDisplayLines, resolveLocalizedText } from "@ricos/shared";
 import { Elements } from "@stripe/react-stripe-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,6 +14,8 @@ import { useEffect, useState } from "react";
 
 export default function CheckoutPage() {
   const { lines } = useCart();
+  const { language } = useLanguage();
+  const copy = getAppStrings(language);
   const summaryLines = linesWithItems(lines);
   const router = useRouter();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -37,7 +41,7 @@ export default function CheckoutPage() {
         amountCents?: number;
       };
       if (!res.ok) {
-        if (!cancelled) setError(data.error ?? "Failed to start checkout");
+        if (!cancelled) setError(data.error ?? copy.checkoutErrorTitle);
         return;
       }
       if (!cancelled && data.clientSecret && data.amountCents != null) {
@@ -49,7 +53,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [lines, router]);
+  }, [copy.checkoutErrorTitle, lines, router]);
 
   if (lines.length === 0) {
     return null;
@@ -59,13 +63,15 @@ export default function CheckoutPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16">
         <div className="rounded-2xl border border-red-400/40 bg-[#0c2340]/90 p-6 text-white shadow-xl">
-          <h1 className="text-xl font-semibold text-red-200">Checkout error</h1>
+          <h1 className="text-xl font-semibold text-red-200">
+            {copy.checkoutErrorTitle}
+          </h1>
           <p className="mt-2 text-white/80">{error}</p>
           <Link
             href="/"
             className="mt-6 inline-block rounded-lg bg-[#f4c430] px-4 py-2 font-medium text-[#0c2340]"
           >
-            Back to menu
+            {copy.backToMenu}
           </Link>
         </div>
       </div>
@@ -75,9 +81,9 @@ export default function CheckoutPage() {
   if (!clientSecret) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24 text-center text-white/80">
-        <p className="text-lg">Preparing secure checkout…</p>
+        <p className="text-lg">{copy.preparingSecureCheckout}</p>
         <p className="mt-2 text-sm text-white/60">
-          Total {formatUsd(totalCents(lines))}
+          {copy.totalLabel} {formatUsd(totalCents(lines), language)}
         </p>
       </div>
     );
@@ -87,15 +93,15 @@ export default function CheckoutPage() {
     <div className="mx-auto max-w-lg px-4 py-10">
       <div className="mb-8">
         <Link href="/" className="text-sm text-[#f4c430] hover:underline">
-          ← Back to menu
+          ← {copy.backToMenu}
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">
-          Pay for pickup
+          {copy.payForPickup}
         </h1>
         <p className="mt-2 text-white/70">
-          Guest checkout — no account required. Total{" "}
+          {copy.guestCheckoutMessage} {copy.totalLabel}{" "}
           <span className="font-semibold text-[#f4c430]">
-            {formatUsd(amountCents)}
+            {formatUsd(amountCents, language)}
           </span>
           .
         </p>
@@ -103,15 +109,16 @@ export default function CheckoutPage() {
 
       <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4">
         <p className="text-sm font-semibold uppercase tracking-wide text-[#b8d4f0]">
-          Order summary
+          {copy.orderSummary}
         </p>
         <ul className="mt-3 space-y-2 text-sm text-white/85">
           {summaryLines.map(({ line, item }) => {
-            const selections = getSelectionDisplayLines(line.id, line.selections);
+            const selections = getSelectionDisplayLines(line.id, line.selections, language);
             return (
               <li key={`${line.id}-${JSON.stringify(line.selections)}`} className="rounded-md bg-white/5 px-3 py-2">
                 <p>
-                  {line.quantity}x {item.name} · {formatUsd(item.priceCents * line.quantity)}
+                  {line.quantity}x {resolveLocalizedText(item.name, language)} ·{" "}
+                  {formatUsd(item.priceCents * line.quantity, language)}
                 </p>
                 {selections.length > 0 ? (
                   <p className="mt-1 text-xs text-[#b8d4f0]">{selections.join(" · ")}</p>
@@ -126,6 +133,7 @@ export default function CheckoutPage() {
         stripe={getStripe()}
         options={{
           clientSecret,
+          locale: language,
           appearance: {
             theme: "night",
             variables: {

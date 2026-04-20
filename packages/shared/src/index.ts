@@ -1,15 +1,22 @@
 import menuData from "./menu.json" with { type: "json" };
 
 export type SelectionType = "single" | "multiple";
+export type Language = "en" | "es";
+export type LocalizedText = {
+  en: string;
+  es: string;
+};
+
+export const DEFAULT_LANGUAGE: Language = "es";
 
 export type ModifierOption = {
   id: string;
-  label: string;
+  label: LocalizedText;
 };
 
 export type ModifierGroup = {
   id: string;
-  title: string;
+  title: LocalizedText;
   selectionType: SelectionType;
   required: boolean;
   minSelections: number;
@@ -19,22 +26,22 @@ export type ModifierGroup = {
 
 export type MenuItem = {
   id: string;
-  name: string;
-  description: string;
+  name: LocalizedText;
+  description: LocalizedText;
   priceCents: number;
   modifierGroups?: ModifierGroup[];
 };
 
 export type MenuCategory = {
   id: string;
-  title: string;
-  notes: string[];
+  title: LocalizedText;
+  notes: LocalizedText[];
   items: MenuItem[];
 };
 
 export type MenuDocument = {
-  restaurant: string;
-  menuName: string;
+  restaurant: LocalizedText;
+  menuName: LocalizedText;
   categories: MenuCategory[];
 };
 
@@ -68,6 +75,13 @@ export function getModifierGroupsForItem(itemId: string): ModifierGroup[] {
     return [];
   }
   return item.modifierGroups;
+}
+
+export function resolveLocalizedText(
+  value: LocalizedText,
+  language: Language,
+): string {
+  return value[language] ?? value.en;
 }
 
 export type LineSelections = Record<string, string[]>;
@@ -115,17 +129,18 @@ export function validateSelectionsForItem(
   for (const group of groups) {
     const values = normalized[group.id] ?? [];
     const validOptionIds = new Set(group.options.map((opt) => opt.id));
+    const groupLabel = resolveLocalizedText(group.title, "en");
     if (values.some((optionId) => !validOptionIds.has(optionId))) {
-      return { ok: false, error: `Invalid option in ${group.title}.` };
+      return { ok: false, error: `Invalid option in ${groupLabel}.` };
     }
     if (group.selectionType === "single" && values.length > 1) {
-      return { ok: false, error: `${group.title} allows only one selection.` };
+      return { ok: false, error: `${groupLabel} allows only one selection.` };
     }
     if (values.length < group.minSelections || values.length > group.maxSelections) {
-      return { ok: false, error: `${group.title} selection count is out of range.` };
+      return { ok: false, error: `${groupLabel} selection count is out of range.` };
     }
     if (group.required && values.length === 0) {
-      return { ok: false, error: `${group.title} is required.` };
+      return { ok: false, error: `${groupLabel} is required.` };
     }
   }
 
@@ -135,6 +150,7 @@ export function validateSelectionsForItem(
 export function getSelectionDisplayLines(
   itemId: string,
   selections: LineSelections = {},
+  language: Language = "en",
 ): string[] {
   const groups = getModifierGroupsForItem(itemId);
   const normalized = normalizeSelections(selections);
@@ -144,9 +160,10 @@ export function getSelectionDisplayLines(
     if (picked.length === 0) continue;
     const labels = picked
       .map((id) => group.options.find((opt) => opt.id === id)?.label)
+      .map((label) => (label ? resolveLocalizedText(label, language) : undefined))
       .filter((label): label is string => Boolean(label));
     if (labels.length === 0) continue;
-    rows.push(`${group.title}: ${labels.join(", ")}`);
+    rows.push(`${resolveLocalizedText(group.title, language)}: ${labels.join(", ")}`);
   }
   return rows;
 }

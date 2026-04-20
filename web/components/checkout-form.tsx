@@ -2,6 +2,8 @@
 
 import { formatUsd } from "@/lib/pricing";
 import { useCart } from "@/lib/cart-context";
+import { getAppStrings } from "@/lib/i18n";
+import { useLanguage } from "@/lib/language-context";
 import {
   PaymentElement,
   useElements,
@@ -10,6 +12,8 @@ import {
 import { useState } from "react";
 
 export function CheckoutForm({ amountCents }: { amountCents: number }) {
+  const { language } = useLanguage();
+  const copy = getAppStrings(language);
   const stripe = useStripe();
   const elements = useElements();
   const { clear } = useCart();
@@ -31,9 +35,9 @@ export function CheckoutForm({ amountCents }: { amountCents: number }) {
 
     if (error) {
       if (error.type === "card_error" || error.type === "validation_error") {
-        setErrorMessage(error.message ?? "Payment failed");
+        setErrorMessage(error.message ?? copy.paymentFailedFallback);
       } else {
-        setErrorMessage("Something went wrong. Please try again.");
+        setErrorMessage(copy.paymentUnexpectedError);
       }
       setLoading(false);
       return;
@@ -57,7 +61,9 @@ export function CheckoutForm({ amountCents }: { amountCents: number }) {
         disabled={!stripe || loading}
         className="rounded-xl bg-[#f4c430] px-4 py-3 text-lg font-semibold text-[#0c2340] shadow-lg transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? "Processing…" : `Pay ${formatUsd(amountCents)}`}
+        {loading
+          ? copy.processing
+          : `${copy.payCtaPrefix} ${formatUsd(amountCents, language)}`}
       </button>
     </form>
   );

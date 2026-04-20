@@ -1,11 +1,14 @@
 "use client";
 
 import { useCart } from "@/lib/cart-context";
+import { getAppStrings } from "@/lib/i18n";
+import { useLanguage } from "@/lib/language-context";
 import { formatUsd, totalCents } from "@/lib/pricing";
 import {
   getModifierGroupsForItem,
   getSelectionDisplayLines,
   normalizeSelections,
+  resolveLocalizedText,
   selectionSignature,
   type LineSelections,
   type MenuCategory,
@@ -15,6 +18,8 @@ import { useMemo, useState } from "react";
 
 export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   const { lines, addItem, removeItem, setQuantity } = useCart();
+  const { language } = useLanguage();
+  const copy = getAppStrings(language);
   const [draftSelections, setDraftSelections] = useState<
     Record<string, LineSelections>
   >({});
@@ -53,13 +58,15 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
               id={`cat-${cat.id}`}
               className="inline-block rounded-md bg-[#c41e3a] px-4 py-1.5 text-lg font-bold uppercase tracking-wide text-white shadow-md"
             >
-              {cat.title}
+              {resolveLocalizedText(cat.title, language)}
             </h2>
           </div>
           {cat.notes.length > 0 ? (
             <ul className="mt-3 space-y-1 text-sm text-[#b8d4f0]">
               {cat.notes.map((n) => (
-                <li key={n}>{n}</li>
+                <li key={resolveLocalizedText(n, "en")}>
+                  {resolveLocalizedText(n, language)}
+                </li>
               ))}
             </ul>
           ) : null}
@@ -85,14 +92,14 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                   <div className="max-w-2xl">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <h3 className="text-lg font-semibold text-white">
-                        {item.name}
+                        {resolveLocalizedText(item.name, language)}
                       </h3>
                       <span className="text-[#f4c430]">
-                        {formatUsd(item.priceCents)}
+                        {formatUsd(item.priceCents, language)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-white/70">
-                      {item.description}
+                      {resolveLocalizedText(item.description, language)}
                     </p>
 
                     {modifierGroups.length > 0 ? (
@@ -102,7 +109,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                           return (
                             <div key={group.id}>
                               <p className="text-xs font-semibold uppercase tracking-wider text-[#b8d4f0]">
-                                {group.title}
+                                {resolveLocalizedText(group.title, language)}
                                 {group.required ? " *" : ""}
                               </p>
                               <div className="mt-2 flex flex-wrap gap-2">
@@ -132,7 +139,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                           : "border-white/20 text-white/70 hover:bg-white/10"
                                       }`}
                                     >
-                                      {option.label}
+                                      {resolveLocalizedText(option.label, language)}
                                     </button>
                                   );
                                 })}
@@ -150,6 +157,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                           const selectionRows = getSelectionDisplayLines(
                             line.id,
                             line.selections,
+                            language,
                           );
                           return (
                             <li
@@ -161,7 +169,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                   {selectionRows.join(" · ")}
                                 </p>
                               ) : (
-                                <p className="mb-1 text-[#b8d4f0]">Default prep</p>
+                                <p className="mb-1 text-[#b8d4f0]">{copy.defaultPrep}</p>
                               )}
                               <div className="flex items-center gap-2">
                                 <button
@@ -170,7 +178,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                     setQuantity(line.id, line.selections, line.quantity - 1)
                                   }
                                   className="h-7 w-7 rounded border border-white/20 text-sm text-white"
-                                  aria-label={`Decrease ${item.name}`}
+                                  aria-label={`${copy.decreaseItemAria} ${resolveLocalizedText(item.name, language)}`}
                                 >
                                   −
                                 </button>
@@ -181,7 +189,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                     setQuantity(line.id, line.selections, line.quantity + 1)
                                   }
                                   className="h-7 w-7 rounded border border-white/20 text-sm text-white"
-                                  aria-label={`Increase ${item.name}`}
+                                  aria-label={`${copy.increaseItemAria} ${resolveLocalizedText(item.name, language)}`}
                                 >
                                   +
                                 </button>
@@ -190,7 +198,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                   onClick={() => removeItem(line.id, line.selections)}
                                   className="ml-2 text-red-300 hover:underline"
                                 >
-                                  Remove
+                                  {copy.remove}
                                 </button>
                               </div>
                             </li>
@@ -207,7 +215,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                             type="button"
                             onClick={() => setQuantity(item.id, {}, plainQty - 1)}
                             className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                            aria-label={`Decrease ${item.name}`}
+                            aria-label={`${copy.decreaseItemAria} ${resolveLocalizedText(item.name, language)}`}
                           >
                             −
                           </button>
@@ -218,7 +226,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                             type="button"
                             onClick={() => setQuantity(item.id, {}, plainQty + 1)}
                             className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                            aria-label={`Increase ${item.name}`}
+                            aria-label={`${copy.increaseItemAria} ${resolveLocalizedText(item.name, language)}`}
                           >
                             +
                           </button>
@@ -229,7 +237,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                           onClick={() => addItem(item.id, {})}
                           className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
                         >
-                          Add
+                          {copy.add}
                         </button>
                       )
                     ) : (
@@ -239,7 +247,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                         disabled={!canAddConfigured}
                         className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Add configured
+                        {copy.addConfigured}
                       </button>
                     )}
                   </div>
@@ -255,6 +263,8 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
 
 export function CartBar() {
   const { lines } = useCart();
+  const { language } = useLanguage();
+  const copy = getAppStrings(language);
   const sum = totalCents(lines);
   const count = lines.reduce((a, l) => a + l.quantity, 0);
 
@@ -265,14 +275,14 @@ export function CartBar() {
       <div className="mx-auto flex max-w-4xl flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-white/90">
           <span className="font-semibold text-[#f4c430]">{count}</span>{" "}
-          {count === 1 ? "item" : "items"} ·{" "}
-          <span className="font-semibold text-white">{formatUsd(sum)}</span>
+          {count === 1 ? copy.cartItemSingular : copy.cartItemPlural} ·{" "}
+          <span className="font-semibold text-white">{formatUsd(sum, language)}</span>
         </p>
         <Link
           href="/checkout"
           className="inline-flex justify-center rounded-xl bg-[#f4c430] px-6 py-3 text-center font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
         >
-          Checkout
+          {copy.checkout}
         </Link>
       </div>
     </div>

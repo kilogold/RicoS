@@ -1,4 +1,4 @@
-import { getItemById, type MenuItem } from "@ricos/shared";
+import { getItemById, type Language, type MenuItem } from "@ricos/shared";
 import type { CartLine } from "@/lib/cart-context";
 
 export function linesWithItems(
@@ -22,8 +22,9 @@ export function totalCents(lines: CartLine[]): number {
   return sum;
 }
 
-export function formatUsd(cents: number): string {
-  return new Intl.NumberFormat("en-US", {
+export function formatUsd(cents: number, language: Language = "en"): string {
+  const locale = language === "es" ? "es-PR" : "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "USD",
   }).format(cents / 100);

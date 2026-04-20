@@ -1,5 +1,10 @@
 import { spawn } from "node:child_process";
-import { getItemById, getSelectionDisplayLines, type LineSelections } from "@ricos/shared";
+import {
+  getItemById,
+  getSelectionDisplayLines,
+  resolveLocalizedText,
+  type LineSelections,
+} from "@ricos/shared";
 
 export type CartLine = { id: string; quantity: number; selections: LineSelections };
 
@@ -27,9 +32,9 @@ export function formatTicket(params: {
 
   for (const line of lines) {
     const item = getItemById(line.id);
-    const label = item?.name ?? line.id;
+    const label = item ? resolveLocalizedText(item.name, "en") : line.id;
     rows.push(`${line.quantity}x ${label}`);
-    const selectionRows = getSelectionDisplayLines(line.id, line.selections);
+    const selectionRows = getSelectionDisplayLines(line.id, line.selections, "en");
     for (const selection of selectionRows) {
       rows.push(`   ${selection}`);
     }
