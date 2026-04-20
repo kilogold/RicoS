@@ -38,7 +38,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
   en: {
     homeTagline: "RicoS",
     homeSubtitle: "Order online for pickup. Pay securely with your card — no account needed.",
-    add: "Add",
+    add: "Add to order",
     addConfigured: "Add to order",
     remove: "Remove",
     defaultPrep: "Default prep",
@@ -73,8 +73,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     homeTagline: "RicoS",
     homeSubtitle:
       "Ordena en linea para recoger. Paga de forma segura con tu tarjeta — no necesitas cuenta.",
-    add: "Agregar",
-    addConfigured: "Añadir a la orden",
+    add: "Agregar a la orden",
+    addConfigured: "Agregar a la orden",
     remove: "Quitar",
     defaultPrep: "Preparacion por defecto",
     decreaseItemAria: "Disminuir",
