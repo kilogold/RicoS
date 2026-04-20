@@ -6,11 +6,15 @@
     "kitchen-relay",
     "packages/shared"
   ],
+  "engines": {
+    "bun": ">=1.2.0"
+  },
   "scripts": {
-    "dev:web": "npm run dev --workspace web",
-    "dev:kitchen": "npm run dev --workspace kitchen-relay",
-    "build": "npm run build --workspace web",
-    "lint": "npm run lint --workspace web"
+    "preinstall": "bun scripts/enforce-bun-install.mjs",
+    "dev:web": "bun run --filter './web' dev",
+    "dev:kitchen": "bun run --filter './kitchen-relay' dev",
+    "build": "bun run --filter './web' build",
+    "lint": "bun run --filter './web' lint"
   },
   "packageManager": "bun@1.2.0"
 }

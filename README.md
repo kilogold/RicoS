@@ -2,6 +2,8 @@
 
 Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), a **kitchen-relay** service that prints paid orders from **Stripe webhooks**, and shared **menu data** with stable opaque item IDs.
 
+**Package manager: [Bun](https://bun.sh) only.** The repo uses `bun.lock`. Do not run `npm install`, `yarn`, or `pnpm` — installs are blocked by a root `preinstall` hook unless you bypass it (don’t).
+
 ## Layout
 
 | Path | Description |
@@ -12,7 +14,7 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 
 ## Prerequisites
 
-- **Node.js** 20+ (or **Bun** — this repo lists Bun in `packageManager`; `npm` works for installs and scripts)
+- **[Bun](https://bun.sh)** 1.2+ (`bun --version`)
 - **Stripe** account (test mode for local development)
 - **Stripe CLI** for forwarding webhooks to localhost ([install](https://stripe.com/docs/stripe-cli))
 
@@ -40,12 +42,6 @@ Optional:
 1. **Install dependencies** (from repo root):
 
    ```bash
-   npm install
-   ```
-
-   Or with Bun:
-
-   ```bash
    bun install
    ```
 
@@ -54,7 +50,7 @@ Optional:
 3. **Start the kitchen relay** (terminal 1):
 
    ```bash
-   npm run dev:kitchen
+   bun run dev:kitchen
    ```
 
    Set `STRIPE_WEBHOOK_SECRET` for the relay. For local CLI forwarding, run Stripe listen (step 5) and use the **`whsec_...`** secret it prints.
@@ -62,7 +58,7 @@ Optional:
 4. **Start the storefront** (terminal 2):
 
    ```bash
-   npm run dev:web
+   bun run dev:web
    ```
 
    Open [http://localhost:3000](http://localhost:3000), add items, complete checkout with a [Stripe test card](https://stripe.com/docs/testing#cards) (e.g. `4242 4242 4242 4242`).
@@ -78,6 +74,7 @@ Optional:
 ## Deploying the storefront on Vercel
 
 - Connect the repo and set the **root directory** to `web` **or** deploy from the monorepo root with the appropriate app directory (your Vercel project settings).
+- Set **Install Command** to `bun install` (and ensure the project uses Bun) so Vercel does not default to npm.
 - Add `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Vercel project **Environment Variables**.
 - The **kitchen relay is not deployed here** in v1; it is intended to run on **localhost** for development and later on a **Raspberry Pi** (or similar always-on host) with a public HTTPS URL for Stripe webhooks and a real printer adapter when you are ready.
 
@@ -95,8 +92,9 @@ Cart and API payloads use **opaque** menu IDs (`mi_...`, `cat_...` in `packages/
 
 | Script | Command |
 |--------|---------|
-| Dev — web | `npm run dev:web` |
-| Dev — kitchen | `npm run dev:kitchen` |
-| Build — web | `npm run build` |
+| Dev — web | `bun run dev:web` |
+| Dev — kitchen | `bun run dev:kitchen` |
+| Build — web | `bun run build` |
+| Lint — web | `bun run lint` |
 
-With Bun: `bun run dev:web`, `bun run dev:kitchen`, etc.
+To run a script inside a workspace directly: `bun run dev --cwd web`, etc.

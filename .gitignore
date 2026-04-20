@@ -7,3 +7,9 @@ dist
 kitchen-print.log
 *.log
 .DS_Store
+
+# Bun-only: do not use npm / yarn / pnpm lockfiles in this repo
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
