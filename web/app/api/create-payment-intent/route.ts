@@ -1,4 +1,4 @@
-import { getItemById } from "@ricos/shared";
+import { getItemById, normalizeSelections, validateSelectionsForItem } from "@ricos/shared";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -19,7 +19,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const lines = (body as { lines?: { id: string; quantity: number }[] })?.lines;
+  const lines = (
+    body as {
+      lines?: { id: string; quantity: number; selections?: Record<string, string[]> }[];
+    }
+  )?.lines;
   if (!Array.isArray(lines) || lines.length === 0) {
     return NextResponse.json(
       { error: "Cart must include at least one line" },
@@ -27,6 +31,7 @@ export async function POST(req: Request) {
     );
   }
 
+  const normalizedLines: { id: string; quantity: number; selections: Record<string, string[]> }[] = [];
   let amountCents = 0;
   for (const line of lines) {
     if (
@@ -46,6 +51,21 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    const validation = validateSelectionsForItem(
+      line.id,
+      (line.selections ?? {}) as Record<string, string[]>,
+    );
+    if (!validation.ok) {
+      return NextResponse.json(
+        { error: `Invalid selections for ${line.id}: ${validation.error}` },
+        { status: 400 },
+      );
+    }
+    normalizedLines.push({
+      id: line.id,
+      quantity: line.quantity,
+      selections: normalizeSelections(validation.normalized),
+    });
     amountCents += item.priceCents * line.quantity;
   }
 
@@ -55,10 +75,14 @@ export async function POST(req: Request) {
 
   const stripe = new Stripe(stripeSecret);
   const metadata: Record<string, string> = {
-    line_count: String(lines.length),
+    line_count: String(normalizedLines.length),
   };
-  lines.forEach((line, index) => {
-    metadata[`line_${index}`] = `${line.id}:${line.quantity}`;
+  normalizedLines.forEach((line, index) => {
+    metadata[`line_${index}`] = JSON.stringify({
+      i: line.id,
+      q: line.quantity,
+      s: line.selections,
+    });
   });
 
   const paymentIntent = await stripe.paymentIntents.create({

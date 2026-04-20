@@ -2,13 +2,47 @@
 
 import { useCart } from "@/lib/cart-context";
 import { formatUsd, totalCents } from "@/lib/pricing";
-import type { MenuCategory } from "@ricos/shared";
+import {
+  getModifierGroupsForItem,
+  getSelectionDisplayLines,
+  normalizeSelections,
+  selectionSignature,
+  type LineSelections,
+  type MenuCategory,
+} from "@ricos/shared";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
-  const { lines, addItem, setQuantity } = useCart();
+  const { lines, addItem, removeItem, setQuantity } = useCart();
+  const [draftSelections, setDraftSelections] = useState<
+    Record<string, LineSelections>
+  >({});
 
-  const qtyFor = (id: string) => lines.find((l) => l.id === id)?.quantity ?? 0;
+  const linesByItem = useMemo(() => {
+    const map = new Map<string, typeof lines>();
+    for (const line of lines) {
+      const list = map.get(line.id);
+      if (list) list.push(line);
+      else map.set(line.id, [line]);
+    }
+    return map;
+  }, [lines]);
+
+  const getDraft = (itemId: string): LineSelections =>
+    normalizeSelections(draftSelections[itemId] ?? {});
+
+  const updateDraft = (itemId: string, next: LineSelections) => {
+    setDraftSelections((prev) => ({ ...prev, [itemId]: normalizeSelections(next) }));
+  };
+
+  const isGroupSatisfied = (group: ReturnType<typeof getModifierGroupsForItem>[0], picked: string[]) => {
+    if (picked.length < group.minSelections || picked.length > group.maxSelections) {
+      return false;
+    }
+    if (group.required && picked.length === 0) return false;
+    return true;
+  };
 
   return (
     <div className="space-y-14">
@@ -31,7 +65,18 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
           ) : null}
           <ul className="mt-6 space-y-6">
             {cat.items.map((item) => {
-              const q = qtyFor(item.id);
+              const modifierGroups = getModifierGroupsForItem(item.id);
+              const hasModifiers = modifierGroups.length > 0;
+              const itemLines = linesByItem.get(item.id) ?? [];
+              const draft = getDraft(item.id);
+              const canAddConfigured = modifierGroups.every((group) =>
+                isGroupSatisfied(group, draft[group.id] ?? []),
+              );
+              const plainLine = itemLines.find(
+                (line) => selectionSignature(line.selections) === "",
+              );
+              const plainQty = plainLine?.quantity ?? 0;
+
               return (
                 <li
                   key={item.id}
@@ -49,37 +94,152 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                     <p className="mt-1 text-sm leading-relaxed text-white/70">
                       {item.description}
                     </p>
+
+                    {modifierGroups.length > 0 ? (
+                      <div className="mt-4 space-y-3 rounded-lg border border-white/10 bg-black/15 p-3">
+                        {modifierGroups.map((group) => {
+                          const picked = draft[group.id] ?? [];
+                          return (
+                            <div key={group.id}>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-[#b8d4f0]">
+                                {group.title}
+                                {group.required ? " *" : ""}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {group.options.map((option) => {
+                                  const checked = picked.includes(option.id);
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => {
+                                        const next = { ...draft };
+                                        if (group.selectionType === "single") {
+                                          next[group.id] = [option.id];
+                                        } else {
+                                          const current = new Set(next[group.id] ?? []);
+                                          if (current.has(option.id)) current.delete(option.id);
+                                          else if (current.size < group.maxSelections) {
+                                            current.add(option.id);
+                                          }
+                                          next[group.id] = [...current];
+                                        }
+                                        updateDraft(item.id, next);
+                                      }}
+                                      className={`rounded-md border px-2 py-1 text-xs ${
+                                        checked
+                                          ? "border-[#f4c430] bg-[#f4c430]/20 text-[#f4c430]"
+                                          : "border-white/20 text-white/70 hover:bg-white/10"
+                                      }`}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {itemLines.length > 0 ? (
+                      <ul className="mt-3 space-y-2 text-xs text-white/70">
+                        {itemLines.map((line) => {
+                          const signature = selectionSignature(line.selections);
+                          const selectionRows = getSelectionDisplayLines(
+                            line.id,
+                            line.selections,
+                          );
+                          return (
+                            <li
+                              key={`${item.id}-${signature}`}
+                              className="rounded-md border border-white/10 bg-black/10 px-3 py-2"
+                            >
+                              {selectionRows.length > 0 ? (
+                                <p className="mb-1 text-[#b8d4f0]">
+                                  {selectionRows.join(" · ")}
+                                </p>
+                              ) : (
+                                <p className="mb-1 text-[#b8d4f0]">Default prep</p>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setQuantity(line.id, line.selections, line.quantity - 1)
+                                  }
+                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white"
+                                  aria-label={`Decrease ${item.name}`}
+                                >
+                                  −
+                                </button>
+                                <span className="font-mono text-white">{line.quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setQuantity(line.id, line.selections, line.quantity + 1)
+                                  }
+                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white"
+                                  aria-label={`Increase ${item.name}`}
+                                >
+                                  +
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(line.id, line.selections)}
+                                  className="ml-2 text-red-300 hover:underline"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {q > 0 ? (
-                      <>
+                    {!hasModifiers ? (
+                      plainQty > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(item.id, {}, plainQty - 1)}
+                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
+                            aria-label={`Decrease ${item.name}`}
+                          >
+                            −
+                          </button>
+                          <span className="w-8 text-center font-mono text-white">
+                            {plainQty}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(item.id, {}, plainQty + 1)}
+                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
+                            aria-label={`Increase ${item.name}`}
+                          >
+                            +
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => setQuantity(item.id, q - 1)}
-                          className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                          aria-label={`Decrease ${item.name}`}
+                          onClick={() => addItem(item.id, {})}
+                          className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
                         >
-                          −
+                          Add
                         </button>
-                        <span className="w-8 text-center font-mono text-white">
-                          {q}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(item.id, q + 1)}
-                          className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                          aria-label={`Increase ${item.name}`}
-                        >
-                          +
-                        </button>
-                      </>
+                      )
                     ) : (
                       <button
                         type="button"
-                        onClick={() => addItem(item.id)}
-                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
+                        onClick={() => addItem(item.id, draft)}
+                        disabled={!canAddConfigured}
+                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Add
+                        Add configured
                       </button>
                     )}
                   </div>

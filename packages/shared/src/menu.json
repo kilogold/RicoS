@@ -3,7 +3,7 @@
   "menuName": "All Day Breakfast",
   "categories": [
     {
-      "id": "cat_a1f8c3e29d704b12",
+      "id": "cat_breakfast_griddles",
       "title": "Pancakes, Waffles & French Toast",
       "notes": [
         "ESCOGE ENTRE: (2) Pancakes, (1) Waffles o (2) French Toast",
@@ -11,117 +11,357 @@
       ],
       "items": [
         {
-          "id": "mi_8f4a2b1c3d5e60718293a4b5",
+          "id": "item_granola_crunch",
           "name": "Granola Crunch",
           "description": "Pancakes / waffles rellena de crujiente granola con una compota de frutas.",
-          "priceCents": 1099
+          "priceCents": 1099,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_9a5b3c2d4e6f708192a3b4c6",
+          "id": "item_blueberry_sunshine",
           "name": "Blueberry Sunshine",
           "description": "Pancakes / waffles relleno de \"blueberries\" frescas acompañado de compota de frutas.",
-          "priceCents": 1099
+          "priceCents": 1099,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_1b6c4d3e5f7a8092b3c4d5e7",
+          "id": "item_nutella_sensation",
           "name": "Nutella™ Sensation",
           "description": "Pancakes / waffles de Nutella™ acompañado de compota de frutas.",
-          "priceCents": 1199
+          "priceCents": 1199,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_2c7d5e4f6a8b9103c4d5e6f8",
+          "id": "item_red_velvet",
           "name": "Red Velvet",
           "description": "Deliciosos pancakes / waffles coronado de glaseado de queso crema y compota de frutas.",
-          "priceCents": 1199
+          "priceCents": 1199,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_3d8e6f5a7b9c0214d5e6f7a9",
+          "id": "item_classic_pancakes_waffles",
           "name": "Classic Pancakes / Waffles",
           "description": "Pancakes / waffles acompañado de compota de frutas.",
-          "priceCents": 999
+          "priceCents": 999,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_4e9f7a6b8c0d1325e6f7a8b0",
+          "id": "item_granola_french_toast",
           "name": "Granola French Toast",
           "description": "Deliciosas tostadas francesas con crujiente granola acompañadas de compota de frutas.",
-          "priceCents": 1299
+          "priceCents": 1299,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_5f0a8b7c9d1e2436f7a8b9c1",
+          "id": "item_coconut_french_toast",
           "name": "Coconut French Toast",
           "description": "Disfruta de unas suave tostadas francesas con hojuelas de coco y compota de frutas.",
-          "priceCents": 1199
+          "priceCents": 1199,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         },
         {
-          "id": "mi_6a1b9c8d0e2f3547a8b9c0d2",
+          "id": "item_classic_french_toast",
           "name": "Classic French Toast",
           "description": "Suave tostadas francesas en batido de vainilla y coco.",
-          "priceCents": 1099
+          "priceCents": 1099,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": "Base Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_two_pancakes", "label": "(2) Pancakes" },
+                { "id": "opt_base_one_waffles", "label": "(1) Waffles" },
+                { "id": "opt_base_two_french_toast", "label": "(2) French Toast" }
+              ]
+            },
+            {
+              "id": "mod_side_choice",
+              "title": "Side Choice",
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_side_sausage", "label": "Sausage" },
+                { "id": "opt_side_ham", "label": "jamón" },
+                { "id": "opt_side_bacon", "label": "bacon" }
+              ]
+            }
+          ]
         }
       ]
     },
     {
-      "id": "cat_b2e9d4f38e815c23",
+      "id": "cat_omelettes",
       "title": "Omelettes",
       "notes": ["Omelettes incluyen tostadas."],
       "items": [
         {
-          "id": "mi_7b2c0d9e1f3a4658b9c0d1e3",
+          "id": "item_fajita_omelette",
           "name": "Fajita Omelette",
           "description": "Tiras de pechuga de pollo y churrasco sellado a la parrilla y salteadas con cebolla, pimiento, queso monterey jack, cheddar, salsa de chile dulce cubierto de sour cream y pico de gallo.",
           "priceCents": 1299
         },
         {
-          "id": "mi_8c3d1e0a2f4b5769c0d1e2f4",
+          "id": "item_ricos_omelette",
           "name": "Rico's Omelette",
           "description": "Combinación de pernil, virginia ham con cebolla y hash brown cubierto de queso monterey jack, cheddar y sour cream.",
           "priceCents": 1099
         },
         {
-          "id": "mi_9d4e2f1b3a5c6870d1e2f3a5",
+          "id": "item_big_mouth_omelette",
           "name": "Big Mouth Omelette",
           "description": "Combinación de bacon, sausage, deluxe ham, cebolla, pimientos con queso mixto y pico de gallo.",
           "priceCents": 1099
         },
         {
-          "id": "mi_0e5f3a2c4b6d7981e2f3a4b6",
+          "id": "item_western_omelette",
           "name": "Western Omelette",
           "description": "Escoge jamón / bacon o pavo acompañado de queso suizo y americano, cebolla, pimientos y tomate.",
-          "priceCents": 999
+          "priceCents": 999,
+          "modifierGroups": [
+            {
+              "id": "mod_remove_ingredients",
+              "title": "Subtractive Options",
+              "selectionType": "multiple",
+              "required": false,
+              "minSelections": 0,
+              "maxSelections": 4,
+              "options": [
+                { "id": "opt_no_tomate", "label": "no tomate" },
+                { "id": "opt_no_cebolla", "label": "no cebolla" },
+                { "id": "opt_no_pimientos", "label": "no pimientos" },
+                { "id": "opt_no_queso", "label": "no queso" }
+              ]
+            }
+          ]
         }
       ]
     },
     {
-      "id": "cat_c3f0e5a49f926d34",
+      "id": "cat_egg_plates",
       "title": "Eggs",
       "notes": [],
       "items": [
         {
-          "id": "mi_1f6a4b3d5c7e8092f3a4b5c7",
+          "id": "item_steak_eggs",
           "name": "Steak & Eggs",
           "description": "Tierno steak servido con dos huevos y home fries.",
           "priceCents": 1799
         },
         {
-          "id": "mi_2a7b5c4e6d8f9103a4b5c6d8",
+          "id": "item_egg_benedict",
           "name": "Egg Benedict",
           "description": "English muffin, jamón ahumado, poached egg y salsa holandesa acompañado de papas rostizadas.",
           "priceCents": 1499
         },
         {
-          "id": "mi_3b8c6d5f7e9a0214b5c6d7e9",
+          "id": "item_home_fries",
           "name": "Home Fries",
           "description": "Trozos de papas rostizadas con pimientos, cebolla y huevos fritos o revueltos, escoge bacon / sausages o jamón y tostadas criollas.",
           "priceCents": 999
         },
         {
-          "id": "mi_4c9d7e6a8f0b1325c6d7e8f0",
+          "id": "item_any_style_eggs",
           "name": "Any Style Eggs",
           "description": "(2) huevos fritos o revueltos, escoge bacon / sausages o jamón y tostadas criollas.",
           "priceCents": 499
         },
         {
-          "id": "mi_5d0e8f7b9a1c2436d7e8f9a1",
+          "id": "item_ricos_big_breakfast",
           "name": "Rico's Big Breakfast",
           "description": "(1) Pancake / waffle acompañado de dos huevos fritos / revueltos con bacon, jamón y hash browns.",
           "priceCents": 1099
@@ -129,24 +369,24 @@
       ]
     },
     {
-      "id": "cat_d4a1f6b50a037e45",
+      "id": "cat_hot_cereals",
       "title": "Hot Cereals",
       "notes": [],
       "items": [
         {
-          "id": "mi_6e1f9a8c0b2d3547e8f9a0b2",
+          "id": "item_avena",
           "name": "Avena",
           "description": "Hot cereal.",
           "priceCents": 399
         },
         {
-          "id": "mi_7f2a0b9d1c3e4658f9a0b1c3",
+          "id": "item_harina_maiz",
           "name": "Harina de maíz",
           "description": "Hot cereal.",
           "priceCents": 399
         },
         {
-          "id": "mi_8a3b1c0e2d4f5769a0b1c2d4",
+          "id": "item_farina",
           "name": "Farina",
           "description": "Hot cereal.",
           "priceCents": 399

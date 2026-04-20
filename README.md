@@ -97,7 +97,33 @@ Optional:
 
 ## Menu item IDs
 
-Cart and API payloads use **opaque** menu IDs (`mi_...`, `cat_...` in `packages/shared/src/menu.json`). Rename or translate display names freely without changing IDs.
+Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mod_...`, `opt_...` in `packages/shared/src/menu.json`). Keep IDs stable even if display copy changes.
+
+## Predefined customizations (v1)
+
+- Modifier groups are modeled in shared menu data and validated server-side.
+- `cat_breakfast_griddles` requires two single-select groups on each line item:
+  - Base choice: `(2) Pancakes` or `(1) Waffles` or `(2) French Toast`
+  - Side choice: `Sausage` or `jamón` or `bacon`
+- `item_western_omelette` (Western Omelette) includes a multi-select subtractive group:
+  - `no tomate`, `no cebolla`, `no pimientos`, `no queso`
+
+### Cart / checkout payload shape
+
+- Cart lines are sent as:
+  - `{ id: string, quantity: number, selections: { [modifierGroupId]: string[] } }`
+- Server validation rejects:
+  - unknown groups/options
+  - missing required selections
+  - invalid single-vs-multiple selection counts
+
+### Stripe metadata shape
+
+- PaymentIntent metadata stores one JSON-encoded line per index:
+  - `line_count=<n>`
+  - `line_0={"i":"<itemId>","q":<qty>,"s":{"<groupId>":["<optionId>"]}}`
+- Kitchen relay parses this structure and resolves IDs to printable labels.
+- This is v1; old metadata formats are intentionally not supported.
 
 ## Scripts (root `package.json`)
 

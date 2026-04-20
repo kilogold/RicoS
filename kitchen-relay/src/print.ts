@@ -1,6 +1,6 @@
-import { getItemById } from "@ricos/shared";
+import { getItemById, getSelectionDisplayLines, type LineSelections } from "@ricos/shared";
 
-export type CartLine = { id: string; quantity: number };
+export type CartLine = { id: string; quantity: number; selections: LineSelections };
 
 export function formatTicket(params: {
   paymentIntentId: string;
@@ -24,8 +24,9 @@ export function formatTicket(params: {
     const item = getItemById(line.id);
     const label = item?.name ?? line.id;
     rows.push(`${line.quantity}x ${label}`);
-    if (item?.description) {
-      rows.push(`   ${item.description}`);
+    const selectionRows = getSelectionDisplayLines(line.id, line.selections);
+    for (const selection of selectionRows) {
+      rows.push(`   ${selection}`);
     }
   }
 

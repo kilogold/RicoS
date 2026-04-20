@@ -1,6 +1,6 @@
 import express from "express";
 import Stripe from "stripe";
-import { getItemById } from "@ricos/shared";
+import { getItemById, normalizeSelections } from "@ricos/shared";
 import { formatTicket, printTicket } from "./print.js";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -71,21 +71,37 @@ app.post(
 
 function parseLinesFromMetadata(
   metadata: Stripe.Metadata,
-): { id: string; quantity: number }[] {
+): { id: string; quantity: number; selections: Record<string, string[]> }[] {
   const countRaw = metadata.line_count;
   const count = countRaw ? Number.parseInt(countRaw, 10) : 0;
-  const lines: { id: string; quantity: number }[] = [];
+  const lines: { id: string; quantity: number; selections: Record<string, string[]> }[] = [];
   if (Number.isFinite(count) && count > 0) {
     for (let i = 0; i < count; i += 1) {
       const raw = metadata[`line_${i}`];
       if (!raw) continue;
-      const [id, qtyStr] = raw.split(":");
-      const quantity = Number.parseInt(qtyStr ?? "1", 10);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        console.warn("Invalid line metadata JSON:", raw);
+        continue;
+      }
+      const data = parsed as {
+        i?: unknown;
+        q?: unknown;
+        s?: unknown;
+      };
+      const id = typeof data.i === "string" ? data.i : "";
+      const quantity = typeof data.q === "number" ? data.q : Number.NaN;
+      const selections =
+        data.s && typeof data.s === "object"
+          ? normalizeSelections(data.s as Record<string, string[]>)
+          : {};
       if (id && Number.isFinite(quantity) && quantity > 0) {
         if (!getItemById(id)) {
           console.warn("Unknown menu id in metadata:", id);
         }
-        lines.push({ id, quantity });
+        lines.push({ id, quantity, selections });
       }
     }
   }
