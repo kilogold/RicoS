@@ -36,7 +36,11 @@ app.post(
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        req.body,
+        sig,
+        webhookSecret,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("Webhook signature verification failed:", message);
