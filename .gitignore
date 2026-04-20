@@ -4,6 +4,7 @@ dist
 .env.local
 .env*.local
 kitchen-print.log
+kitchen-relay/.kitchen-processed-events.json
 *.log
 .DS_Store
 

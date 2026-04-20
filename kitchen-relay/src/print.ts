@@ -1,6 +1,12 @@
+import { spawn } from "node:child_process";
 import { getItemById, getSelectionDisplayLines, type LineSelections } from "@ricos/shared";
 
 export type CartLine = { id: string; quantity: number; selections: LineSelections };
+
+export type PrinterAdapter = {
+  /** Print ticket text (one logical ticket). */
+  print(text: string): Promise<void>;
+};
 
 export function formatTicket(params: {
   paymentIntentId: string;
@@ -8,7 +14,6 @@ export function formatTicket(params: {
   currency: string;
   lines: CartLine[];
   printedAt: Date;
-  logFilePath?: string;
 }): string {
   const { paymentIntentId, amountCents, currency, lines, printedAt } = params;
   const divider = "--------------------------------";
@@ -38,13 +43,116 @@ export function formatTicket(params: {
   return rows.join("\n");
 }
 
-export async function printTicket(
+export type LpPrinterOptions = {
+  /** `lp -d` */
+  destination?: string;
+  /** `lp -t` job title */
+  title?: string;
+};
+
+/**
+ * Prints via CUPS `lp`. On successful submission, mirrors the same text to stdout once.
+ */
+export function createLpPrinterAdapter(options: LpPrinterOptions = {}): PrinterAdapter {
+  return {
+    async print(text: string): Promise<void> {
+      const args: string[] = [];
+      if (options.destination) {
+        args.push("-d", options.destination);
+      }
+      if (options.title) {
+        args.push("-t", options.title);
+      }
+      await runLp(args, text);
+      console.log(text);
+    },
+  };
+}
+
+function runLp(args: string[], stdin: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("lp", args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr.trim() || `lp exited with code ${code}`));
+      }
+    });
+    child.stdin?.write(stdin, "utf8", (err) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      child.stdin?.end();
+    });
+  });
+}
+
+export type ConsolePrinterOptions = {
+  logFilePath?: string;
+};
+
+export function createConsolePrinterAdapter(options: ConsolePrinterOptions = {}): PrinterAdapter {
+  return {
+    async print(text: string): Promise<void> {
+      console.log(text);
+      if (options.logFilePath) {
+        const fs = await import("node:fs/promises");
+        await fs.appendFile(options.logFilePath, text + "\n", "utf8");
+      }
+    },
+  };
+}
+
+export type PrintRetryOptions = {
+  maxAttempts: number;
+  initialDelayMs: number;
+};
+
+export async function printWithRetries(
+  adapter: PrinterAdapter,
   text: string,
-  options: { logFilePath?: string } = {},
+  retries: PrintRetryOptions,
 ): Promise<void> {
-  console.log(text);
-  if (options.logFilePath) {
-    const fs = await import("node:fs/promises");
-    await fs.appendFile(options.logFilePath, text + "\n", "utf8");
+  let lastError: unknown;
+  for (let attempt = 0; attempt < retries.maxAttempts; attempt += 1) {
+    try {
+      await adapter.print(text);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries.maxAttempts - 1) {
+        const delay = retries.initialDelayMs * 2 ** attempt;
+        await sleep(delay);
+      }
+    }
   }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+export async function appendDeadLetter(
+  path: string,
+  text: string,
+  meta: { eventId: string; message: string },
+): Promise<void> {
+  const fs = await import("node:fs/promises");
+  const block = [
+    `--- dead-letter ${new Date().toISOString()} event=${meta.eventId} ---`,
+    meta.message,
+    text,
+    "",
+  ].join("\n");
+  await fs.appendFile(path, block + "\n", "utf8");
 }
