@@ -1,0 +1,16 @@
+{
+  "name": "ricos",
+  "private": true,
+  "workspaces": [
+    "web",
+    "kitchen-relay",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace web",
+    "dev:kitchen": "npm run dev --workspace kitchen-relay",
+    "build": "npm run build --workspace web",
+    "lint": "npm run lint --workspace web"
+  },
+  "packageManager": "bun@1.2.0"
+}
