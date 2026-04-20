@@ -11,10 +11,10 @@
   },
   "scripts": {
     "preinstall": "bun scripts/enforce-bun-install.mjs",
-    "dev:web": "bun run --filter './web' dev",
-    "dev:kitchen": "bun run --filter './kitchen-relay' dev",
-    "build": "bun run --filter './web' build",
-    "lint": "bun run --filter './web' lint"
+    "dev:web": "bun --env-file=.env --env-file=.env.local run --filter './web' dev",
+    "dev:kitchen": "bun --env-file=.env --env-file=.env.local run --filter './kitchen-relay' dev",
+    "build": "bun --env-file=.env --env-file=.env.local run --filter './web' build",
+    "lint": "bun --env-file=.env --env-file=.env.local run --filter './web' lint"
   },
   "packageManager": "bun@1.2.0"
 }

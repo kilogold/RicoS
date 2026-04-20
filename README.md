@@ -20,22 +20,29 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 
 ## Environment variables
 
-See [`.env.example`](.env.example).
+See [`.env.example`](.env.example) and [`.env.local.example`](.env.local.example).
 
-**Web (`web/.env.local`):**
+**Root env loading policy: `.env` then `.env.local`**
 
-- `STRIPE_SECRET_KEY` — server-only; used by Route Handlers to create PaymentIntents
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — public; used by Stripe.js on the client
+Create env files at the repository root:
 
-**Kitchen relay** (e.g. `kitchen-relay/.env` or exported in your shell):
+- `.env` for shared defaults (safe values only; may be committed if non-secret)
+- `.env.local` for secrets and machine-specific overrides (gitignored)
 
-- `STRIPE_SECRET_KEY` — same secret key (relay does not need publishable key)
-- `STRIPE_WEBHOOK_SECRET` — signing secret from the webhook endpoint you configure (see below)
+Root Bun scripts load `.env` first, then `.env.local`, so local values override defaults.
+
+- `STRIPE_SECRET_KEY` — server-only; used by Route Handlers to create PaymentIntents (`.env.local`)
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — public key for Stripe.js (`.env.local`)
+
+**Kitchen relay** (reads from root `.env` and `.env.local` via root scripts):
+
+- `STRIPE_SECRET_KEY` — same secret key (`.env.local`)
+- `STRIPE_WEBHOOK_SECRET` — signing secret from the webhook endpoint you configure (see below, `.env.local`)
 
 Optional:
 
-- `KITCHEN_PRINT_LOG` — if set, append each ticket to this file (e.g. `./kitchen-print.log`)
-- `KITCHEN_RELAY_PORT` — default `4000`
+- `KITCHEN_PRINT_LOG` — if set, append each ticket to this file (e.g. `./kitchen-print.log`, can be in `.env` or `.env.local`)
+- `KITCHEN_RELAY_PORT` — default `4000` (in `.env` by default)
 
 ## Local development (v1)
 
@@ -45,7 +52,11 @@ Optional:
    bun install
    ```
 
-2. **Configure Stripe keys** — copy `.env.example` to `web/.env.local` and fill in test keys.
+2. **Configure env files**:
+
+   - Copy `.env.example` to `.env` at the repo root.
+   - Copy `.env.local.example` to `.env.local` at the repo root.
+   - Fill real Stripe values in `.env.local`.
 
 3. **Start the kitchen relay** (terminal 1):
 
@@ -97,4 +108,4 @@ Cart and API payloads use **opaque** menu IDs (`mi_...`, `cat_...` in `packages/
 | Build — web | `bun run build` |
 | Lint — web | `bun run lint` |
 
-To run a script inside a workspace directly: `bun run dev --cwd web`, etc.
+Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env` and `.env.local` are always loaded in the correct order.
