@@ -1,26 +1,41 @@
 "use client";
 
 import { CheckoutForm } from "@/components/checkout-form";
+import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { formatUsd, linesWithItems, totalCents } from "@/lib/pricing";
+import { formatUsd, totalCents } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
-import { getSelectionDisplayLines, resolveLocalizedText } from "@ricos/shared";
 import { Elements } from "@stripe/react-stripe-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
 export default function CheckoutPage() {
   const { lines } = useCart();
   const { language } = useLanguage();
   const copy = getAppStrings(language);
-  const summaryLines = linesWithItems(lines);
   const router = useRouter();
+  const [selectedMethod, setSelectedMethod] = useState<SelectedPaymentMethod | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [amountCents, setAmountCents] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const cartTotalCents = totalCents(lines);
+  const displayTotalCents =
+    selectedMethod === "stripe" && clientSecret && amountCents > 0
+      ? amountCents
+      : cartTotalCents;
+
+  const goBackToPaymentSelection = useCallback(() => {
+    setSelectedMethod(null);
+    setClientSecret(null);
+    setAmountCents(0);
+    setError(null);
+  }, []);
 
   useEffect(() => {
     if (lines.length === 0) {
@@ -28,8 +43,19 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (selectedMethod !== "stripe") {
+      return;
+    }
+
     let cancelled = false;
+
     (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setClientSecret(null);
+      setAmountCents(0);
+      setError(null);
+
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,40 +79,10 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [copy.checkoutErrorTitle, lines, router]);
+  }, [copy.checkoutErrorTitle, lines, router, selectedMethod]);
 
   if (lines.length === 0) {
     return null;
-  }
-
-  if (error) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-16">
-        <div className="rounded-2xl border border-red-400/40 bg-[#0c2340]/90 p-6 text-white shadow-xl">
-          <h1 className="text-xl font-semibold text-red-200">
-            {copy.checkoutErrorTitle}
-          </h1>
-          <p className="mt-2 text-white/80">{error}</p>
-          <Link
-            href="/"
-            className="mt-6 inline-block rounded-lg bg-[#f4c430] px-4 py-2 font-medium text-[#0c2340]"
-          >
-            {copy.backToMenu}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!clientSecret) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-24 text-center text-white/80">
-        <p className="text-lg">{copy.preparingSecureCheckout}</p>
-        <p className="mt-2 text-sm text-white/60">
-          {copy.totalLabel} {formatUsd(totalCents(lines), language)}
-        </p>
-      </div>
-    );
   }
 
   return (
@@ -99,54 +95,127 @@ export default function CheckoutPage() {
           {copy.payForPickup}
         </h1>
         <p className="mt-2 text-white/70">
-          {copy.guestCheckoutMessage} {copy.totalLabel}{" "}
-          <span className="font-semibold text-[#f4c430]">
-            {formatUsd(amountCents, language)}
-          </span>
-          .
+          {selectedMethod === null ? (
+            copy.checkoutSelectPaymentMethod
+          ) : (
+            <>
+              {copy.guestCheckoutMessage} {copy.totalLabel}{" "}
+              <span className="font-semibold text-[#f4c430]">
+                {formatUsd(displayTotalCents, language)}
+              </span>
+              .
+            </>
+          )}
         </p>
       </div>
 
-      <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4">
-        <p className="text-sm font-semibold uppercase tracking-wide text-[#b8d4f0]">
-          {copy.orderSummary}
-        </p>
-        <ul className="mt-3 space-y-2 text-sm text-white/85">
-          {summaryLines.map(({ line, item }) => {
-            const selections = getSelectionDisplayLines(line.id, line.selections, language);
-            return (
-              <li key={`${line.id}-${JSON.stringify(line.selections)}`} className="rounded-md bg-white/5 px-3 py-2">
-                <p>
-                  {line.quantity}x {resolveLocalizedText(item.name, language)} ·{" "}
-                  {formatUsd(item.priceCents * line.quantity, language)}
-                </p>
-                {selections.length > 0 ? (
-                  <p className="mt-1 text-xs text-[#b8d4f0]">{selections.join(" · ")}</p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <CheckoutOrderSummary lines={lines} />
 
-      <Elements
-        stripe={getStripe()}
-        options={{
-          clientSecret,
-          locale: language,
-          appearance: {
-            theme: "night",
-            variables: {
-              colorPrimary: "#f4c430",
-              colorBackground: "#0c2340",
-              colorText: "#f8fafc",
-              borderRadius: "12px",
-            },
-          },
-        }}
-      >
-        <CheckoutForm amountCents={amountCents} />
-      </Elements>
+      {selectedMethod !== null ? (
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={goBackToPaymentSelection}
+            className="text-sm font-medium text-[#f4c430] hover:underline"
+          >
+            ← {copy.changePaymentMethod}
+          </button>
+        </div>
+      ) : null}
+
+      {selectedMethod === null ? (
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setSelectedMethod("stripe")}
+            className="rounded-xl border border-white/15 bg-[#0c2340]/80 px-4 py-4 text-left text-white shadow-lg transition hover:border-[#f4c430]/50 hover:bg-[#0c2340]"
+          >
+            <span className="block text-lg font-semibold text-[#f4c430]">
+              {copy.paymentMethodStripeLabel}
+            </span>
+            <span className="mt-1 block text-sm text-white/70">
+              {copy.paymentMethodStripeDescription}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMethod("solana")}
+            className="rounded-xl border border-white/15 bg-[#0c2340]/80 px-4 py-4 text-left text-white shadow-lg transition hover:border-[#f4c430]/50 hover:bg-[#0c2340]"
+          >
+            <span className="block text-lg font-semibold text-[#f4c430]">
+              {copy.paymentMethodSolanaLabel}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMethod("ath-movil")}
+            className="rounded-xl border border-white/15 bg-[#0c2340]/80 px-4 py-4 text-left text-white shadow-lg transition hover:border-[#f4c430]/50 hover:bg-[#0c2340]"
+          >
+            <span className="block text-lg font-semibold text-[#f4c430]">
+              {copy.paymentMethodAthLabel}
+            </span>
+          </button>
+        </div>
+      ) : null}
+
+      {selectedMethod === "stripe" ? (
+        <>
+          {error ? (
+            <div className="rounded-2xl border border-red-400/40 bg-[#0c2340]/90 p-6 text-white shadow-xl">
+              <h2 className="text-xl font-semibold text-red-200">
+                {copy.checkoutErrorTitle}
+              </h2>
+              <p className="mt-2 text-white/80">{error}</p>
+              <Link
+                href="/"
+                className="mt-6 inline-block rounded-lg bg-[#f4c430] px-4 py-2 font-medium text-[#0c2340]"
+              >
+                {copy.backToMenu}
+              </Link>
+            </div>
+          ) : !clientSecret ? (
+            <div className="py-8 text-center text-white/80">
+              <p className="text-lg">{copy.preparingSecureCheckout}</p>
+              <p className="mt-2 text-sm text-white/60">
+                {copy.totalLabel} {formatUsd(cartTotalCents, language)}
+              </p>
+            </div>
+          ) : (
+            <Elements
+              stripe={getStripe()}
+              options={{
+                clientSecret,
+                locale: language,
+                appearance: {
+                  theme: "night",
+                  variables: {
+                    colorPrimary: "#f4c430",
+                    colorBackground: "#0c2340",
+                    colorText: "#f8fafc",
+                    borderRadius: "12px",
+                  },
+                },
+              }}
+            >
+              <CheckoutForm amountCents={amountCents} />
+            </Elements>
+          )}
+        </>
+      ) : null}
+
+      {selectedMethod === "solana" ? (
+        <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
+          <h2 className="text-lg font-semibold text-[#f4c430]">{copy.solanaPayStubTitle}</h2>
+          <p className="mt-2 text-sm text-white/75">{copy.solanaPayStubBody}</p>
+        </div>
+      ) : null}
+
+      {selectedMethod === "ath-movil" ? (
+        <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
+          <h2 className="text-lg font-semibold text-[#f4c430]">{copy.athMovilStubTitle}</h2>
+          <p className="mt-2 text-sm text-white/75">{copy.athMovilStubBody}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

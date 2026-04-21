@@ -11,7 +11,7 @@ export default function Home() {
 
   return (
     <main className="relative pb-32">
-      <div className="border-b border-white/10 bg-gradient-to-br from-[#0c2340] via-[#0a1f38] to-[#07182b] px-4 py-12 md:px-10">
+      <div className="border-b border-white/10 bg-linear-to-br from-[#0c2340] via-[#0a1f38] to-[#07182b] px-4 py-12 md:px-10">
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#f4c430]">

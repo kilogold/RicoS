@@ -32,6 +32,16 @@ type AppStrings = {
   languageLabel: string;
   spanishLabel: string;
   englishLabel: string;
+  checkoutSelectPaymentMethod: string;
+  paymentMethodStripeLabel: string;
+  paymentMethodStripeDescription: string;
+  paymentMethodSolanaLabel: string;
+  paymentMethodAthLabel: string;
+  changePaymentMethod: string;
+  solanaPayStubTitle: string;
+  solanaPayStubBody: string;
+  athMovilStubTitle: string;
+  athMovilStubBody: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -68,6 +78,17 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Language",
     spanishLabel: "Spanish",
     englishLabel: "English",
+    checkoutSelectPaymentMethod: "Choose how you would like to pay.",
+    paymentMethodStripeLabel: "Card, bank & digital wallets",
+    paymentMethodStripeDescription:
+      "Credit or debit card, bank transfer, Amazon Pay, or Klarna — powered by Stripe.",
+    paymentMethodSolanaLabel: "Solana Pay",
+    paymentMethodAthLabel: "ATH Móvil",
+    changePaymentMethod: "Change payment method",
+    solanaPayStubTitle: "Solana Pay",
+    solanaPayStubBody: "Solana Pay checkout will be available here soon.",
+    athMovilStubTitle: "ATH Móvil",
+    athMovilStubBody: "ATH Móvil checkout will be available here soon.",
   },
   es: {
     homeTagline: "RicoS",
@@ -103,6 +124,17 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Idioma",
     spanishLabel: "Español",
     englishLabel: "Inglés",
+    checkoutSelectPaymentMethod: "Elige como quieres pagar.",
+    paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",
+    paymentMethodStripeDescription:
+      "Tarjeta de credito o debito, transferencia bancaria, Amazon Pay o Klarna — con Stripe.",
+    paymentMethodSolanaLabel: "Solana Pay",
+    paymentMethodAthLabel: "ATH Movil",
+    changePaymentMethod: "Cambiar metodo de pago",
+    solanaPayStubTitle: "Solana Pay",
+    solanaPayStubBody: "El pago con Solana Pay estara disponible pronto.",
+    athMovilStubTitle: "ATH Movil",
+    athMovilStubBody: "El pago con ATH Movil estara disponible pronto.",
   },
 };
 
