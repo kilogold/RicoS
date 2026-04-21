@@ -2,6 +2,7 @@
 
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
+import { SolanaPayStub } from "@/components/solana-pay-stub";
 import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
@@ -204,10 +205,7 @@ export default function CheckoutPage() {
       ) : null}
 
       {selectedMethod === "solana" ? (
-        <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
-          <h2 className="text-lg font-semibold text-[#f4c430]">{copy.solanaPayStubTitle}</h2>
-          <p className="mt-2 text-sm text-white/75">{copy.solanaPayStubBody}</p>
-        </div>
+        <SolanaPayStub />
       ) : null}
 
       {selectedMethod === "ath-movil" ? (

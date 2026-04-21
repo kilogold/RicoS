@@ -16,5 +16,13 @@
     "build": "bun --env-file=.env --env-file=.env.local run --filter './web' build",
     "lint": "bun --env-file=.env --env-file=.env.local run --filter './web' lint"
   },
-  "packageManager": "bun@1.2.0"
+  "packageManager": "bun@1.2.0",
+  "dependencies": {
+    "@solana-commerce/connector": "^0.1.0",
+    "@solana-commerce/headless": "^0.1.1",
+    "@solana-commerce/kit": "0.1.1",
+    "@solana-commerce/react": "0.1.1",
+    "@solana-commerce/solana-pay": "0.1.1",
+    "@tanstack/react-query": "^5.99.2"
+  }
 }
