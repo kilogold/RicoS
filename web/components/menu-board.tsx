@@ -16,6 +16,30 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+function mergeRequiredSelectionDefaults(
+  itemId: string,
+  raw: LineSelections | undefined,
+): LineSelections {
+  const groups = getModifierGroupsForItem(itemId);
+  const base = normalizeSelections(raw ?? {});
+  const next: LineSelections = { ...base };
+  for (const group of groups) {
+    if (!group.required || group.options.length === 0) continue;
+    let picked = [...(next[group.id] ?? [])];
+    if (picked.length >= group.minSelections) continue;
+    const pickedSet = new Set(picked);
+    for (const opt of group.options) {
+      if (picked.length >= group.minSelections) break;
+      if (picked.length >= group.maxSelections) break;
+      if (pickedSet.has(opt.id)) continue;
+      picked.push(opt.id);
+      pickedSet.add(opt.id);
+    }
+    next[group.id] = picked;
+  }
+  return normalizeSelections(next);
+}
+
 export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   const { lines, addItem, removeItem, setQuantity } = useCart();
   const { language } = useLanguage();
@@ -35,18 +59,10 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   }, [lines]);
 
   const getDraft = (itemId: string): LineSelections =>
-    normalizeSelections(draftSelections[itemId] ?? {});
+    mergeRequiredSelectionDefaults(itemId, draftSelections[itemId]);
 
   const updateDraft = (itemId: string, next: LineSelections) => {
     setDraftSelections((prev) => ({ ...prev, [itemId]: normalizeSelections(next) }));
-  };
-
-  const isGroupSatisfied = (group: ReturnType<typeof getModifierGroupsForItem>[0], picked: string[]) => {
-    if (picked.length < group.minSelections || picked.length > group.maxSelections) {
-      return false;
-    }
-    if (group.required && picked.length === 0) return false;
-    return true;
   };
 
   return (
@@ -76,9 +92,6 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
               const hasModifiers = modifierGroups.length > 0;
               const itemLines = linesByItem.get(item.id) ?? [];
               const draft = getDraft(item.id);
-              const canAddConfigured = modifierGroups.every((group) =>
-                isGroupSatisfied(group, draft[group.id] ?? []),
-              );
               const plainLine = itemLines.find(
                 (line) => selectionSignature(line.selections) === "",
               );
@@ -244,8 +257,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                       <button
                         type="button"
                         onClick={() => addItem(item.id, draft)}
-                        disabled={!canAddConfigured}
-                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
                       >
                         {copy.addConfigured}
                       </button>
