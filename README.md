@@ -135,3 +135,68 @@ Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mo
 | Lint — web | `bun run lint` |
 
 Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env` and `.env.local` are always loaded in the correct order.
+
+## Architecture
+
+### Current approach (cheap)
+
+Local development keeps the relay on localhost and uses Stripe CLI to forward webhook events to `kitchen-relay`. This is low cost and quick to iterate on, but it depends on a running local tunnel process and is intended for prototyping rather than hardened production operations.
+
+```mermaid
+flowchart LR
+  U[Customer Browser]
+
+  subgraph Vercel
+    W[Storefront]
+  end
+
+  subgraph Stripe
+    S[Payments API and webhooks]
+  end
+
+  subgraph Local
+    C[Stripe CLI listen]
+    K[kitchen-relay on localhost:4000]
+    P[Console or local printer adapter]
+  end
+
+  U -->|Checkout| W
+  W -->|Create/confirm PaymentIntent| S
+  S -->|Webhook events| C
+  C -->|Forward to /webhook| K
+  K -->|Print ticket| P
+```
+
+### Ideal approach (robust)
+
+Production routes Stripe webhooks to a cloud endpoint, then delivers paid-order events to the on-prem relay through an outbound subscription channel (SSE). This avoids inbound NAT/ISP issues and supports stronger delivery semantics with idempotency and optional ack/replay.
+
+```mermaid
+flowchart LR
+  U[Customer Browser]
+
+  subgraph Vercel
+    W[Storefront]
+    H[Webhook handler]
+    B[Event stream or durable queue]
+    E[SSE endpoint]
+  end
+
+  subgraph Stripe
+    S[Payments API and webhooks]
+  end
+
+  subgraph Local
+    K[kitchen-relay on premises]
+    P[Kitchen printer]
+  end
+
+  U -->|Checkout| W
+  W -->|Create/confirm PaymentIntent| S
+  S -->|payment_intent.succeeded webhook| H
+  H -->|Normalize and publish| B
+  K -->|Outbound SSE subscribe| E
+  E -->|Consume events| B
+  E -->|Push order paid event| K
+  K -->|Print ticket| P
+```
