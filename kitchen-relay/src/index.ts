@@ -1,7 +1,5 @@
-import express from "express";
-import Stripe from "stripe";
-import { getItemById, normalizeSelections } from "@ricos/shared";
-import { createFileIdempotencyStore, resolveIdempotencyStorePath } from "./idempotency.js";
+import http from "node:http";
+import EventSource from "eventsource";
 import {
   appendDeadLetter,
   createConsolePrinterAdapter,
@@ -10,14 +8,25 @@ import {
   printWithRetries,
   type PrinterAdapter,
 } from "./print.js";
+import { createFileIdempotencyStore, resolveIdempotencyStorePath } from "./idempotency.js";
 
-const stripeSecret = process.env.STRIPE_SECRET_KEY;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-const port = Number(process.env.KITCHEN_RELAY_PORT ?? "4000");
+/** Must match `KitchenOrderPayload` from webhook-proxy `src/db.ts`. */
+type OrderPaidPayload = {
+  stripeEventId: string;
+  paymentIntentId: string;
+  amountCents: number;
+  currency: string;
+  lines: { id: string; quantity: number; selections: Record<string, string[]> }[];
+};
+
+const proxyBase =
+  process.env.KITCHEN_WEBHOOK_PROXY_URL?.replace(/\/$/, "") || "http://127.0.0.1:4001";
+const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
 const logFilePath = process.env.KITCHEN_PRINT_LOG;
 const printerAdapterEnv = process.env.KITCHEN_PRINTER_ADAPTER;
 const deadLetterPath = process.env.KITCHEN_PRINT_DEAD_LETTER?.trim() || undefined;
 const idempotencyPath = resolveIdempotencyStorePath(process.env.KITCHEN_IDEMPOTENCY_STORE);
+const kitchenRelayPortRaw = process.env.KITCHEN_RELAY_PORT?.trim();
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (!raw?.trim()) return fallback;
@@ -26,16 +35,11 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 }
 
 const printMaxAttempts = parsePositiveInt(process.env.KITCHEN_PRINT_MAX_ATTEMPTS, 5);
-const printRetryInitialDelayMs = parsePositiveInt(process.env.KITCHEN_PRINT_RETRY_INITIAL_DELAY_MS, 200);
+const printRetryInitialDelayMs = parsePositiveInt(
+  process.env.KITCHEN_PRINT_RETRY_INITIAL_DELAY_MS,
+  200,
+);
 
-if (!stripeSecret) {
-  console.error("Missing STRIPE_SECRET_KEY");
-  process.exit(1);
-}
-if (!webhookSecret) {
-  console.error("Missing STRIPE_WEBHOOK_SECRET");
-  process.exit(1);
-}
 if (!printerAdapterEnv || (printerAdapterEnv !== "lp" && printerAdapterEnv !== "console")) {
   console.error("KITCHEN_PRINTER_ADAPTER must be set to lp or console");
   process.exit(1);
@@ -54,136 +58,126 @@ function createPrinter(): PrinterAdapter {
 const printer = createPrinter();
 const idempotency = createFileIdempotencyStore(idempotencyPath);
 
-/** Serialize payment_intent.succeeded handling to avoid duplicate prints under concurrency. */
 let processingChain = Promise.resolve();
 
-function enqueueSucceededWork(fn: () => Promise<void>): Promise<void> {
+function enqueueWork(fn: () => Promise<void>): Promise<void> {
   const next = processingChain.then(() => fn());
   processingChain = next.catch(() => {});
   return next;
 }
 
-const stripe = new Stripe(stripeSecret);
-const app = express();
+async function postPrintAck(stripeEventId: string): Promise<void> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (printAckSecret) {
+    headers["X-Print-Ack-Key"] = printAckSecret;
+  }
+  const res = await fetch(`${proxyBase}/print-ack`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ stripeEventId }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`print-ack failed: ${res.status} ${text}`);
+  }
+}
 
-app.get("/health", (_req, res) => {
-  res.status(200).json({ ok: true });
-});
+async function handleOrderPaid(data: OrderPaidPayload): Promise<void> {
+  const eventId = data.stripeEventId;
 
-app.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    if (!sig || typeof sig !== "string") {
-      res.status(400).send("Missing stripe-signature");
-      return;
-    }
-
-    let event: Stripe.Event;
+  if (await idempotency.isCommitted(eventId)) {
     try {
-      event = await stripe.webhooks.constructEventAsync(
-        req.body,
-        sig,
-        webhookSecret,
-      );
+      await postPrintAck(eventId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Webhook signature verification failed:", message);
-      res.status(400).send(`Webhook Error: ${message}`);
-      return;
+      console.error("print-ack retry after idempotent skip failed:", err);
     }
+    return;
+  }
 
-    if (event.type === "payment_intent.succeeded") {
-      const pi = event.data.object as Stripe.PaymentIntent;
+  const text = formatTicket({
+    paymentIntentId: data.paymentIntentId,
+    amountCents: data.amountCents,
+    currency: data.currency,
+    lines: data.lines,
+    printedAt: new Date(),
+  });
+
+  try {
+    await printWithRetries(printer, text, {
+      maxAttempts: printMaxAttempts,
+      initialDelayMs: printRetryInitialDelayMs,
+    });
+    await idempotency.markCommitted(eventId);
+    await postPrintAck(eventId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Print failed after retries:", message);
+    if (deadLetterPath) {
       try {
-        await enqueueSucceededWork(async () => {
-          if (await idempotency.isCommitted(event.id)) {
-            return;
-          }
-          const lines = parseLinesFromMetadata(pi.metadata);
-          const text = formatTicket({
-            paymentIntentId: pi.id,
-            amountCents: pi.amount,
-            currency: pi.currency,
-            lines,
-            printedAt: new Date(),
-          });
-          try {
-            await printWithRetries(printer, text, {
-              maxAttempts: printMaxAttempts,
-              initialDelayMs: printRetryInitialDelayMs,
-            });
-            await idempotency.markCommitted(event.id);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            console.error("Print failed after retries:", message);
-            if (deadLetterPath) {
-              try {
-                await appendDeadLetter(deadLetterPath, text, {
-                  eventId: event.id,
-                  message,
-                });
-              } catch (dlErr) {
-                console.error("Dead-letter write failed:", dlErr);
-              }
-            }
-          }
+        await appendDeadLetter(deadLetterPath, text, {
+          eventId,
+          message,
         });
-      } catch (err) {
-        console.error("payment_intent.succeeded handling error:", err);
-      }
-    } else if (event.type === "payment_intent.payment_failed") {
-      const pi = event.data.object as Stripe.PaymentIntent;
-      console.error("Payment failed:", pi.id, pi.last_payment_error?.message);
-    }
-
-    res.json({ received: true });
-  },
-);
-
-function parseLinesFromMetadata(
-  metadata: Stripe.Metadata,
-): { id: string; quantity: number; selections: Record<string, string[]> }[] {
-  const countRaw = metadata.line_count;
-  const count = countRaw ? Number.parseInt(countRaw, 10) : 0;
-  const lines: { id: string; quantity: number; selections: Record<string, string[]> }[] = [];
-  if (Number.isFinite(count) && count > 0) {
-    for (let i = 0; i < count; i += 1) {
-      const raw = metadata[`line_${i}`];
-      if (!raw) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        console.warn("Invalid line metadata JSON:", raw);
-        continue;
-      }
-      const data = parsed as {
-        i?: unknown;
-        q?: unknown;
-        s?: unknown;
-      };
-      const id = typeof data.i === "string" ? data.i : "";
-      const quantity = typeof data.q === "number" ? data.q : Number.NaN;
-      const selections =
-        data.s && typeof data.s === "object"
-          ? normalizeSelections(data.s as Record<string, string[]>)
-          : {};
-      if (id && Number.isFinite(quantity) && quantity > 0) {
-        if (!getItemById(id)) {
-          console.warn("Unknown menu id in metadata:", id);
-        }
-        lines.push({ id, quantity, selections });
+      } catch (dlErr) {
+        console.error("Dead-letter write failed:", dlErr);
       }
     }
   }
-  return lines;
 }
 
-app.listen(port, () => {
-  console.log(`Kitchen relay listening on http://localhost:${port}`);
-  console.log(`Webhook: POST http://localhost:${port}/webhook`);
-  console.log(`Printer adapter: ${printerAdapterEnv}`);
-  console.log(`Idempotency store: ${idempotencyPath}`);
+if (!kitchenRelayPortRaw) {
+  console.error("Missing KITCHEN_RELAY_PORT");
+  process.exit(1);
+}
+
+const relayPort = Number(kitchenRelayPortRaw);
+if (!Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) {
+  console.error("KITCHEN_RELAY_PORT must be a valid TCP port (1-65535)");
+  process.exit(1);
+}
+
+const streamUrl = `${proxyBase}/stream`;
+console.log(`Printing relay subscribing to SSE: ${streamUrl}`);
+console.log(`Print ack URL: ${proxyBase}/print-ack`);
+console.log(`Printer adapter: ${printerAdapterEnv}`);
+console.log(`Idempotency store: ${idempotencyPath}`);
+console.log(`Health: http://127.0.0.1:${relayPort}/health`);
+
+const healthServer = http.createServer((req, res) => {
+  if (req.method === "GET" && req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
 });
+healthServer.listen(relayPort, "127.0.0.1");
+
+const es = new EventSource(streamUrl);
+
+es.addEventListener("order.paid", (msg) => {
+  if (!msg.data) return;
+  let data: OrderPaidPayload;
+  try {
+    data = JSON.parse(msg.data) as OrderPaidPayload;
+  } catch {
+    console.error("Invalid order.paid JSON");
+    return;
+  }
+  if (
+    typeof data.stripeEventId !== "string" ||
+    typeof data.paymentIntentId !== "string" ||
+    typeof data.amountCents !== "number" ||
+    typeof data.currency !== "string" ||
+    !Array.isArray(data.lines)
+  ) {
+    console.error("Invalid order.paid payload shape");
+    return;
+  }
+  void enqueueWork(() => handleOrderPaid(data));
+});
+
+es.onerror = (err) => {
+  console.error("SSE error / reconnecting:", err);
+};

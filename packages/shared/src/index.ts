@@ -147,6 +147,57 @@ export function validateSelectionsForItem(
   return { ok: true, normalized };
 }
 
+/** Cart line shape used by kitchen ticket formatting (Stripe PaymentIntent metadata). */
+export type KitchenCartLineFromMetadata = {
+  id: string;
+  quantity: number;
+  selections: LineSelections;
+};
+
+/**
+ * Parse `line_count` / `line_*` JSON blobs from Stripe PaymentIntent.metadata
+ * into cart lines for kitchen tickets. Unknown menu ids are still included (warn only).
+ */
+export function parseKitchenLinesFromStripeMetadata(
+  metadata: Record<string, string | undefined>,
+): KitchenCartLineFromMetadata[] {
+  const countRaw = metadata.line_count;
+  const count = countRaw ? Number.parseInt(countRaw, 10) : 0;
+  const lines: KitchenCartLineFromMetadata[] = [];
+  if (!Number.isFinite(count) || count <= 0) {
+    return lines;
+  }
+  for (let i = 0; i < count; i += 1) {
+    const raw = metadata[`line_${i}`];
+    if (!raw) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      console.warn("Invalid line metadata JSON:", raw);
+      continue;
+    }
+    const data = parsed as {
+      i?: unknown;
+      q?: unknown;
+      s?: unknown;
+    };
+    const id = typeof data.i === "string" ? data.i : "";
+    const quantity = typeof data.q === "number" ? data.q : Number.NaN;
+    const selections =
+      data.s && typeof data.s === "object"
+        ? normalizeSelections(data.s as Record<string, string[]>)
+        : {};
+    if (id && Number.isFinite(quantity) && quantity > 0) {
+      if (!getItemById(id)) {
+        console.warn("Unknown menu id in metadata:", id);
+      }
+      lines.push({ id, quantity, selections });
+    }
+  }
+  return lines;
+}
+
 export function getSelectionDisplayLines(
   itemId: string,
   selections: LineSelections = {},

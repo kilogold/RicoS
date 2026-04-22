@@ -1,5 +1,5 @@
 {
-  "name": "kitchen-relay",
+  "name": "webhook-proxy",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,11 +9,13 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "@ricos/shared": "*",
-    "eventsource": "^2.0.2"
+    "express": "^5.1.0",
+    "stripe": "^18.0.0"
   },
   "devDependencies": {
-    "@types/eventsource": "^1.1.15",
+    "@types/express": "^5.0.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }

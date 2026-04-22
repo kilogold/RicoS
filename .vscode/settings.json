@@ -1,0 +1,8 @@
+{
+  "terminal.integrated.env.osx": {
+    "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+  },
+  "terminal.integrated.env.linux": {
+    "PATH": "${env:HOME}/.bun/bin:/usr/local/bin:${env:PATH}"
+  }
+}

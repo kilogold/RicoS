@@ -1,6 +1,6 @@
 # RicoS
 
-Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), a **kitchen-relay** service that prints paid orders from **Stripe webhooks**, and shared **menu data** with stable opaque item IDs.
+Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), a **webhook-proxy** that accepts Stripe webhooks and streams **`order.paid`** over **SSE**, a **kitchen-relay** printing service that subscribes to that stream and prints tickets, and shared **menu data** with stable opaque item IDs.
 
 **Package manager: [Bun](https://bun.sh) only.** The repo uses `bun.lock`. Do not run `npm install`, `yarn`, or `pnpm` — installs are blocked by a root `preinstall` hook unless you bypass it (don’t).
 
@@ -9,8 +9,9 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 | Path | Description |
 |------|-------------|
 | [`web/`](web/) | Next.js App Router — menu, cart, checkout, confirmation |
-| [`kitchen-relay/`](kitchen-relay/) | Express server — `POST /webhook` for Stripe, prints ticket to stdout / optional log file |
-| [`packages/shared/`](packages/shared/) | Canonical `menu.json` and helpers (`getItemById`, etc.) |
+| [`webhook-proxy/`](webhook-proxy/) | Bun + Express — `POST /webhook` (Stripe), SQLite **pending kitchen orders**, `GET /stream` (SSE), `POST /print-ack` |
+| [`kitchen-relay/`](kitchen-relay/) | Bun — SSE client + `GET /health`; prints tickets (console or CUPS) and POSTs ack to the proxy |
+| [`packages/shared/`](packages/shared/) | Canonical `menu.json` and helpers (`getItemById`, Stripe kitchen metadata parsing, etc.) |
 
 ## Prerequisites
 
@@ -31,18 +32,27 @@ Create env files at the repository root:
 
 Root Bun scripts load `.env` first, then `.env.local`, so local values override defaults.
 
-- `STRIPE_SECRET_KEY` — server-only; used by Route Handlers to create PaymentIntents (`.env.local`)
+- `STRIPE_SECRET_KEY` — server-only; used by the storefront Route Handlers to create PaymentIntents and by **`webhook-proxy`** for Stripe webhook verification (`.env.local`)
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — public key for Stripe.js (`.env.local`)
 
-**Kitchen relay** (reads from root `.env` and `.env.local` via root scripts):
+**Webhook proxy** (`webhook-proxy/`, root `.env` / `.env.local`):
 
-- `STRIPE_SECRET_KEY` — same secret key (`.env.local`)
-- `STRIPE_WEBHOOK_SECRET` — signing secret from the webhook endpoint you configure (see below, `.env.local`)
+- `STRIPE_SECRET_KEY` — Stripe API secret (`.env.local`)
+- `STRIPE_WEBHOOK_SECRET` — signing secret from Stripe CLI `listen` or Dashboard webhook (`.env.local`)
+- `WEBHOOK_PROXY_PORT` — required in `.env` (use `4001` locally)
+- `WEBHOOK_PROXY_DATABASE_URL` — optional; default is `webhook-proxy/data/webhook-proxy.db` via libSQL `file:` URL
+- `PRINT_ACK_SECRET` — optional shared secret; relay must send header `X-Print-Ack-Key` when set
+
+**Kitchen relay** (printing only, root `.env` / `.env.local`):
+
+- `KITCHEN_WEBHOOK_PROXY_URL` — base URL of the proxy (default `http://127.0.0.1:4001`)
+- `KITCHEN_PRINTER_ADAPTER` — `console` or `lp` (required in `.env`)
+- `PRINT_ACK_SECRET` — must match the proxy if the proxy sets it
 
 Optional:
 
 - `KITCHEN_PRINT_LOG` — if set, append each ticket to this file (e.g. `./kitchen-print.log`, can be in `.env` or `.env.local`)
-- `KITCHEN_RELAY_PORT` — default `4000` (in `.env` by default)
+- `KITCHEN_RELAY_PORT` — required in `.env` (use `4000` locally)
 
 ## Local development (v1)
 
@@ -58,41 +68,39 @@ Optional:
    - Copy `.env.local.example` to `.env.local` at the repo root.
    - Fill real Stripe values in `.env.local`.
 
-3. **Start the kitchen relay** (terminal 1):
+3. **Start backend + storefront** — **recommended in Cursor:** one integrated terminal per process.
+
+   - Command Palette (**Cmd+Shift+P** / **Ctrl+Shift+P**) → **Tasks: Run Task** → **`RicoS: Dev bootstrap`**.  
+     That starts **webhook-proxy**, **kitchen-relay**, and **web** in **three separate** terminal tabs (see [`.vscode/tasks.json`](.vscode/tasks.json)).  
+     If tasks fail with **`bun: command not found`**, the workspace prepends **`~/.bun/bin`** (and common Homebrew paths) to `PATH` in [`.vscode/tasks.json`](.vscode/tasks.json) and [`.vscode/settings.json`](.vscode/settings.json); reload the window after pulling changes. On Windows, add your Bun install directory to `PATH` or extend `.vscode/tasks.json` `options.env` with `;`-separated paths.
+
+   **From a normal shell** (no split tabs): run the three commands in three terminals, or `bun run dev:bootstrap` for printed instructions (it does not multiplex one session).
+
+   Set `STRIPE_WEBHOOK_SECRET` for the **proxy** in `.env.local`. Set `KITCHEN_PRINTER_ADAPTER` (e.g. `console`) in `.env`.
+
+4. **Forward Stripe webhooks to the proxy** (separate terminal; Stripe CLI auth):
 
    ```bash
-   bun run dev:kitchen
+   stripe listen --forward-to http://localhost:4001/webhook
    ```
 
-   Set `STRIPE_WEBHOOK_SECRET` for the relay. For local CLI forwarding, run Stripe listen (step 5) and use the **`whsec_...`** secret it prints.
+   Paste the **`whsec_...`** secret into `.env.local` as `STRIPE_WEBHOOK_SECRET` and restart the proxy if it was already running.
 
-4. **Start the storefront** (terminal 2):
+   When a payment succeeds, the proxy persists the order and emits **`order.paid`** over SSE; the relay prints a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
 
-   ```bash
-   bun run dev:web
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000), add items, complete checkout with a [Stripe test card](https://stripe.com/docs/testing#cards) (e.g. `4242 4242 4242 4242`).
-
-5. **Forward webhooks to the relay** (terminal 3):
-
-   ```bash
-   stripe listen --forward-to http://localhost:4000/webhook
-   ```
-
-   Paste the webhook signing secret into `STRIPE_WEBHOOK_SECRET` for `kitchen-relay` and restart the relay if needed. When a payment succeeds, the relay logs a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
+5. Open [http://localhost:3000](http://localhost:3000), add items, complete checkout with a [Stripe test card](https://stripe.com/docs/testing#cards) (e.g. `4242 4242 4242 4242`).
 
 ## Deploying the storefront on Vercel
 
 - Connect the repo and set the **root directory** to `web` **or** deploy from the monorepo root with the appropriate app directory (your Vercel project settings).
 - Set **Install Command** to `bun install` (and ensure the project uses Bun) so Vercel does not default to npm.
 - Add `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Vercel project **Environment Variables**.
-- The **kitchen relay is not deployed here** in v1; it is intended to run on **localhost** for development and later on a **Raspberry Pi** (or similar always-on host) with a public HTTPS URL for Stripe webhooks and a real printer adapter when you are ready.
+- The **webhook proxy** and **kitchen relay** are not deployed with the storefront in v1; they are intended to run on **localhost** for development and later on a **Raspberry Pi** (or similar always-on host) with a public HTTPS URL for Stripe webhooks (to the proxy) and a real printer adapter when you are ready.
 
-## Kitchen relay on a Raspberry Pi (later)
+## Kitchen stack on a Raspberry Pi (later)
 
-- Run the same `kitchen-relay` process under **systemd** (or another supervisor).
-- Create a **live** webhook endpoint in the [Stripe Dashboard](https://dashboard.stripe.com/webhooks) pointing to `https://your-pi-or-tunnel/webhook` and set `STRIPE_WEBHOOK_SECRET` to that endpoint’s signing secret.
+- Run **`webhook-proxy`** and **`kitchen-relay`** under **systemd** (or another supervisor), with `KITCHEN_WEBHOOK_PROXY_URL` pointing at the proxy on the same host (or `http://127.0.0.1:4001`).
+- Create a **live** webhook endpoint in the [Stripe Dashboard](https://dashboard.stripe.com/webhooks) pointing to `https://your-pi-or-tunnel/webhook` on the **proxy** port and set `STRIPE_WEBHOOK_SECRET` to that endpoint’s signing secret.
 - Replace or extend the print layer in [`kitchen-relay/src/print.ts`](kitchen-relay/src/print.ts) for USB or network thermal printers (e.g. ESC/POS) as needed.
 
 ## Menu item IDs
@@ -129,12 +137,15 @@ Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mo
 
 | Script | Command |
 |--------|---------|
+| Dev — bootstrap (split terminals in Cursor) | Command Palette → **Tasks: Run Task** → **RicoS: Dev bootstrap** (see [`.vscode/tasks.json`](.vscode/tasks.json)) |
+| Dev — bootstrap hint (shell only) | `bun run dev:bootstrap` |
 | Dev — web | `bun run dev:web` |
-| Dev — kitchen | `bun run dev:kitchen` |
+| Dev — webhook proxy | `bun run dev:webhook-proxy` |
+| Dev — kitchen (printing relay) | `bun run dev:kitchen` |
 | Build — web | `bun run build` |
 | Lint — web | `bun run lint` |
 
-Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env` and `.env.local` are always loaded in the correct order.
+Run root scripts (`bun run dev:web`, `bun run dev:webhook-proxy`, `bun run dev:kitchen`, etc.) so root `.env` and `.env.local` are always loaded in the correct order. For **three terminals at once** in Cursor, use the **RicoS: Dev bootstrap** task instead of one combined shell.
 
 ## Architecture
 
