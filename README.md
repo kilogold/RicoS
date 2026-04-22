@@ -4,6 +4,8 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 
 **Package manager: [Bun](https://bun.sh) only.** The repo uses `bun.lock`. Do not run `npm install`, `yarn`, or `pnpm` — installs are blocked by a root `preinstall` hook unless you bypass it (don’t).
 
+**Next.js lockfile patch noise (Bun incompatibility):** Next.js can try to auto-patch lockfiles and shell out to Yarn for registry resolution. In this Bun-only repo, that path can produce repeated Corepack/Yarn errors (for example, `packageManager: "bun@..."` parsing failures) even when builds succeed. To keep output clean and avoid false alarms, `web/package.json` sets `NEXT_IGNORE_INCORRECT_LOCKFILE=1` for `next dev` and `next build`.
+
 ## Layout
 
 | Path | Description |
