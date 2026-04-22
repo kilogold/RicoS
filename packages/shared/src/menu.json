@@ -572,7 +572,7 @@
               "maxSelections": 1,
               "options": [
                 { "id": "opt_toast_white", "label": { "en": "White", "es": "Blanco" } },
-                { "id": "opt_toast_wheat", "label": { "en": "Wheat", "es": "Integral" } }
+                { "id": "opt_toast_wheat", "label": { "en": "Wheat", "es": "Integral" }, "priceDeltaCents": 100 }
               ]
             },
             {

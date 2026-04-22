@@ -9,7 +9,7 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 | Path | Description |
 |------|-------------|
 | [`web/`](web/) | Next.js App Router — menu, cart, checkout, confirmation |
-| [`webhook-proxy/`](webhook-proxy/) | Bun + Express — `POST /webhook` (Stripe), SQLite **pending kitchen orders**, `GET /stream` (SSE), `POST /print-ack` |
+| [`webhook-proxy/`](webhook-proxy/) | Bun + Express — Stripe webhook ingress, libSQL persistence, SSE fan-out. See [`webhook-proxy/README.md`](webhook-proxy/README.md) for DB schema, menu versioning, cart codec wire format, and migration plan. |
 | [`kitchen-relay/`](kitchen-relay/) | Bun — SSE client + `GET /health`; prints tickets (console or CUPS) and POSTs ack to the proxy |
 | [`packages/shared/`](packages/shared/) | Canonical `menu.json` and helpers (`getItemById`, Stripe kitchen metadata parsing, etc.) |
 
@@ -107,6 +107,8 @@ Optional:
 
 Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mod_...`, `opt_...` in `packages/shared/src/menu.json`). Keep IDs stable even if display copy changes.
 
+Menu snapshots are versioned in [`packages/shared/src/menu-versions/`](packages/shared/src/menu-versions/); the web app stamps `CURRENT_MENU_VERSION` on every cart. The proxy validates and decodes against the same registry — see [`webhook-proxy/README.md`](webhook-proxy/README.md#menu-versioning) for seed-on-boot behavior, the `menu_versions` table, and the immutability rules.
+
 ## Predefined customizations (v1)
 
 - Modifier groups are modeled in shared menu data and validated server-side.
@@ -125,13 +127,7 @@ Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mo
   - missing required selections
   - invalid single-vs-multiple selection counts
 
-### Stripe metadata shape
-
-- PaymentIntent metadata stores one JSON-encoded line per index:
-  - `line_count=<n>`
-  - `line_0={"i":"<itemId>","q":<qty>,"s":{"<groupId>":["<optionId>"]}}`
-- Kitchen relay parses this structure and resolves IDs to printable labels.
-- This is v1; old metadata formats are intentionally not supported.
+The on-wire shape of the cart inside Stripe metadata (codec identifier, base64url payload, binary byte layout, integrity checks) is documented in [`webhook-proxy/README.md`](webhook-proxy/README.md#cart-codec-wire-format).
 
 ## Scripts (root `package.json`)
 
@@ -149,11 +145,11 @@ Run root scripts (`bun run dev:web`, `bun run dev:webhook-proxy`, `bun run dev:k
 
 ## Architecture
 
+Two diagrams describe the system today (portable prototype running on a local host with tunnels) and the target (webhook receipt on Vercel with a hosted Turso queue, kitchen relay still on-prem). For the deeper backend technical details — libSQL client usage, what the `pending kitchen orders` queue stores, and the full cutover plan — see [`webhook-proxy/README.md`](webhook-proxy/README.md#migration-path-local--vercel--turso).
+
 ### Current approach (portable prototype)
 
-The host device runs two local processes: a **webhook proxy** and a **printing relay**. The proxy receives provider webhooks (Stripe, Helius) through **local tunnels**, verifies and normalizes them, **writes paid orders into SQLite** (`pending kitchen orders`), and pushes **`order.paid`** to the relay over **SSE**. The relay **subscribes over SSE**, sends **POST print ack** when a ticket is done, and handles **retries, idempotency, and dead-letter** at the printer. That keeps payment ingress and queue state in the proxy and keeps execution at the printer, with low cost for prototyping.
-
-**Diagram convention (current and ideal):** Both figures show **one** storage shape—**pending kitchen orders**—inside a **deployment boundary** (local SQLite file vs hosted Turso). They **omit** a separate box for the **database engine** or **`@libsql/client`**; that code runs **inside** the webhook proxy process. The engine is always **libSQL-oriented**: **`@libsql/client`** with a **`file:`** URL on the proxy host today, and the **same package** with Turso’s **URL + token** after migration—so the drawing stays about **where the queue lives**, not library internals.
+The on-prem host runs **`webhook-proxy`** and **`kitchen-relay`**. The proxy receives Stripe/Helius webhooks through local tunnels, persists the normalized order in libSQL, and streams `order.paid` over SSE. The relay prints the ticket and acknowledges back to the proxy.
 
 ```mermaid
 flowchart TB
@@ -205,9 +201,7 @@ flowchart TB
 
 ### Ideal approach (robust)
 
-Provider webhooks hit the **Vercel** backend directly (no local tunnels). The same role as the portable **webhook proxy** lives in **Route Handlers**: verify Stripe and Helius payloads, normalize `order.paid`, **track the print queue** in **hosted Turso** (libSQL / SQLite-compatible), and expose **SSE plus POST print ack** from the same deployment. Nothing durable lives on the Vercel instance’s own filesystem; the queue is **offloaded to Turso** so work survives deploys and cold starts. The on-prem host runs only the **printing relay**; it uses the same **SSE subscribe and POST print ack** pattern against **Vercel** instead of the local proxy.
-
-Route Handlers talk to **pending kitchen orders** through **`@libsql/client`** and Turso’s **HTTPS URL + token**; see **Diagram convention** under *Current approach* for why the drawing matches that stack without an extra “Turso API” node.
+Stripe and Helius call **Vercel** directly. Route Handlers do the proxy's job and persist the queue in **Turso** (hosted libSQL). Only the **kitchen-relay** stays on-prem; it subscribes to Vercel's SSE stream over the shop's outbound internet.
 
 ```mermaid
 flowchart TB
@@ -252,35 +246,4 @@ flowchart TB
   K -->|Print ticket| P
 ```
 
-### Migration (current → ideal)
-
-This migration moves **webhook receipt** from an **on-prem host** (with tunnels) to **Vercel**. The **kitchen printer** stays at the shop. The rest follows from that split.
-
-#### Unchanged
-
-- Customers still check out in the **Vercel storefront**.
-- Stripe and Helius still decide what “paid” means on their side.
-- The **printing relay** still drives the printer, retries failed prints, and dedupes to prevent duplicate tickets.
-
-#### What actually changes
-
-- **Webhooks:** Stripe and Helius stop calling ngrok / Stripe CLI. They call the **Vercel deployment’s public HTTPS URL** instead.
-- **The local webhook proxy goes away.** Its work (check signatures, turn provider JSON into one clean “order paid” message) moves into **Vercel route handlers**.
-- **The printing relay still listens over SSE.** Only the **SSE server address** changes from “local proxy” to “Vercel.” The relay still opens the connection from inside the shop network, which avoids router port forwarding.
-
-#### Why the cloud adds a small database
-
-- Vercel workers **start and stop**; RAM does not survive as a reliable queue.
-- On each webhook, the handler **persists the normalized order in cloud storage** (a tiny table is enough), **then** returns success to Stripe.
-- A paid order stays **on record** if the kitchen PC is off or Wi-Fi drops. SSE then **notifies the relay of orders already persisted**, instead of depending on the relay being online at webhook time.
-
-#### Easiest storage story (optional)
-
-- **SQLite file** on the proxy machine today, **Turso** (hosted SQLite-style) on Vercel later: same idea, mostly **connection string** changes.
-
-#### Cutover (in order)
-
-1. Build Vercel webhooks + cloud persistence + SSE; test with Stripe and Helius test hooks.
-2. Point Stripe and Helius production webhooks at Vercel; point the relay SSE at Vercel.
-3. Retire the local proxy and tunnels once a short soak period shows stable delivery.
-4. Migrate undelivered rows only when they still exist; otherwise cut over with an empty cloud outbox after the local queue is drained.
+Cutover order, what stays the same, and what the relay actually sees are all in [`webhook-proxy/README.md`](webhook-proxy/README.md#migration-path-local--vercel--turso).

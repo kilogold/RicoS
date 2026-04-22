@@ -3,7 +3,7 @@
 import type { CartLine } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { formatUsd, linesWithItems } from "@/lib/pricing";
+import { formatUsd, lineTotalCents, linesWithItems } from "@/lib/pricing";
 import { getSelectionDisplayLines, resolveLocalizedText } from "@ricos/shared";
 
 export function CheckoutOrderSummary({ lines }: { lines: CartLine[] }) {
@@ -26,7 +26,7 @@ export function CheckoutOrderSummary({ lines }: { lines: CartLine[] }) {
             >
               <p>
                 {line.quantity}x {resolveLocalizedText(item.name, language)} ·{" "}
-                {formatUsd(item.priceCents * line.quantity, language)}
+                {formatUsd(lineTotalCents(line), language)}
               </p>
               {selections.length > 0 ? (
                 <p className="mt-1 text-xs text-[#b8d4f0]">{selections.join(" · ")}</p>

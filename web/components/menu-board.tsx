@@ -3,7 +3,7 @@
 import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { formatUsd, totalCents } from "@/lib/pricing";
+import { formatUsd, lineTotalCents, totalCents } from "@/lib/pricing";
 import {
   getModifierGroupsForItem,
   getSelectionDisplayLines,
@@ -25,7 +25,7 @@ function mergeRequiredSelectionDefaults(
   const next: LineSelections = { ...base };
   for (const group of groups) {
     if (!group.required || group.options.length === 0) continue;
-    let picked = [...(next[group.id] ?? [])];
+    const picked = [...(next[group.id] ?? [])];
     if (picked.length >= group.minSelections) continue;
     const pickedSet = new Set(picked);
     for (const opt of group.options) {
@@ -128,6 +128,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {group.options.map((option) => {
                                   const checked = picked.includes(option.id);
+                                  const hasSurcharge = (option.priceDeltaCents ?? 0) > 0;
                                   return (
                                     <button
                                       key={option.id}
@@ -153,6 +154,9 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                       }`}
                                     >
                                       {resolveLocalizedText(option.label, language)}
+                                      {hasSurcharge
+                                        ? ` (+${formatUsd(option.priceDeltaCents ?? 0, language)})`
+                                        : ""}
                                     </button>
                                   );
                                 })}
@@ -185,6 +189,9 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                 <p className="mb-1 text-[#b8d4f0]">{copy.defaultPrep}</p>
                               )}
                               <div className="flex items-center gap-2">
+                                <span className="mr-2 font-semibold text-white">
+                                  {formatUsd(lineTotalCents(line), language)}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() =>

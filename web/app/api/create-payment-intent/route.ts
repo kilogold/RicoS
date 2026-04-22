@@ -1,4 +1,12 @@
-import { getItemById, normalizeSelections, validateSelectionsForItem } from "@ricos/shared";
+import {
+  CURRENT_MENU_VERSION,
+  encodeCartToMetadataV1,
+  getDecodeIndex,
+  getItemById,
+  normalizeSelections,
+  validateSelectionsForItem,
+  type CartLineInput,
+} from "@ricos/shared";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -19,21 +27,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const lines = (
+  const rawLines = (
     body as {
       lines?: { id: string; quantity: number; selections?: Record<string, string[]> }[];
     }
   )?.lines;
-  if (!Array.isArray(lines) || lines.length === 0) {
+  if (!Array.isArray(rawLines) || rawLines.length === 0) {
     return NextResponse.json(
       { error: "Cart must include at least one line" },
       { status: 400 },
     );
   }
 
-  const normalizedLines: { id: string; quantity: number; selections: Record<string, string[]> }[] = [];
-  let amountCents = 0;
-  for (const line of lines) {
+  const codecLines: CartLineInput[] = [];
+  for (const line of rawLines) {
     if (
       typeof line.id !== "string" ||
       !line.id ||
@@ -44,8 +51,7 @@ export async function POST(req: Request) {
     ) {
       return NextResponse.json({ error: "Invalid line item" }, { status: 400 });
     }
-    const item = getItemById(line.id);
-    if (!item) {
+    if (!getItemById(line.id)) {
       return NextResponse.json(
         { error: `Unknown menu item: ${line.id}` },
         { status: 400 },
@@ -61,35 +67,39 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    normalizedLines.push({
-      id: line.id,
+    codecLines.push({
+      itemId: line.id,
       quantity: line.quantity,
       selections: normalizeSelections(validation.normalized),
     });
-    amountCents += item.priceCents * line.quantity;
   }
 
-  if (amountCents < 50) {
+  const decodeIndex = getDecodeIndex(CURRENT_MENU_VERSION);
+  if (!decodeIndex) {
+    return NextResponse.json(
+      { error: `Menu version ${CURRENT_MENU_VERSION} not registered` },
+      { status: 500 },
+    );
+  }
+
+  let encoded;
+  try {
+    encoded = encodeCartToMetadataV1(CURRENT_MENU_VERSION, codecLines, decodeIndex);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  if (encoded.amountCents < 50) {
     return NextResponse.json({ error: "Amount too small" }, { status: 400 });
   }
 
   const stripe = new Stripe(stripeSecret);
-  const metadata: Record<string, string> = {
-    line_count: String(normalizedLines.length),
-  };
-  normalizedLines.forEach((line, index) => {
-    metadata[`line_${index}`] = JSON.stringify({
-      i: line.id,
-      q: line.quantity,
-      s: line.selections,
-    });
-  });
-
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: amountCents,
+    amount: encoded.amountCents,
     currency: "usd",
     automatic_payment_methods: { enabled: true },
-    metadata,
+    metadata: encoded.metadata,
   });
 
   if (!paymentIntent.client_secret) {
@@ -101,6 +111,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     clientSecret: paymentIntent.client_secret,
-    amountCents,
+    amountCents: encoded.amountCents,
   });
 }

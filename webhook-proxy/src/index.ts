@@ -3,13 +3,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type Response } from "express";
 import Stripe from "stripe";
-import { parseKitchenLinesFromStripeMetadata } from "@ricos/shared";
+import {
+  MENU_VERSIONS,
+  decodeCartFromMetadataV1,
+  type HydratedCart,
+  type HydratedCartLine,
+} from "@ricos/shared";
 import {
   defaultDatabaseUrl,
   deletePending,
+  getDecodeIndex,
   insertPendingIfNew,
   listPending,
   migrate,
+  seedMenuVersions,
   type KitchenOrderPayload,
   openDb,
 } from "./db.js";
@@ -48,6 +55,7 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
 ensureParentDirForFileUrl(databaseUrl);
 const db = openDb(databaseUrl);
 await migrate(db);
+await seedMenuVersions(db, MENU_VERSIONS);
 
 const stripe = new Stripe(stripeSecret);
 const app = express();
@@ -144,13 +152,34 @@ app.post(
 
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const lines = parseKitchenLinesFromStripeMetadata(pi.metadata);
+      let decodedCart: HydratedCart;
+      try {
+        decodedCart = decodeCartFromMetadataV1(pi.metadata, getDecodeIndex);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("Invalid cart metadata:", message);
+        res.status(400).json({ error: "invalid_cart_metadata" });
+        return;
+      }
+      const recomputedCartTotalCents = decodedCart.lines.reduce(
+        (sum: number, line: HydratedCartLine) => sum + line.lineExtendedTotalCents,
+        0,
+      );
+      if (recomputedCartTotalCents !== Number(pi.amount)) {
+        console.error(
+          "Cart total mismatch:",
+          recomputedCartTotalCents,
+          Number(pi.amount),
+        );
+        res.status(400).json({ error: "cart_total_mismatch" });
+        return;
+      }
       const payload: KitchenOrderPayload = {
         stripeEventId: event.id,
         paymentIntentId: pi.id,
         amountCents: Number(pi.amount),
         currency: pi.currency,
-        lines,
+        lines: decodedCart.lines,
       };
       try {
         const inserted = await insertPendingIfNew(db, payload);

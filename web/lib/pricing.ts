@@ -1,4 +1,9 @@
-import { getItemById, type Language, type MenuItem } from "@ricos/shared";
+import {
+  getItemById,
+  getLineUnitPriceCents,
+  type Language,
+  type MenuItem,
+} from "@ricos/shared";
 import type { CartLine } from "@/lib/cart-context";
 
 export function linesWithItems(
@@ -15,11 +20,18 @@ export function linesWithItems(
 export function totalCents(lines: CartLine[]): number {
   let sum = 0;
   for (const line of lines) {
-    const item = getItemById(line.id);
-    if (!item) continue;
-    sum += item.priceCents * line.quantity;
+    sum += lineTotalCents(line);
   }
   return sum;
+}
+
+export function lineUnitPriceCents(line: CartLine): number {
+  const unit = getLineUnitPriceCents(line.id, line.selections);
+  return unit ?? 0;
+}
+
+export function lineTotalCents(line: CartLine): number {
+  return lineUnitPriceCents(line) * line.quantity;
 }
 
 export function formatUsd(cents: number, language: Language = "en"): string {
