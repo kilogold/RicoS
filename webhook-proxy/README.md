@@ -1,6 +1,6 @@
 # webhook-proxy
 
-Bun + Express service that receives Stripe + Helius webhooks, decodes RicoS cart metadata against a versioned menu catalog, persists paid orders in a local libSQL (SQLite-compatible) database, and streams `order.paid` events to the kitchen relay over Server-Sent Events.
+Bun + Express service that receives Stripe + Helius webhooks, decodes RicoS cart metadata against a versioned menu catalog, persists paid orders in a Turso-hosted libSQL database, and streams `order.paid` events to the kitchen relay over Server-Sent Events.
 
 This README is the canonical reference for the proxy's **database schema, menu versioning, cart codec wire format, and migration path**. For project overview, installation, env files, and day-to-day dev workflow, see the root [README.md](../README.md).
 
@@ -34,7 +34,7 @@ Use the root Bun scripts so repo-root `.env` and `.env.local` are loaded in the 
 bun run dev:webhook-proxy
 ```
 
-Default local port is `4001`. Stripe webhook signing requires the Stripe CLI `listen` command to forward events (see step 4 in the root README).
+Default local port is `4001`. Startup now requires Turso env vars (`WEBHOOK_PROXY_DATABASE_URL`, `WEBHOOK_PROXY_DATABASE_AUTH_TOKEN`) in addition to webhook secrets. Stripe webhook signing requires the Stripe CLI `listen` command to forward events (see step 4 in the root README).
 
 ## Environment variables
 
@@ -45,7 +45,8 @@ All env vars are sourced from the repo-root `.env` + `.env.local` (see root READ
 | `STRIPE_SECRET_KEY` | yes | — | Stripe API secret |
 | `STRIPE_WEBHOOK_SECRET` | yes | — | Signing secret from `stripe listen` or a Dashboard endpoint |
 | `WEBHOOK_PROXY_PORT` | yes | — | e.g. `4001` |
-| `WEBHOOK_PROXY_DATABASE_URL` | no | `file:./data/webhook-proxy.db` | libSQL URL. Use a Turso `https://…` URL + token in production. |
+| `WEBHOOK_PROXY_DATABASE_URL` | yes | — | Turso libSQL URL (`libsql://...` or `https://...`) |
+| `WEBHOOK_PROXY_DATABASE_AUTH_TOKEN` | yes | — | Turso auth token used by `@libsql/client` |
 | `PRINT_ACK_SECRET` | no | unset | When set, the relay must send `X-Print-Ack-Key: <secret>` on `POST /print-ack` |
 | `HELIUS_USDC_MINT` | yes | — | USDC mint expected in Solana Pay token transfers |
 | `HELIUS_MERCHANT_RECIPIENT` | yes | — | Expected merchant recipient wallet for Solana Pay token transfers |
@@ -201,7 +202,7 @@ Today, this proxy runs on an on-prem host behind a Stripe CLI (or ngrok) tunnel.
 ### What changes
 
 - The HTTP handlers in [`src/index.ts`](src/index.ts) move into Vercel Route Handlers. Express is dropped.
-- `WEBHOOK_PROXY_DATABASE_URL` flips from a local `file:` URL to a Turso `libsql://` URL + auth token. `@libsql/client` stays.
+- Turso-backed persistence (`WEBHOOK_PROXY_DATABASE_URL` + `WEBHOOK_PROXY_DATABASE_AUTH_TOKEN`) stays in place; only the HTTP runtime moves.
 - Stripe (and Helius, later) call the Vercel domain directly. The tunnel goes away.
 
 ### Why the cloud still needs a database
@@ -213,4 +214,4 @@ Vercel workers start and stop; in-memory queues do not survive deploys or cold s
 1. Stand up Vercel Route Handlers + Turso persistence; exercise end-to-end with Stripe/Helius test events.
 2. Switch Stripe (and Helius) production webhooks to the Vercel domain; point the relay's `KITCHEN_WEBHOOK_PROXY_URL` at Vercel.
 3. Retire the local proxy and the tunnel after a soak period with stable delivery.
-4. Drain the local queue before cutover; migrate any still-outstanding `kitchen_orders` rows only if they actually exist at switch time.
+4. No local queue migration is performed in this hard cutover; once switched, only Turso-backed state is authoritative.

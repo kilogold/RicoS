@@ -1,11 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import express, { type Response } from "express";
 import Stripe from "stripe";
 import { MENU_VERSIONS } from "@ricos/shared";
 import {
-  defaultDatabaseUrl,
   deletePending,
   listPending,
   migrate,
@@ -24,18 +20,13 @@ const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const webhookProxyPortRaw = process.env.WEBHOOK_PROXY_PORT?.trim();
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
-const databaseUrl = process.env.WEBHOOK_PROXY_DATABASE_URL?.trim() || defaultDatabaseUrl();
+const databaseUrl = process.env.WEBHOOK_PROXY_DATABASE_URL?.trim();
+const databaseAuthToken = process.env.WEBHOOK_PROXY_DATABASE_AUTH_TOKEN?.trim();
 const heliusAuthHeaderName =
   process.env.HELIUS_WEBHOOK_AUTH_HEADER_NAME?.trim().toLowerCase() || "x-helius-auth";
 const heliusAuthHeaderValue = process.env.HELIUS_WEBHOOK_AUTH_HEADER_VALUE?.trim();
 const heliusUsdcMint = process.env.HELIUS_USDC_MINT?.trim();
 const heliusMerchantRecipient = process.env.HELIUS_MERCHANT_RECIPIENT?.trim();
-
-function ensureParentDirForFileUrl(url: string): void {
-  if (!url.startsWith("file:")) return;
-  const filePath = fileURLToPath(url);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-}
 
 if (!stripeSecret) {
   console.error("Missing STRIPE_SECRET_KEY");
@@ -47,6 +38,14 @@ if (!webhookSecret) {
 }
 if (!webhookProxyPortRaw) {
   console.error("Missing WEBHOOK_PROXY_PORT");
+  process.exit(1);
+}
+if (!databaseUrl) {
+  console.error("Missing WEBHOOK_PROXY_DATABASE_URL (must be a Turso URL)");
+  process.exit(1);
+}
+if (!databaseAuthToken) {
+  console.error("Missing WEBHOOK_PROXY_DATABASE_AUTH_TOKEN");
   process.exit(1);
 }
 if (!heliusUsdcMint) {
@@ -63,9 +62,14 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   console.error("WEBHOOK_PROXY_PORT must be a valid TCP port (1-65535)");
   process.exit(1);
 }
+if (!databaseUrl.startsWith("libsql://") && !databaseUrl.startsWith("https://")) {
+  console.error(
+    "WEBHOOK_PROXY_DATABASE_URL must be a Turso remote URL (libsql://... or https://...)",
+  );
+  process.exit(1);
+}
 
-ensureParentDirForFileUrl(databaseUrl);
-const db = openDb(databaseUrl);
+const db = openDb(databaseUrl, databaseAuthToken);
 await migrate(db);
 await seedMenuVersions(db, MENU_VERSIONS);
 

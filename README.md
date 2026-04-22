@@ -40,7 +40,8 @@ Root Bun scripts load `.env` first, then `.env.local`, so local values override 
 - `STRIPE_SECRET_KEY` — Stripe API secret (`.env.local`)
 - `STRIPE_WEBHOOK_SECRET` — signing secret from Stripe CLI `listen` or Dashboard webhook (`.env.local`)
 - `WEBHOOK_PROXY_PORT` — required in `.env` (use `4001` locally)
-- `WEBHOOK_PROXY_DATABASE_URL` — optional; default is `webhook-proxy/data/webhook-proxy.db` via libSQL `file:` URL
+- `WEBHOOK_PROXY_DATABASE_URL` — required Turso URL (`libsql://...` or `https://...`) in `.env`
+- `WEBHOOK_PROXY_DATABASE_AUTH_TOKEN` — required Turso auth token in `.env.local`
 - `PRINT_ACK_SECRET` — optional shared secret; relay must send header `X-Print-Ack-Key` when set
 
 **Kitchen relay** (printing only, root `.env` / `.env.local`):
@@ -145,11 +146,11 @@ Run root scripts (`bun run dev:web`, `bun run dev:webhook-proxy`, `bun run dev:k
 
 ## Architecture
 
-Two diagrams describe the system today (portable prototype running on a local host with tunnels) and the target (webhook receipt on Vercel with a hosted Turso queue, kitchen relay still on-prem). For the deeper backend technical details — libSQL client usage, what the `pending kitchen orders` queue stores, and the full cutover plan — see [`webhook-proxy/README.md`](webhook-proxy/README.md#migration-path-local--vercel--turso).
+Two diagrams describe the system today (portable prototype running on a local host with tunnels and Turso-backed queue) and the target (webhook receipt on Vercel, kitchen relay still on-prem). For deeper backend technical details — libSQL client usage, what the `pending kitchen orders` queue stores, and the route cutover plan — see [`webhook-proxy/README.md`](webhook-proxy/README.md#migration-path-local--vercel--turso).
 
 ### Current approach (portable prototype)
 
-The on-prem host runs **`webhook-proxy`** and **`kitchen-relay`**. The proxy receives Stripe/Helius webhooks through local tunnels, persists the normalized order in libSQL, and streams `order.paid` over SSE. The relay prints the ticket and acknowledges back to the proxy.
+The on-prem host runs **`webhook-proxy`** and **`kitchen-relay`**. The proxy receives Stripe/Helius webhooks through local tunnels, persists the normalized order in Turso-backed libSQL, and streams `order.paid` over SSE. The relay prints the ticket and acknowledges back to the proxy.
 
 ```mermaid
 flowchart TB
@@ -172,7 +173,7 @@ flowchart TB
     X[Webhook proxy]
     end
 
-    subgraph LSQL["Local SQLite file"]
+    subgraph LSQL["Turso libSQL"]
     DB[(pending kitchen orders)]
     end
 

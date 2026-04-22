@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import path from "node:path";
 import { createClient, type Client } from "@libsql/client";
 import {
   buildDecodeIndex,
@@ -24,13 +23,8 @@ export type KitchenOrderPayload = {
   }[];
 };
 
-export function defaultDatabaseUrl(): string {
-  const dir = path.join(import.meta.dirname, "..", "data");
-  return `file:${path.join(dir, "webhook-proxy.db")}`;
-}
-
-export function openDb(url: string): Client {
-  return createClient({ url });
+export function openDb(url: string, authToken: string): Client {
+  return createClient({ url, authToken });
 }
 
 export async function migrate(client: Client): Promise<void> {
