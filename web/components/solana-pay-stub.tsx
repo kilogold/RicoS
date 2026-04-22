@@ -14,9 +14,18 @@ import {
   createRecipient,
   createSPLToken,
 } from "@solana-commerce/solana-pay";
-import { address, createSolanaClient } from "gill";
+import {
+  CART_B64_KEY,
+  CURRENT_MENU_VERSION,
+  encodeCartToMetadataV1,
+  getDecodeIndex,
+} from "@ricos/shared";
+import type { Address } from "@solana/addresses";
+import { generateKeyPairSigner } from "@solana/signers";
+import { createSolanaClient } from "gill";
 
 import { useCart } from "@/lib/cart-context";
+import type { CartLine } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { formatUsd, linesWithItems, totalCents } from "@/lib/pricing";
@@ -49,16 +58,26 @@ const RPC_URL_OR_MONIKER =
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
 
-// Admin-provided reference pubkey. In production this comes from an env var
-// (set per-merchant / per-order by the backend). For the prototype we fall
-// back to a hardcoded random devnet pubkey so the flow works out of the box.
-// NOTE: reusing one reference across orders means `getSignaturesForAddress`
-// will also surface prior payments — fine for a single-user prototype, not
-// for anything real. Swap to per-order refs once the server route is in.
-const REFERENCE_ADDRESS = address(
-  process.env.NEXT_PUBLIC_SOLANA_PAY_REFERENCE ??
-    "REFwcpX8bjbvRnkmfTmKkaa2PjrSV8jqoLYSgeezf7a",
-);
+function encodeCartMemo(lines: CartLine[]): string {
+  const decodeIndex = getDecodeIndex(CURRENT_MENU_VERSION);
+  if (!decodeIndex) {
+    throw new Error(`Menu version ${CURRENT_MENU_VERSION} is not registered`);
+  }
+  const encoded = encodeCartToMetadataV1(
+    CURRENT_MENU_VERSION,
+    lines.map((line) => ({
+      itemId: line.id,
+      quantity: line.quantity,
+      selections: line.selections,
+    })),
+    decodeIndex,
+  );
+  const payload = encoded.metadata[CART_B64_KEY];
+  if (!payload) {
+    throw new Error("Missing encoded cart payload");
+  }
+  return payload;
+}
 
 export function SolanaPayStub() {
   const { language } = useLanguage();
@@ -74,6 +93,11 @@ export function SolanaPayStub() {
       cents: snapCents,
       amountMinor:
         snapCents > 0 ? toMinorUnits(snapCents / 100, USDC_DECIMALS) : BigInt(0),
+      cartLines: lines.map((line) => ({
+        id: line.id,
+        quantity: line.quantity,
+        selections: line.selections,
+      })),
       products: linesWithItems(lines).map(({ line, item }) => ({
         id: item.id,
         name: item.name,
@@ -83,7 +107,7 @@ export function SolanaPayStub() {
       })),
     };
   });
-  const { cents, amountMinor, products } = snapshot;
+  const { cents, amountMinor, cartLines, products } = snapshot;
 
   const rpc = useMemo(
     () => createSolanaClient({ urlOrMoniker: RPC_URL_OR_MONIKER }).rpc,
@@ -99,6 +123,7 @@ export function SolanaPayStub() {
   const [qr, setQr] = useState<string | null>(null);
   const [url, setUrl] = useState<URL | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [referenceAddress, setReferenceAddress] = useState<Address | null>(null);
   const [retryKey, setRetryKey] = useState(0);
 
   // Build URL + QR once per mount (re-runnable via retryKey).
@@ -107,42 +132,67 @@ export function SolanaPayStub() {
     setQr(null);
     setUrl(null);
     setSignature(null);
+    setReferenceAddress(null);
 
     if (cents <= 0) return;
 
     let cancelled = false;
+    const run = async () => {
+      let memo: string;
+      try {
+        memo = encodeCartMemo(cartLines);
+      } catch (err) {
+        paymentRef.current.handleError(
+          err instanceof Error ? err : "Failed to encode cart memo",
+        );
+        return;
+      }
 
-    const cart = createCartRequest(MERCHANT_WALLET, products, {
-      currency: "USDC",
-      label: "RicoS",
-      message: "Thanks for your order!",
-      memo: `RicoS order · ${products.length} line${products.length === 1 ? "" : "s"}`,
-    });
+      let ephemeralReference: Address;
+      try {
+        const signer = await generateKeyPairSigner();
+        ephemeralReference = signer.address;
+      } catch (err) {
+        paymentRef.current.handleError(
+          err instanceof Error ? err : "Failed to generate reference address",
+        );
+        return;
+      }
+      if (cancelled) return;
+      setReferenceAddress(ephemeralReference);
 
-    createSolanaPayRequest(
-      {
-        recipient: createRecipient(cart.recipient),
-        amount: splMinorUnitsForSolanaPayUrl(amountMinor, USDC_DECIMALS),
-        splToken: createSPLToken(USDC_DEVNET_MINT),
-        reference: REFERENCE_ADDRESS,
-        label: cart.label,
-        message: cart.message,
-        memo: cart.memo,
-      },
-      {
-        size: 288,
-        background: "#ffffff",
-        color: "#111827",
-        errorCorrectionLevel: "M",
-        margin: 2,
-      },
-    )
-      .then((res) => {
-        if (cancelled) return;
-        setQr(res.qr);
-        setUrl(res.url);
-        paymentRef.current.setStatus("scanning");
-      })
+      const cart = createCartRequest(MERCHANT_WALLET, products, {
+        currency: "USDC",
+        label: "RicoS",
+        message: "Thanks for your order!",
+        memo,
+      });
+
+      const res = await createSolanaPayRequest(
+        {
+          recipient: createRecipient(cart.recipient),
+          amount: splMinorUnitsForSolanaPayUrl(amountMinor, USDC_DECIMALS),
+          splToken: createSPLToken(USDC_DEVNET_MINT),
+          reference: ephemeralReference,
+          label: cart.label,
+          message: cart.message,
+          memo: cart.memo,
+        },
+        {
+          size: 288,
+          background: "#ffffff",
+          color: "#111827",
+          errorCorrectionLevel: "M",
+          margin: 2,
+        },
+      );
+      if (cancelled) return;
+      setQr(res.qr);
+      setUrl(res.url);
+      paymentRef.current.setStatus("scanning");
+    };
+
+    run()
       .catch((err) => {
         if (cancelled) return;
         paymentRef.current.handleError(
@@ -153,11 +203,11 @@ export function SolanaPayStub() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey, cents, amountMinor, products]);
+  }, [retryKey, cents, amountMinor, cartLines, products]);
 
   // Poll the reference for a landed signature, then verify + confirm on-chain.
   useEffect(() => {
-    if (!qr) return;
+    if (!qr || !referenceAddress) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -167,7 +217,7 @@ export function SolanaPayStub() {
         let landed: string | undefined;
         try {
           const sigs = await rpc
-            .getSignaturesForAddress(REFERENCE_ADDRESS, { limit: 1 })
+            .getSignaturesForAddress(referenceAddress, { limit: 1 })
             .send();
           landed = sigs[0]?.signature;
         } catch (err) {
@@ -224,7 +274,7 @@ export function SolanaPayStub() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [qr, rpc, amountMinor]);
+  }, [qr, rpc, amountMinor, referenceAddress]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
