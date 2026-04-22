@@ -21,7 +21,6 @@ import {
   getDecodeIndex,
 } from "@ricos/shared";
 import type { Address } from "@solana/addresses";
-import { generateKeyPairSigner } from "@solana/signers";
 import { createSolanaClient } from "gill";
 
 import { useCart } from "@/lib/cart-context";
@@ -57,6 +56,22 @@ const RPC_URL_OR_MONIKER =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "devnet";
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
+
+async function fetchEphemeralReference(): Promise<Address> {
+  const res = await fetch("/api/solana-pay/reference", {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Failed to generate reference address");
+  }
+  const body = (await res.json()) as { reference?: string };
+  if (typeof body.reference !== "string" || body.reference.length === 0) {
+    throw new Error("Invalid reference address response");
+  }
+  return body.reference as Address;
+}
 
 function encodeCartMemo(lines: CartLine[]): string {
   const decodeIndex = getDecodeIndex(CURRENT_MENU_VERSION);
@@ -150,8 +165,7 @@ export function SolanaPayStub() {
 
       let ephemeralReference: Address;
       try {
-        const signer = await generateKeyPairSigner();
-        ephemeralReference = signer.address;
+        ephemeralReference = await fetchEphemeralReference();
       } catch (err) {
         paymentRef.current.handleError(
           err instanceof Error ? err : "Failed to generate reference address",
