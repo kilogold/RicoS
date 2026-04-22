@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import type { NormalizedIngressEvent } from "./types.js";
+import type { NormalizedIngressEvent } from "./types";
 
 export type StripeIngressParseResult =
   | { kind: "error"; status: number; message: string }
@@ -7,19 +7,19 @@ export type StripeIngressParseResult =
   | { kind: "event"; event: NormalizedIngressEvent };
 
 export async function parseStripeIngressEvent(params: {
-  body: Buffer;
+  rawBody: string;
   signature: string | undefined;
   stripe: Stripe;
   webhookSecret: string;
 }): Promise<StripeIngressParseResult> {
-  const { body, signature, stripe, webhookSecret } = params;
+  const { rawBody, signature, stripe, webhookSecret } = params;
   if (!signature) {
     return { kind: "error", status: 400, message: "Missing stripe-signature" };
   }
 
   let event: Stripe.Event;
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    event = await stripe.webhooks.constructEventAsync(rawBody, signature, webhookSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { kind: "error", status: 400, message: `Webhook Error: ${message}` };

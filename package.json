@@ -4,7 +4,6 @@
   "workspaces": [
     "web",
     "kitchen-relay",
-    "webhook-proxy",
     "packages/shared"
   ],
   "engines": {
@@ -14,7 +13,6 @@
     "preinstall": "bun scripts/enforce-bun-install.mjs",
     "dev:bootstrap": "bun scripts/dev-bootstrap.mjs",
     "dev:web": "bun --env-file=../.env --env-file=../.env.local run --cwd web dev",
-    "dev:webhook-proxy": "bun --env-file=../.env --env-file=../.env.local run --cwd webhook-proxy dev",
     "dev:kitchen": "bun --env-file=../.env --env-file=../.env.local run --cwd kitchen-relay dev",
     "build": "bun --env-file=../.env --env-file=../.env.local run --cwd web build",
     "lint": "bun --env-file=../.env --env-file=../.env.local run --cwd web lint"

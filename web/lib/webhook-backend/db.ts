@@ -46,7 +46,6 @@ export async function migrate(client: Client): Promise<void> {
   `);
 }
 
-/** Returns true if a new row was inserted (eligible for SSE broadcast). */
 export async function insertPendingIfNew(
   client: Client,
   payload: KitchenOrderPayload,
@@ -59,12 +58,10 @@ export async function insertPendingIfNew(
 }
 
 export async function listPending(client: Client): Promise<KitchenOrderPayload[]> {
-  const result = await client.execute(
-    `SELECT payload FROM kitchen_orders ORDER BY created_at ASC`,
-  );
+  const result = await client.execute(`SELECT payload FROM kitchen_orders ORDER BY created_at ASC`);
   const rows = (result.rows ?? []) as Record<string, unknown>[];
-  return rows.map((r) => {
-    const raw = r.payload ?? r.PAYLOAD;
+  return rows.map((row) => {
+    const raw = row.payload ?? row.PAYLOAD;
     return JSON.parse(String(raw)) as KitchenOrderPayload;
   });
 }
@@ -76,28 +73,12 @@ export async function deletePending(client: Client, stripeEventId: string): Prom
   });
 }
 
-/**
- * In-process cache of decode indices keyed by menuVersion.
- * Populated by `seedMenuVersions` at startup; read by `getDecodeIndex` during
- * webhook decode. Decoder path is intentionally synchronous.
- */
 const decodeIndexCache = new Map<number, DecodeIndex>();
 
-/** sha256 hex digest of canonical JSON. Used as drift-detection checksum. */
 function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-/**
- * Synchronizes the DB `menu_versions` table with the shared code registry.
- *
- * For each version in the registry:
- *   - if absent from the DB: insert the canonical catalog, decode index, and hash
- *   - if present: verify the stored hash matches; fail loudly on drift
- *
- * Populates the in-process decode-index cache as a side effect so subsequent
- * decode calls are synchronous and DB-free.
- */
 export async function seedMenuVersions(
   client: Client,
   registry: Readonly<Record<number, MenuVersion>>,
@@ -120,6 +101,7 @@ export async function seedMenuVersions(
       args: [entry.version],
     });
     const rows = (existing.rows ?? []) as Record<string, unknown>[];
+
     if (rows.length > 0) {
       const storedHash = String(rows[0].content_hash ?? rows[0].CONTENT_HASH ?? "");
       if (storedHash !== hash) {
@@ -135,14 +117,11 @@ export async function seedMenuVersions(
         args: [entry.version, publishedAtMs, canonicalCatalog, canonicalDecodeIndex, hash],
       });
     }
+
     decodeIndexCache.set(entry.version, decodeIndex);
   }
 }
 
-/**
- * Synchronous decode-index lookup used by the cart codec decoder.
- * Requires `seedMenuVersions` to have run at least once.
- */
 export function getDecodeIndex(version: number): DecodeIndex | undefined {
   return decodeIndexCache.get(version);
 }

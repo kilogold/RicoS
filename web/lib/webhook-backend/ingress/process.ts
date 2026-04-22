@@ -1,7 +1,7 @@
 import { decodeCartFromMetadataV1, type HydratedCart, type HydratedCartLine } from "@ricos/shared";
 import type { Client } from "@libsql/client";
-import { getDecodeIndex, insertPendingIfNew, type KitchenOrderPayload } from "../db.js";
-import type { NormalizedIngressEvent } from "./types.js";
+import { getDecodeIndex, insertPendingIfNew, type KitchenOrderPayload } from "../db";
+import type { NormalizedIngressEvent } from "./types";
 
 export class IngressProcessError extends Error {
   constructor(

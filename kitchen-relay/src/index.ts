@@ -10,7 +10,7 @@ import {
 } from "./print.js";
 import { createFileIdempotencyStore, resolveIdempotencyStorePath } from "./idempotency.js";
 
-/** Must match `KitchenOrderPayload` from webhook-proxy `src/db.ts`. */
+/** Must match `KitchenOrderPayload` from `web/lib/webhook-backend/db.ts`. */
 type OrderPaidPayload = {
   stripeEventId: string;
   paymentIntentId: string;
@@ -27,8 +27,9 @@ type OrderPaidPayload = {
   }[];
 };
 
-const proxyBase =
-  process.env.KITCHEN_WEBHOOK_PROXY_URL?.replace(/\/$/, "") || "http://127.0.0.1:4001";
+const backendBase = (
+  process.env.KITCHEN_BACKEND_BASE_URL ?? process.env.KITCHEN_WEBHOOK_PROXY_URL
+)?.replace(/\/$/, "") || "http://127.0.0.1:3000";
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
 const logFilePath = process.env.KITCHEN_PRINT_LOG;
 const printerAdapterEnv = process.env.KITCHEN_PRINTER_ADAPTER;
@@ -79,7 +80,7 @@ async function postPrintAck(stripeEventId: string): Promise<void> {
   if (printAckSecret) {
     headers["X-Print-Ack-Key"] = printAckSecret;
   }
-  const res = await fetch(`${proxyBase}/print-ack`, {
+  const res = await fetch(`${backendBase}/api/print/ack`, {
     method: "POST",
     headers,
     body: JSON.stringify({ stripeEventId }),
@@ -144,9 +145,9 @@ if (!Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) {
   process.exit(1);
 }
 
-const streamUrl = `${proxyBase}/stream`;
+const streamUrl = `${backendBase}/api/events/stream`;
 console.log(`Printing relay subscribing to SSE: ${streamUrl}`);
-console.log(`Print ack URL: ${proxyBase}/print-ack`);
+console.log(`Print ack URL: ${backendBase}/api/print/ack`);
 console.log(`Printer adapter: ${printerAdapterEnv}`);
 console.log(`Idempotency store: ${idempotencyPath}`);
 console.log(`Health: http://127.0.0.1:${relayPort}/health`);

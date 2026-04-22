@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
     "@ricos/shared": "*",
     "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^5.10.0",

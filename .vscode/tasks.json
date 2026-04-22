@@ -2,24 +2,6 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "ricos: dev — webhook-proxy",
-      "type": "shell",
-      "command": "bun run dev:webhook-proxy",
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PATH": "${env:HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
-        }
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "focus": false,
-        "showReuseMessage": false
-      }
-    },
-    {
       "label": "ricos: dev — kitchen-relay",
       "type": "shell",
       "command": "bun run dev:kitchen",
@@ -70,7 +52,6 @@
     {
       "label": "RicoS: Dev bootstrap",
       "dependsOn": [
-        "ricos: dev — webhook-proxy",
         "ricos: dev — kitchen-relay",
         "ricos: dev — web"
       ],

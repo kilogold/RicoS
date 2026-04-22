@@ -1,5 +1,5 @@
 import { CART_B64_KEY, CART_CODEC_ID_V1, CART_CODEC_KEY } from "@ricos/shared";
-import type { NormalizedIngressEvent } from "./types.js";
+import type { NormalizedIngressEvent } from "./types";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -92,8 +92,6 @@ function parseCandidate(
 
   const hasMemo = Boolean(memo);
   const hasAnyTransfer = listTokenTransfers(candidate).length > 0;
-
-  // Solana Pay minimum pattern for this integration: transfer + memo.
   if (!hasMemo && !hasAnyTransfer) return { kind: "ignore" };
 
   if (!hasMemo) {
@@ -148,6 +146,7 @@ function extractMemo(candidate: UnknownRecord): string | undefined {
     ["transaction", "message", "instructions"],
   ]);
   if (!instructions) return undefined;
+
   for (const value of instructions) {
     if (!isRecord(value)) continue;
     const program = toLower(firstString(value, [["program"], ["programId"], ["type"]]));
@@ -163,10 +162,9 @@ function extractMemo(candidate: UnknownRecord): string | undefined {
     const rawData = firstString(value, [["data"]]);
     if (!rawData?.trim()) continue;
     const decodedMemo = decodeBase58MemoData(rawData.trim());
-    if (decodedMemo) {
-      return decodedMemo;
-    }
+    if (decodedMemo) return decodedMemo;
   }
+
   return undefined;
 }
 
@@ -177,6 +175,7 @@ function extractMemoFromLogs(candidate: UnknownRecord): string | undefined {
     ["transaction", "meta", "logMessages"],
   ]);
   if (!logMessages) return undefined;
+
   for (const value of logMessages) {
     if (typeof value !== "string") continue;
     const match = value.match(/Memo(?:\s*\(len\s+\d+\))?:\s*"([^"]+)"/);
@@ -196,7 +195,6 @@ function findMatchingTransfer(
   const transfers = listTokenTransfers(candidate);
   if (transfers.length === 0) return { kind: "mint_or_recipient_mismatch" };
 
-  let sawMintOrRecipientMismatch = false;
   for (const transfer of transfers) {
     const mint = toLower(firstString(transfer, [["mint"], ["tokenMint"]]));
     const recipient = toLower(
@@ -209,18 +207,14 @@ function findMatchingTransfer(
     );
     const mintMatches = mint === toLower(expectedMint);
     const recipientMatches = recipient === toLower(expectedRecipient);
-    if (!mintMatches || !recipientMatches) {
-      sawMintOrRecipientMismatch = true;
-      continue;
-    }
+    if (!mintMatches || !recipientMatches) continue;
+
     const amountCents = extractAmountCents(transfer);
     if (amountCents === null) return { kind: "no_amount" };
     return { kind: "ok", amountCents };
   }
 
-  return sawMintOrRecipientMismatch
-    ? { kind: "mint_or_recipient_mismatch" }
-    : { kind: "mint_or_recipient_mismatch" };
+  return { kind: "mint_or_recipient_mismatch" };
 }
 
 function listTokenTransfers(candidate: UnknownRecord): UnknownRecord[] {
@@ -249,11 +243,11 @@ function extractAmountCents(transfer: UnknownRecord): number | null {
 
   try {
     const rawUnits = BigInt(raw);
-    if (rawUnits <= 0n) return null;
+    if (rawUnits <= BigInt(0)) return null;
     if (decimals < 2) return null;
-    const divisor = 10n ** BigInt(decimals - 2);
-    if (divisor <= 0n) return null;
-    if (rawUnits % divisor !== 0n) return null;
+    const divisor = BigInt(10) ** BigInt(decimals - 2);
+    if (divisor <= BigInt(0)) return null;
+    if (rawUnits % divisor !== BigInt(0)) return null;
     const cents = rawUnits / divisor;
     const asNumber = Number(cents);
     return Number.isSafeInteger(asNumber) ? asNumber : null;
