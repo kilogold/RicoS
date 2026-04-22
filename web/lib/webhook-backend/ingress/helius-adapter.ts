@@ -12,7 +12,12 @@ export type HeliusIngressConfig = {
 
 export type HeliusIngressParseResult =
   | { kind: "error"; status: number; message: string }
-  | { kind: "ok"; events: NormalizedIngressEvent[]; ignoredCount: number };
+  | {
+      kind: "ok";
+      events: NormalizedIngressEvent[];
+      ignoredCount: number;
+      ignoredDetails: { signature: string; reason: string }[];
+    };
 
 export function parseHeliusIngressPayload(params: {
   body: unknown;
@@ -30,18 +35,20 @@ export function parseHeliusIngressPayload(params: {
 
   const normalizedEvents: NormalizedIngressEvent[] = [];
   let ignoredCount = 0;
+  const ignoredDetails: { signature: string; reason: string }[] = [];
 
   for (const candidate of candidates) {
     const maybeEvent = parseCandidate(candidate, config);
     if (maybeEvent.kind === "ignore") {
       ignoredCount += 1;
+      ignoredDetails.push({ signature: maybeEvent.signature, reason: maybeEvent.reason });
       continue;
     }
     if (maybeEvent.kind === "error") return maybeEvent;
     normalizedEvents.push(maybeEvent.event);
   }
 
-  return { kind: "ok", events: normalizedEvents, ignoredCount };
+  return { kind: "ok", events: normalizedEvents, ignoredCount, ignoredDetails };
 }
 
 function verifyAuth(
@@ -72,7 +79,7 @@ function parseCandidate(
   config: HeliusIngressConfig,
 ):
   | { kind: "error"; status: number; message: string }
-  | { kind: "ignore" }
+  | { kind: "ignore"; signature: string; reason: string }
   | { kind: "event"; event: NormalizedIngressEvent } {
   const signature = firstString(candidate, [
     ["signature"],
@@ -92,7 +99,9 @@ function parseCandidate(
 
   const hasMemo = Boolean(memo);
   const hasAnyTransfer = listTokenTransfers(candidate).length > 0;
-  if (!hasMemo && !hasAnyTransfer) return { kind: "ignore" };
+  if (!hasMemo && !hasAnyTransfer) {
+    return { kind: "ignore", signature, reason: "non_solana_pay_candidate" };
+  }
 
   if (!hasMemo) {
     return { kind: "error", status: 400, message: "Solana Pay candidate missing memo" };

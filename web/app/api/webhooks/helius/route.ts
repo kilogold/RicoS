@@ -5,6 +5,7 @@ import { executeIngressEvent } from "@/lib/webhook-backend/ingress/execute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const heliusDebug = process.env.HELIUS_WEBHOOK_DEBUG?.trim() === "1";
 
 function headersToRecord(headers: Headers): Record<string, string | string[] | undefined> {
   const record: Record<string, string | undefined> = {};
@@ -15,6 +16,7 @@ function headersToRecord(headers: Headers): Record<string, string | string[] | u
 }
 
 export async function POST(req: Request) {
+  const startedAt = Date.now();
   let db;
   let heliusConfig;
   try {
@@ -44,11 +46,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.message }, { status: parsed.status });
   }
 
+  if (heliusDebug || parsed.ignoredCount > 0) {
+    console.info("Helius ingress parsed:", {
+      processed: parsed.events.length,
+      ignored: parsed.ignoredCount,
+      ignoredDetails: parsed.ignoredDetails.slice(0, 5),
+    });
+  }
+
   for (const event of parsed.events) {
+    if (heliusDebug) {
+      console.info("Helius ingress normalized event:", {
+        ingressEventId: event.ingressEventId,
+        paymentReferenceId: event.paymentReferenceId,
+        amountCents: event.amountCents,
+        currency: event.currency,
+      });
+    }
     const outcome = await executeIngressEvent(db, event);
     if (!outcome.ok) {
+      console.error("Helius ingress processing failed:", {
+        ingressEventId: event.ingressEventId,
+        status: outcome.status,
+        body: outcome.body,
+      });
       return NextResponse.json(outcome.body, { status: outcome.status });
     }
+  }
+
+  if (heliusDebug) {
+    console.info("Helius ingress request completed:", {
+      processed: parsed.events.length,
+      ignored: parsed.ignoredCount,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   return NextResponse.json({
