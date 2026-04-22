@@ -3,29 +3,33 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type Response } from "express";
 import Stripe from "stripe";
-import {
-  MENU_VERSIONS,
-  decodeCartFromMetadataV1,
-  type HydratedCart,
-  type HydratedCartLine,
-} from "@ricos/shared";
+import { MENU_VERSIONS } from "@ricos/shared";
 import {
   defaultDatabaseUrl,
   deletePending,
-  getDecodeIndex,
-  insertPendingIfNew,
   listPending,
   migrate,
   seedMenuVersions,
   type KitchenOrderPayload,
   openDb,
 } from "./db.js";
+import { parseStripeIngressEvent } from "./ingress/stripe-adapter.js";
+import {
+  parseHeliusIngressPayload,
+  type HeliusIngressConfig,
+} from "./ingress/helius-adapter.js";
+import { IngressProcessError, processIngressEvent } from "./ingress/process.js";
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const webhookProxyPortRaw = process.env.WEBHOOK_PROXY_PORT?.trim();
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
 const databaseUrl = process.env.WEBHOOK_PROXY_DATABASE_URL?.trim() || defaultDatabaseUrl();
+const heliusAuthHeaderName =
+  process.env.HELIUS_WEBHOOK_AUTH_HEADER_NAME?.trim().toLowerCase() || "x-helius-auth";
+const heliusAuthHeaderValue = process.env.HELIUS_WEBHOOK_AUTH_HEADER_VALUE?.trim();
+const heliusUsdcMint = process.env.HELIUS_USDC_MINT?.trim();
+const heliusMerchantRecipient = process.env.HELIUS_MERCHANT_RECIPIENT?.trim();
 
 function ensureParentDirForFileUrl(url: string): void {
   if (!url.startsWith("file:")) return;
@@ -45,6 +49,14 @@ if (!webhookProxyPortRaw) {
   console.error("Missing WEBHOOK_PROXY_PORT");
   process.exit(1);
 }
+if (!heliusUsdcMint) {
+  console.error("Missing HELIUS_USDC_MINT");
+  process.exit(1);
+}
+if (!heliusMerchantRecipient) {
+  console.error("Missing HELIUS_MERCHANT_RECIPIENT");
+  process.exit(1);
+}
 
 const port = Number(webhookProxyPortRaw);
 if (!Number.isInteger(port) || port <= 0 || port > 65535) {
@@ -59,6 +71,12 @@ await seedMenuVersions(db, MENU_VERSIONS);
 
 const stripe = new Stripe(stripeSecret);
 const app = express();
+const heliusConfig: HeliusIngressConfig = {
+  authHeaderName: heliusAuthHeaderName,
+  authHeaderValue: heliusAuthHeaderValue,
+  expectedUsdcMint: heliusUsdcMint,
+  expectedRecipient: heliusMerchantRecipient,
+};
 
 /** SSE subscribers (Express response objects). */
 const sseClients = new Set<Response>();
@@ -75,6 +93,33 @@ function broadcastOrderPaid(payload: KitchenOrderPayload): void {
     } catch {
       sseClients.delete(res);
     }
+  }
+}
+
+async function processOneIngressEvent(
+  ingressEvent: {
+    ingressEventId: string;
+    paymentReferenceId: string;
+    amountCents: number;
+    currency: string;
+    metadata: Record<string, string | undefined>;
+    provider: "stripe" | "helius";
+  },
+): Promise<{ ok: true } | { ok: false; status: number; body: Record<string, string> }> {
+  try {
+    await processIngressEvent(db, ingressEvent, broadcastOrderPaid);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof IngressProcessError) {
+      if (err.code === "persist_failed") {
+        console.error("kitchen_orders insert failed:", err.message);
+        return { ok: false, status: 500, body: { error: err.code } };
+      }
+      console.error(`Ingress ${ingressEvent.provider} rejected:`, err.message);
+      return { ok: false, status: 400, body: { error: err.code } };
+    }
+    console.error("Unexpected ingress processing error:", err);
+    return { ok: false, status: 500, body: { error: "persist_failed" } };
   }
 }
 
@@ -130,83 +175,62 @@ app.post("/print-ack", express.json(), async (req, res) => {
   res.status(204).end();
 });
 
-app.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    if (!sig || typeof sig !== "string") {
-      res.status(400).send("Missing stripe-signature");
+app.post("/webhook/stripe", express.raw({ type: "application/json" }), async (req, res) => {
+  const parsed = await parseStripeIngressEvent({
+    body: req.body as Buffer,
+    signature:
+      typeof req.headers["stripe-signature"] === "string"
+        ? req.headers["stripe-signature"]
+        : undefined,
+    stripe,
+    webhookSecret,
+  });
+  if (parsed.kind === "error") {
+    console.error("Stripe ingress rejected:", parsed.message);
+    res.status(parsed.status).send(parsed.message);
+    return;
+  }
+  if (parsed.kind === "ignore") {
+    res.json({ received: true, ignored: true });
+    return;
+  }
+
+  const outcome = await processOneIngressEvent(parsed.event);
+  if (!outcome.ok) {
+    res.status(outcome.status).json(outcome.body);
+    return;
+  }
+
+  res.json({ received: true });
+});
+
+app.post("/webhook/helius", express.json({ limit: "1mb" }), async (req, res) => {
+  const parsed = parseHeliusIngressPayload({
+    body: req.body,
+    headers: req.headers,
+    config: heliusConfig,
+  });
+  if (parsed.kind === "error") {
+    console.error("Helius ingress rejected:", parsed.message);
+    res.status(parsed.status).json({ error: parsed.message });
+    return;
+  }
+
+  for (const event of parsed.events) {
+    const outcome = await processOneIngressEvent(event);
+    if (!outcome.ok) {
+      res.status(outcome.status).json(outcome.body);
       return;
     }
+  }
 
-    let event: Stripe.Event;
-    try {
-      event = await stripe.webhooks.constructEventAsync(req.body, sig, webhookSecret);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Webhook signature verification failed:", message);
-      res.status(400).send(`Webhook Error: ${message}`);
-      return;
-    }
-
-    if (event.type === "payment_intent.succeeded") {
-      const pi = event.data.object as Stripe.PaymentIntent;
-      let decodedCart: HydratedCart;
-      try {
-        decodedCart = decodeCartFromMetadataV1(pi.metadata, getDecodeIndex);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("Invalid cart metadata:", message);
-        res.status(400).json({ error: "invalid_cart_metadata" });
-        return;
-      }
-      const recomputedCartTotalCents = decodedCart.lines.reduce(
-        (sum: number, line: HydratedCartLine) => sum + line.lineExtendedTotalCents,
-        0,
-      );
-      if (recomputedCartTotalCents !== Number(pi.amount)) {
-        console.error(
-          "Cart total mismatch:",
-          recomputedCartTotalCents,
-          Number(pi.amount),
-        );
-        res.status(400).json({ error: "cart_total_mismatch" });
-        return;
-      }
-      const payload: KitchenOrderPayload = {
-        stripeEventId: event.id,
-        paymentIntentId: pi.id,
-        amountCents: Number(pi.amount),
-        currency: pi.currency,
-        lines: decodedCart.lines,
-      };
-      try {
-        const inserted = await insertPendingIfNew(db, payload);
-        if (inserted) {
-          try {
-            broadcastOrderPaid(payload);
-          } catch (broadcastErr) {
-            console.error("SSE broadcast failed (order is persisted):", broadcastErr);
-          }
-        }
-      } catch (err) {
-        console.error("kitchen_orders insert failed:", err);
-        res.status(500).json({ error: "persist_failed" });
-        return;
-      }
-    } else if (event.type === "payment_intent.payment_failed") {
-      const pi = event.data.object as Stripe.PaymentIntent;
-      console.error("Payment failed:", pi.id, pi.last_payment_error?.message);
-    }
-
-    res.json({ received: true });
-  },
-);
+  res.json({ received: true, processed: parsed.events.length, ignored: parsed.ignoredCount });
+});
 
 app.listen(port, () => {
   console.log(`Webhook proxy listening on http://127.0.0.1:${port}`);
-  console.log(`Webhook: POST http://127.0.0.1:${port}/webhook`);
+  console.log(`Stripe webhook: POST http://127.0.0.1:${port}/webhook/stripe`);
+  console.log(`Helius webhook: POST http://127.0.0.1:${port}/webhook/helius`);
   console.log(`SSE: GET http://127.0.0.1:${port}/stream`);
   console.log(`Print ack: POST http://127.0.0.1:${port}/print-ack`);
   console.log(`Database: ${databaseUrl}`);

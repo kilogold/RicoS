@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "bun test"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",

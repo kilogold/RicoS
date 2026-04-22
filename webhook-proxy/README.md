@@ -1,6 +1,6 @@
 # webhook-proxy
 
-Bun + Express service that receives Stripe webhooks, decodes RicoS cart metadata against a versioned menu catalog, persists paid orders in a local libSQL (SQLite-compatible) database, and streams `order.paid` events to the kitchen relay over Server-Sent Events.
+Bun + Express service that receives Stripe + Helius webhooks, decodes RicoS cart metadata against a versioned menu catalog, persists paid orders in a local libSQL (SQLite-compatible) database, and streams `order.paid` events to the kitchen relay over Server-Sent Events.
 
 This README is the canonical reference for the proxy's **database schema, menu versioning, cart codec wire format, and migration path**. For project overview, installation, env files, and day-to-day dev workflow, see the root [README.md](../README.md).
 
@@ -17,7 +17,7 @@ This README is the canonical reference for the proxy's **database schema, menu v
 
 ## Role in the system
 
-- Verifies Stripe webhook signatures.
+- Verifies Stripe webhook signatures and Helius shared-secret auth (when configured).
 - Resolves a cart's `menuVersion` against its local copy of the menu registry; decodes `cart_b64` into a hydrated `KitchenOrderPayload`.
 - Cross-checks the recomputed cart total (`sum(line.lineExtendedTotalCents)`) against `paymentIntent.amount`; rejects mismatches.
 - Writes one `kitchen_orders` row per accepted event (dedupe key: `stripe_event_id`).
@@ -47,15 +47,36 @@ All env vars are sourced from the repo-root `.env` + `.env.local` (see root READ
 | `WEBHOOK_PROXY_PORT` | yes | — | e.g. `4001` |
 | `WEBHOOK_PROXY_DATABASE_URL` | no | `file:./data/webhook-proxy.db` | libSQL URL. Use a Turso `https://…` URL + token in production. |
 | `PRINT_ACK_SECRET` | no | unset | When set, the relay must send `X-Print-Ack-Key: <secret>` on `POST /print-ack` |
+| `HELIUS_USDC_MINT` | yes | — | USDC mint expected in Solana Pay token transfers |
+| `HELIUS_MERCHANT_RECIPIENT` | yes | — | Expected merchant recipient wallet for Solana Pay token transfers |
+| `HELIUS_WEBHOOK_AUTH_HEADER_NAME` | no | `x-helius-auth` | Header name checked on `POST /webhook/helius` |
+| `HELIUS_WEBHOOK_AUTH_HEADER_VALUE` | no | unset | If set, incoming Helius requests must match this header value |
 
 ## HTTP surface
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/webhook` | Stripe-signed webhook endpoint. Verifies signature, decodes cart, persists order, broadcasts SSE. |
+| `POST` | `/webhook/stripe` | Stripe-signed webhook endpoint. Verifies signature, decodes cart, persists order, broadcasts SSE. |
+| `POST` | `/webhook/helius` | Helius webhook endpoint. Accepts Solana Pay-shaped transactions (memo + transfer), validates USDC mint + recipient, decodes cart, persists order, broadcasts SSE. |
 | `GET` | `/stream` | SSE stream of `order.paid` events (consumed by `kitchen-relay`). Replays all unprinted rows on connect. |
 | `POST` | `/print-ack` | Relay acknowledges a printed `stripe_event_id`; row is deleted. Requires `X-Print-Ack-Key` when `PRINT_ACK_SECRET` is set. |
 | `GET` | `/health` | Liveness probe. |
+
+### Helius Solana Pay filter behavior
+
+`POST /webhook/helius` only processes transactions that match the Solana Pay minimum shape:
+
+- memo exists and is extractable;
+- token transfer evidence exists;
+- token mint matches `HELIUS_USDC_MINT`;
+- recipient matches `HELIUS_MERCHANT_RECIPIENT`.
+
+Strict rejection rules:
+
+- missing memo/transfer on a Solana Pay candidate -> `400`;
+- wrong mint/recipient -> `400`.
+
+Non-Solana-Pay transactions (no memo + no transfer pattern) are ignored and acknowledged.
 
 ## Database
 
