@@ -44,7 +44,6 @@ export function parseHeliusIngressPayload(params: {
       ignoredDetails.push({ signature: maybeEvent.signature, reason: maybeEvent.reason });
       continue;
     }
-    if (maybeEvent.kind === "error") return maybeEvent;
     normalizedEvents.push(maybeEvent.event);
   }
 
@@ -78,7 +77,6 @@ function parseCandidate(
   candidate: UnknownRecord,
   config: HeliusIngressConfig,
 ):
-  | { kind: "error"; status: number; message: string }
   | { kind: "ignore"; signature: string; reason: string }
   | { kind: "event"; event: NormalizedIngressEvent } {
   const signature = firstString(candidate, [
@@ -87,7 +85,7 @@ function parseCandidate(
     ["txSignature"],
   ]);
   if (!signature) {
-    return { kind: "error", status: 400, message: "Helius payload missing transaction signature" };
+    return { kind: "ignore", signature: "missing_signature", reason: "missing_signature" };
   }
 
   const memo = extractMemo(candidate);
@@ -104,24 +102,16 @@ function parseCandidate(
   }
 
   if (!hasMemo) {
-    return { kind: "error", status: 400, message: "Solana Pay candidate missing memo" };
+    return { kind: "ignore", signature, reason: "missing_memo" };
   }
   if (!hasAnyTransfer) {
-    return { kind: "error", status: 400, message: "Solana Pay candidate missing token transfer" };
+    return { kind: "ignore", signature, reason: "missing_token_transfer" };
   }
   if (matchingTransfer.kind === "mint_or_recipient_mismatch") {
-    return {
-      kind: "error",
-      status: 400,
-      message: "Solana Pay transfer mint or recipient mismatch",
-    };
+    return { kind: "ignore", signature, reason: "mint_or_recipient_mismatch" };
   }
   if (matchingTransfer.kind === "no_amount") {
-    return {
-      kind: "error",
-      status: 400,
-      message: "Solana Pay transfer amount missing or invalid",
-    };
+    return { kind: "ignore", signature, reason: "invalid_transfer_amount" };
   }
 
   return {
