@@ -3,6 +3,7 @@ import { MENU_VERSIONS } from "@ricos/shared";
 import type { Client } from "@libsql/client";
 import { migrate, openDb, seedMenuVersions, type KitchenOrderPayload } from "./db";
 import type { HeliusIngressConfig } from "./ingress/helius-adapter";
+import { ensureSolanaPaymentPollerStarted } from "./poller";
 
 type OrderPaidListener = (payload: KitchenOrderPayload) => void;
 
@@ -75,6 +76,10 @@ export async function getWebhookDb(): Promise<Client> {
   })();
 
   return runtime.dbPromise;
+}
+
+export function ensureBackendPollerStarted(): void {
+  ensureSolanaPaymentPollerStarted(getWebhookDb);
 }
 
 export function publishOrderPaid(payload: KitchenOrderPayload): void {

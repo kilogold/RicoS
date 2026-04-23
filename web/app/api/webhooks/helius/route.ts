@@ -6,6 +6,7 @@ import { executeIngressEvent } from "@/lib/webhook-backend/ingress/execute";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const heliusDebug = process.env.HELIUS_WEBHOOK_DEBUG?.trim() === "1";
+const heliusWebhookEnabled = process.env.HELIUS_WEBHOOK_ENABLED?.trim() === "1";
 
 function headersToRecord(headers: Headers): Record<string, string | string[] | undefined> {
   const record: Record<string, string | undefined> = {};
@@ -16,6 +17,13 @@ function headersToRecord(headers: Headers): Record<string, string | string[] | u
 }
 
 export async function POST(req: Request) {
+  if (!heliusWebhookEnabled) {
+    if (heliusDebug) {
+      console.info("Helius webhook received while disabled; ignoring request.");
+    }
+    return NextResponse.json({ received: true, ignored: true, reason: "webhook_disabled" });
+  }
+
   const startedAt = Date.now();
   let db;
   let heliusConfig;

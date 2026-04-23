@@ -16,6 +16,8 @@ import {
 } from "@solana-commerce/solana-pay";
 import {
   CART_B64_KEY,
+  CART_CODEC_ID_V1,
+  CART_CODEC_KEY,
   CURRENT_MENU_VERSION,
   encodeCartToMetadataV1,
   getDecodeIndex,
@@ -57,10 +59,16 @@ const RPC_URL_OR_MONIKER =
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
 
-async function fetchEphemeralReference(): Promise<Address> {
+async function fetchEphemeralReference(params: {
+  metadata: Record<string, string | undefined>;
+  amountCents: number;
+  currency: string;
+}): Promise<Address> {
   const res = await fetch("/api/solana-pay/reference", {
     method: "POST",
     cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -165,7 +173,14 @@ export function SolanaPayStub() {
 
       let ephemeralReference: Address;
       try {
-        ephemeralReference = await fetchEphemeralReference();
+        ephemeralReference = await fetchEphemeralReference({
+          metadata: {
+            [CART_B64_KEY]: memo,
+            [CART_CODEC_KEY]: CART_CODEC_ID_V1,
+          },
+          amountCents: cents,
+          currency: "usdc",
+        });
       } catch (err) {
         paymentRef.current.handleError(
           err instanceof Error ? err : "Failed to generate reference address",

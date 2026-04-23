@@ -1,6 +1,8 @@
 # RicoS
 
-Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), backend webhook handlers in the **`web`** app that stream **`order.paid`** over **SSE**, a **kitchen-relay** printing service that subscribes to that stream and prints tickets, and shared **menu data** with stable opaque item IDs.
+Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), backend routes in the **`web`** app that persist pending Solana payment references and poll chain confirmations into the `order.paid` queue, a **kitchen-relay** printing service that subscribes to that stream and prints tickets, and shared **menu data** with stable opaque item IDs.
+
+**Webhook integration status:** Stripe and Helius webhook routes remain integrated and ready for use, but Solana order ingestion currently relies on backend polling and is not actively using webhook delivery.
 
 **Package manager: [Bun](https://bun.sh) only.** The repo uses `bun.lock`. Do not run `npm install`, `yarn`, or `pnpm` — installs are blocked by a root `preinstall` hook unless you bypass it (don’t).
 
@@ -45,7 +47,9 @@ Root Bun scripts load `.env` first, then `.env.local`, so local values override 
 - `PRINT_ACK_SECRET` — optional shared secret; relay must send header `X-Print-Ack-Key` when set
 - `HELIUS_USDC_MINT` — expected USDC mint in Solana Pay transfer parsing (`.env.local`)
 - `HELIUS_MERCHANT_RECIPIENT` — expected merchant recipient wallet (`.env.local`)
-- `HELIUS_WEBHOOK_AUTH_HEADER_NAME` / `HELIUS_WEBHOOK_AUTH_HEADER_VALUE` — optional Helius auth gate (`.env.local`)
+- `SOLANA_POLL_INTERVAL_MS` — optional poll interval override for pending Solana references (default `2000`)
+- `HELIUS_WEBHOOK_ENABLED` — optional toggle for webhook ingestion (`1` to enable, default disabled)
+- `HELIUS_WEBHOOK_AUTH_HEADER_NAME` / `HELIUS_WEBHOOK_AUTH_HEADER_VALUE` — optional auth gate for webhook ingestion (`.env.local`)
 
 **Kitchen relay** (printing only, root `.env` / `.env.local`):
 
@@ -85,11 +89,11 @@ Optional:
 
 4. **Configure provider webhooks to hit hosted web routes**:
    - Stripe endpoint: `https://<your-web-domain>/api/webhooks/stripe`
-   - Helius endpoint: `https://<your-web-domain>/api/webhooks/helius`
+   - Helius endpoint: `https://<your-web-domain>/api/webhooks/helius` (integration can remain configured while ingestion is disabled by default)
    - Relay SSE endpoint: `https://<your-web-domain>/api/events/stream`
    - Relay ack endpoint: `https://<your-web-domain>/api/print/ack`
 
-   When a payment succeeds, the web backend persists the order and emits **`order.paid`** over SSE; the relay prints a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
+   Solana Pay checkout now registers pending payment references on the backend; a poller confirms on-chain settlement and persists the order. The backend then emits **`order.paid`** over SSE; the relay prints a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
 
 5. Open [http://localhost:3000](http://localhost:3000), add items, complete checkout with a [Stripe test card](https://stripe.com/docs/testing#cards) (e.g. `4242 4242 4242 4242`).
 
@@ -103,7 +107,8 @@ Optional:
 ## Kitchen relay host (on-prem)
 
 - Run **`kitchen-relay`** under **systemd** (or another supervisor), with `KITCHEN_BACKEND_BASE_URL` pointing at your hosted web backend.
-- Configure Stripe/Helius webhooks to call hosted `web` routes directly (`/api/webhooks/stripe`, `/api/webhooks/helius`).
+- Configure Stripe webhook to call hosted `web` route directly (`/api/webhooks/stripe`).
+- Helius webhook can remain configured for future use, but Solana ingestion no longer uses webhook delivery by default.
 - Replace or extend the print layer in [`kitchen-relay/src/print.ts`](kitchen-relay/src/print.ts) for USB or network thermal printers (e.g. ESC/POS) as needed.
 
 ## Menu item IDs
@@ -147,7 +152,7 @@ Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env`
 
 ## Architecture
 
-The diagram below reflects the deployed architecture: webhook receipt in the hosted web backend with Turso-backed queue and on-prem kitchen relay.
+The diagram below reflects the deployed architecture: pending-reference polling in the hosted web backend with Turso-backed queue and on-prem kitchen relay.
 
 ```mermaid
 flowchart TB
@@ -180,12 +185,11 @@ flowchart TB
   U -->|Checkout + Order Confirmation| W
   W ---->|Create Stripe payment request| S
   S -.->|Stripe payment confirmation| W 
-  W -->|Create Solana Pay payment request|W 
+  W -->|Create Solana Pay payment request|W
   W ---->|Solana Pay transaction|H
-  H -.->|Solana Pay confirmation|W
 
   S -->|Webhook event| X
-  H -->|Webhook event| X
+  X -->|poll pending references| H
   X -->|track print queue| DB
   X -->|SSE order.paid event| K
   K -->|SSE subscribe & POST print ack| X

@@ -1,5 +1,5 @@
 import { listPending, type KitchenOrderPayload } from "@/lib/webhook-backend/db";
-import { getWebhookDb, subscribeOrderPaid } from "@/lib/webhook-backend/runtime";
+import { ensureBackendPollerStarted, getWebhookDb, subscribeOrderPaid } from "@/lib/webhook-backend/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +9,7 @@ function formatEvent(event: string, payload: KitchenOrderPayload): string {
 }
 
 export async function GET(req: Request) {
+  ensureBackendPollerStarted();
   let db;
   try {
     db = await getWebhookDb();
