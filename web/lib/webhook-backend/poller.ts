@@ -72,14 +72,25 @@ type ParsedInstruction = {
   parsed?: { type?: string; info?: Record<string, unknown> };
 };
 
+type AccountKey = string | { pubkey?: string };
+
+type TokenBalance = {
+  accountIndex?: number;
+  mint?: string;
+  owner?: string;
+};
+
 type RpcTransaction = {
   transaction?: {
     message?: {
+      accountKeys?: AccountKey[];
       instructions?: ParsedInstruction[];
     };
   };
   meta?: {
     innerInstructions?: { instructions?: ParsedInstruction[] }[];
+    postTokenBalances?: TokenBalance[];
+    preTokenBalances?: TokenBalance[];
   };
 };
 
@@ -133,6 +144,34 @@ function allInstructions(tx: RpcTransaction): ParsedInstruction[] {
   return [...top, ...inner];
 }
 
+function accountKeyAt(tx: RpcTransaction, index: number): string | undefined {
+  const accountKey = tx.transaction?.message?.accountKeys?.[index];
+  if (typeof accountKey === "string") return accountKey;
+  if (accountKey && typeof accountKey === "object" && typeof accountKey.pubkey === "string") {
+    return accountKey.pubkey;
+  }
+  return undefined;
+}
+
+function destinationOwnerForMint(
+  tx: RpcTransaction,
+  tokenAccount: string,
+  mintExpected: string,
+): string | undefined {
+  const balances = [...(tx.meta?.postTokenBalances ?? []), ...(tx.meta?.preTokenBalances ?? [])];
+  const tokenAccountNormalized = normalize(tokenAccount);
+  for (const balance of balances) {
+    if (typeof balance.accountIndex !== "number") continue;
+    const pubkey = accountKeyAt(tx, balance.accountIndex);
+    if (!pubkey || normalize(pubkey) !== tokenAccountNormalized) continue;
+    if (normalize(balance.mint) !== mintExpected) continue;
+    if (typeof balance.owner === "string" && balance.owner.trim()) {
+      return balance.owner;
+    }
+  }
+  return undefined;
+}
+
 async function hasMatchingTransfer(params: {
   signature: string;
   expectedRecipient: string;
@@ -167,10 +206,23 @@ async function hasMatchingTransfer(params: {
           "",
       ),
     );
-    if (recipient !== recipientExpected) continue;
-
     const mint = normalize(String((info as Record<string, unknown>).mint ?? ""));
     if (!mint || mint !== mintExpected) continue;
+
+    const recipientOwner = destinationOwnerForMint(
+      tx,
+      String(
+        (info as Record<string, unknown>).destination ??
+          (info as Record<string, unknown>).to ??
+          (info as Record<string, unknown>).toAccount ??
+          (info as Record<string, unknown>).toUserAccount ??
+          "",
+      ),
+      mintExpected,
+    );
+    const recipientMatches =
+      recipient === recipientExpected || normalize(recipientOwner) === recipientExpected;
+    if (!recipientMatches) continue;
 
     const amountCents = decodeAmountCents(info as Record<string, unknown>);
     if (amountCents === null) continue;
