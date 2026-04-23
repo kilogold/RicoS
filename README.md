@@ -104,6 +104,28 @@ Optional:
 - Add `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Vercel project **Environment Variables**.
 - The **kitchen relay** remains on-prem; webhook handling now runs in the hosted `web` backend.
 
+## Solana Pay (scalability)
+
+Current ingestion is DB-backed polling for reliability. It is resilient to webhook delivery misses, but the naive cost model scales poorly:
+
+- Each loop iteration scans active `pending_payments`.
+- Each pending reference can trigger RPC lookups (`getSignaturesForAddress`, then `getTransaction` on match).
+- Effective request rate grows with both poll frequency and queue depth (`requests/sec ~= pending * loops/sec` in worst case).
+
+This means low-latency settings can quickly multiply RPC load as checkout concurrency rises.
+
+### Optimization target
+
+To approach webhook-like latency while keeping polling reliability, optimize around a bounded, indexed scan model instead of per-reference hot loops:
+
+- Poll recent signatures from merchant-side activity windows (time/slot bounded) and map back to pending references.
+- Batch or coalesce transaction detail fetches, and only fetch details for candidate signatures that can satisfy amount/mint/account constraints.
+- Keep a short-lived in-memory signature cache (already-seen tx) to avoid repeated decode work.
+- Use adaptive polling: fast cadence while queue is small/non-empty, slower cadence when queue is empty or backlog is large.
+- Enforce hard concurrency and RPS caps per provider tier to prevent 429 storms.
+
+Practical goal: maintain near-real-time confirmation for active checkouts while keeping RPC usage sub-linear relative to pending queue size.
+
 ## Kitchen relay host (on-prem)
 
 - Run **`kitchen-relay`** under **systemd** (or another supervisor), with `KITCHEN_BACKEND_BASE_URL` pointing at your hosted web backend.

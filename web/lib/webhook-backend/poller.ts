@@ -1,4 +1,5 @@
 import type { Client } from "@libsql/client";
+import { address, createSolanaRpc } from "@solana/kit";
 import {
   expireStalePendingPayments,
   listActivePendingPayments,
@@ -27,6 +28,8 @@ if (!state.__ricosSolanaPoller) {
 const pollerState = state.__ricosSolanaPoller;
 const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const POLL_INTERVAL_MS = parsePositiveInt(process.env.SOLANA_POLL_INTERVAL_MS, 2000);
+let cachedRpcUrl: string | null = null;
+let cachedRpcClient: ReturnType<typeof createSolanaRpc> | null = null;
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (!raw?.trim()) return fallback;
@@ -36,6 +39,15 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 
 function rpcUrl(): string {
   return process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() || DEFAULT_RPC_URL;
+}
+
+function rpcClient() {
+  const url = rpcUrl();
+  if (!cachedRpcClient || cachedRpcUrl !== url) {
+    cachedRpcClient = createSolanaRpc(url);
+    cachedRpcUrl = url;
+  }
+  return cachedRpcClient;
 }
 
 async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
@@ -60,11 +72,15 @@ async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
   return json.result as T;
 }
 
-type SignatureInfo = { signature?: string };
-
 async function getLatestSignatureForReference(reference: string): Promise<string | undefined> {
-  const result = await rpcCall<SignatureInfo[]>("getSignaturesForAddress", [reference, { limit: 1 }]);
-  return result[0]?.signature;
+  const result = await rpcClient()
+    .getSignaturesForAddress(address(reference), {
+      commitment: "confirmed",
+      limit: 1,
+    })
+    .send();
+  const signature = result[0]?.signature;
+  return signature ? String(signature) : undefined;
 }
 
 type ParsedInstruction = {
