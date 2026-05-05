@@ -1,0 +1,14 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Software System"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>User</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div>"]
+    style 1 fill:#ffffff,stroke:#55aa55,color:#55aa55
+    2("<div style='font-weight: bold'>Software System</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div>")
+    style 2 fill:#ffffff,stroke:#55aa55,color:#55aa55
+
+    1-. "<div>Uses</div><div style='font-size: 70%'></div>" .->2
+
+  end
