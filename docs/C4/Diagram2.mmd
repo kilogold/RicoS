@@ -1,0 +1,22 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Container View: Software System"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>User</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div>"]
+    style 1 fill:#ffffff,stroke:#55aa55,color:#55aa55
+
+    subgraph 2 ["Software System"]
+      style 2 fill:#ffffff,stroke:#55aa55,color:#55aa55
+
+      3("<div style='font-weight: bold'>Web Application</div><div style='font-size: 70%; margin-top: 0px'>[Container]</div>")
+      style 3 fill:#ffffff,stroke:#55aa55,color:#55aa55
+      4[("<div style='font-weight: bold'>Database Schema</div><div style='font-size: 70%; margin-top: 0px'>[Container]</div>")]
+      style 4 fill:#ffffff,stroke:#55aa55,color:#55aa55
+    end
+
+    1-. "<div>Uses</div><div style='font-size: 70%'></div>" .->3
+    3-. "<div>Reads from and writes to</div><div style='font-size: 70%'></div>" .->4
+
+  end
