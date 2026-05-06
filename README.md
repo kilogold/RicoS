@@ -157,7 +157,7 @@ Menu snapshots are versioned in [`packages/shared/src/menu-versions/`](packages/
   - missing required selections
   - invalid single-vs-multiple selection counts
 
-The on-wire shape of the cart inside Stripe metadata (codec identifier, base64url payload, binary byte layout, integrity checks) is decoded by the webhook backend logic in `web/lib/webhook-backend`.
+The on-wire shape of the cart inside Stripe metadata (codec identifier, base64url payload, binary byte layout, integrity checks) is decoded by the kitchen dispatch ingress processing logic in `web/lib/commerce/web-api/kitchen-order-dispatch`.
 
 ## Scripts (root `package.json`)
 

@@ -1,8 +1,7 @@
 "use client";
 
 import { CartBar, MenuBoard } from "@/components/menu-board";
-import { getAppStrings } from "@/lib/i18n";
-import { useLanguage } from "@/lib/language-context";
+import { getAppStrings, useLanguage } from "@/lib/shared/i18n";
 import { MENU, resolveLocalizedText } from "@ricos/shared";
 
 export default function Home() {

@@ -3,84 +3,30 @@
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
-import { useCart } from "@/lib/cart-context";
-import { getAppStrings } from "@/lib/i18n";
-import { useLanguage } from "@/lib/language-context";
-import { formatUsd, totalCents } from "@/lib/pricing";
-import { getStripe } from "@/lib/stripe-client";
+import { formatUsd, useCart } from "@/lib/commerce/web-client/cart";
+import { useCheckoutPaymentState } from "@/lib/commerce/web-client/checkout";
+import { getStripe } from "@/lib/commerce/web-client/stripe-checkout";
+import { getAppStrings, useLanguage } from "@/lib/shared/i18n";
 import { Elements } from "@stripe/react-stripe-js";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-
-type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
 export default function CheckoutPage() {
   const { lines } = useCart();
   const { language } = useLanguage();
   const copy = getAppStrings(language);
-  const router = useRouter();
-  const [selectedMethod, setSelectedMethod] = useState<SelectedPaymentMethod | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [amountCents, setAmountCents] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  const cartTotalCents = totalCents(lines);
-  const displayTotalCents =
-    selectedMethod === "stripe" && clientSecret && amountCents > 0
-      ? amountCents
-      : cartTotalCents;
-
-  const goBackToPaymentSelection = useCallback(() => {
-    setSelectedMethod(null);
-    setClientSecret(null);
-    setAmountCents(0);
-    setError(null);
-  }, []);
-
-  useEffect(() => {
-    if (lines.length === 0) {
-      router.replace("/");
-      return;
-    }
-
-    if (selectedMethod !== "stripe") {
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      await Promise.resolve();
-      if (cancelled) return;
-      setClientSecret(null);
-      setAmountCents(0);
-      setError(null);
-
-      const res = await fetch("/api/create-payment-intent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        clientSecret?: string;
-        amountCents?: number;
-      };
-      if (!res.ok) {
-        if (!cancelled) setError(data.error ?? copy.checkoutErrorTitle);
-        return;
-      }
-      if (!cancelled && data.clientSecret && data.amountCents != null) {
-        setClientSecret(data.clientSecret);
-        setAmountCents(data.amountCents);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [copy.checkoutErrorTitle, lines, router, selectedMethod]);
+  const {
+    amountCents,
+    cartTotalCents,
+    clientSecret,
+    displayTotalCents,
+    error,
+    goBackToPaymentSelection,
+    selectedMethod,
+    setSelectedMethod,
+  } = useCheckoutPaymentState({
+    lines,
+    checkoutErrorTitle: copy.checkoutErrorTitle,
+  });
 
   if (lines.length === 0) {
     return null;

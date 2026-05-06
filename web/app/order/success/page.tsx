@@ -1,7 +1,6 @@
 "use client";
 
-import { getAppStrings } from "@/lib/i18n";
-import { useLanguage } from "@/lib/language-context";
+import { getAppStrings, useLanguage } from "@/lib/shared/i18n";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
