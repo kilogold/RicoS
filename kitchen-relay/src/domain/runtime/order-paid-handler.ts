@@ -20,7 +20,8 @@ export function createOrderPaidHandler(
   return async (data: OrderPaidPayload): Promise<void> => {
     const eventId = data.stripeEventId;
 
-    if (await idempotency.isCommitted(eventId)) {
+    const shouldProcess = await idempotency.tryCommit(eventId);
+    if (!shouldProcess) {
       try {
         await postPrintAck({
           backendBase,
@@ -46,7 +47,6 @@ export function createOrderPaidHandler(
         maxAttempts: printMaxAttempts,
         initialDelayMs: printRetryInitialDelayMs,
       });
-      await idempotency.markCommitted(eventId);
       await postPrintAck({
         backendBase,
         printAckSecret,

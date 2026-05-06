@@ -2,7 +2,7 @@ import {
   createConsolePrinterAdapter,
   createLpPrinterAdapter,
 } from "./component/ticket-printing/service";
-import { createFileIdempotencyStore, resolveIdempotencyStorePath } from "./domain/idempotency";
+import { createSqliteIdempotencyStore, resolveIdempotencyStorePath } from "./domain/idempotency";
 import { startRelayLoop } from "./domain/runtime/relay-loop";
 import { createOrderPaidHandler } from "./domain/runtime/order-paid-handler";
 
@@ -50,7 +50,7 @@ const printer =
         destination: process.env.KITCHEN_PRINTER_NAME?.trim() || undefined,
         title: process.env.KITCHEN_PRINTER_TITLE?.trim() || undefined,
       });
-const idempotency = createFileIdempotencyStore(idempotencyPath);
+const idempotency = createSqliteIdempotencyStore(idempotencyPath);
 
 if (!kitchenRelayPortRaw) {
   console.error("Missing KITCHEN_RELAY_PORT");
