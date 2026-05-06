@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,7 +42,10 @@ export function createFileIdempotencyStore(storePath: string): IdempotencyStore 
       const ids = Array.isArray(parsed.eventIds) ? parsed.eventIds : [];
       return new Set(ids);
     } catch (err: unknown) {
-      const code = err && typeof err === "object" && "code" in err ? (err as NodeJS.ErrnoException).code : undefined;
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? (err as NodeJS.ErrnoException).code
+          : undefined;
       if (code === "ENOENT") {
         return new Set();
       }
