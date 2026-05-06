@@ -9,9 +9,7 @@ workspace "Name" "Description" {
 
         kitchen = softwareSystem "Kitchen Relay" {
             relay = container "Relay" "Receives orders from the web API and prints tickets to the kitchen." "Typescript and Node.js" {
-                printerAdapter = component "Printer Adapter" "Adapts the printer to the relay." "Typescript and Node.js" 
-                cl = component "Console Printer" "Outputs purchase orders to console."
-                lp = component "LP Printer" "Outputs purchase orders to OS printer driver."
+                ticket_printing = component "Ticket Printing" "Formats tickets and sends them to console or CUPS lp." "Typescript and Node.js"
             }
         }
 
@@ -20,14 +18,14 @@ workspace "Name" "Description" {
         commerce = softwareSystem "Online Ordering" {
             admin = container "Admin Panel" "Provides admin functionality to the storefront staff." "Typescript and Next.js" "Web Browser"
             app = container "Web App" "Provides all online ordering functionality to customers via their web browser." "Typescript and Next.js" "Web Browser" {
-                stripeCheckout = component "Stripe Checkout" "Handles the checkout process with Stripe." "Typescript and Next.js"
-                solanaPayCheckout = component "Solana Pay Checkout" "Handles the checkout process with Solana Pay." "Typescript and Next.js"
+                stripe_checkout = component "Stripe Checkout" "Handles the checkout process with Stripe." "Typescript and Next.js"
+                solana_pay_checkout = component "Solana Pay Checkout" "Handles the checkout process with Solana Pay." "Typescript and Next.js"
             }
             api = container "Web API" "Provides backend services for the web app." "Typescript and Next.js" "Web API" {
-                solanaPoller = component "Solana Poller" "Polls for Solana transactions to update the database." "Typescript and Node.js"
-                stripeHandler = component "Stripe Handler" "Handles Stripe webhooks to update the database." "Typescript and Node.js"
-                ackHandler = component "Ack Handler" "Handles ticket printing confirmation" "Typescript and Node.js"
-                updateOrderHandler = component "Update Order Handler" "Handles updating orders" "Typescript and Node.js"
+                solana_poller = component "Solana Poller" "Polls for Solana transactions to update the database." "Typescript and Node.js"
+                stripe_handler = component "Stripe Handler" "Handles Stripe webhooks to update the database." "Typescript and Node.js"
+                ack_handler = component "Ack Handler" "Handles ticket printing confirmation" "Typescript and Node.js"
+                update_order_handler = component "Update Order Handler" "Handles updating orders" "Typescript and Node.js"
             }
         }
         turso = softwareSystem "Turso" "Hosted database service" "External System" {
@@ -38,20 +36,20 @@ workspace "Name" "Description" {
         helius = softwareSystem "Helius" "Solana network services" "External System"
     
     
-        kitchen.relay.lp -> printer "Sends printing job"
-        kitchen.relay -> commerce.api.ackHandler "Confirm successful ticket print"
-        commerce.api.solanaPoller -> helius "Polls pending order references"
+        kitchen.relay.ticket_printing -> printer "Sends printing job"
+        kitchen.relay -> commerce.api.ack_handler "Confirm successful ticket print"
+        commerce.api.solana_poller -> helius "Polls pending order references"
         commerce.api -> kitchen.relay "Sends order.paid event"
-        commerce.admin -> commerce.api.updateOrderHandler "Updates orders"
+        commerce.admin -> commerce.api.update_order_handler "Updates orders"
         commerce.admin -> turso.db "update menu version"
         commerce.app -> commerce.api "Request order reference"
-        commerce.app.stripeCheckout -> stripe "Submit Stripe transaction"
-        commerce.app.solanaPayCheckout -> helius "Submit Solana Pay transaction"
-        stripe -> commerce.api.stripeHandler "Announce order reference is paid"
+        commerce.app.stripe_checkout -> stripe "Submit Stripe transaction"
+        commerce.app.solana_pay_checkout -> helius "Submit Solana Pay transaction"
+        stripe -> commerce.api.stripe_handler "Announce order reference is paid"
 
         // TODO: create an order record expiration mechanism. Don't rely on solanapoller.
-        commerce.api.stripeHandler -> turso.db "create/update order record"
-        commerce.api.solanaPoller -> turso.db "create/update/expire order record"
+        commerce.api.stripe_handler -> turso.db "create/update order record"
+        commerce.api.solana_poller -> turso.db "create/update/expire order record"
 
         // Person relationships
         c -> commerce.app "Orders from the web app"

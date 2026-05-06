@@ -1,102 +1,689 @@
 {
-  "configuration" : {
-    "scope" : "SoftwareSystem"
-  },
+  "configuration" : { },
   "description" : "Description",
   "documentation" : { },
   "id" : 1,
-  "lastModifiedDate" : "2026-05-05T00:08:51Z",
+  "lastModifiedDate" : "2026-05-06T00:37:56Z",
   "model" : {
+    "customElements" : [ {
+      "id" : "7",
+      "metadata" : "Prints tickets to the kitchen.",
+      "name" : "Kitchen Printer",
+      "properties" : {
+        "structurizr.dsl.identifier" : "printer"
+      },
+      "tags" : "Element"
+    } ],
     "people" : [ {
       "id" : "1",
-      "name" : "User",
+      "name" : "Customer",
       "properties" : {
-        "structurizr.dsl.identifier" : "u"
+        "structurizr.dsl.identifier" : "c"
       },
       "relationships" : [ {
-        "description" : "Uses",
-        "destinationId" : "3",
-        "id" : "5",
+        "description" : "Orders from the web app",
+        "destinationId" : "10",
+        "id" : "59",
         "sourceId" : "1",
         "tags" : "Relationship"
       }, {
-        "description" : "Uses",
-        "destinationId" : "2",
-        "id" : "6",
-        "linkedRelationshipId" : "5",
+        "description" : "Orders from the web app",
+        "destinationId" : "8",
+        "id" : "60",
+        "linkedRelationshipId" : "59",
         "sourceId" : "1"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "id" : "2",
+      "name" : "Kitchen Staff",
+      "properties" : {
+        "structurizr.dsl.identifier" : "k"
+      },
+      "relationships" : [ {
+        "description" : "Takes printed kitchen orders",
+        "destinationId" : "7",
+        "id" : "61",
+        "sourceId" : "2",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "id" : "3",
+      "name" : "Storefront Staff",
+      "properties" : {
+        "structurizr.dsl.identifier" : "s"
+      },
+      "relationships" : [ {
+        "description" : "Finalize/Refund orders",
+        "destinationId" : "9",
+        "id" : "62",
+        "sourceId" : "3",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Finalize/Refund orders",
+        "destinationId" : "8",
+        "id" : "63",
+        "linkedRelationshipId" : "62",
+        "sourceId" : "3"
       } ],
       "tags" : "Element,Person"
     } ],
     "softwareSystems" : [ {
       "containers" : [ {
+        "components" : [ {
+          "description" : "Formats tickets and sends them to console or CUPS lp.",
+          "documentation" : { },
+          "id" : "6",
+          "name" : "Ticket Printing",
+          "properties" : {
+            "structurizr.dsl.identifier" : "kitchen.relay.ticket_printing"
+          },
+          "relationships" : [ {
+            "description" : "Sends printing job",
+            "destinationId" : "7",
+            "id" : "22",
+            "sourceId" : "6",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Node.js"
+        } ],
+        "description" : "Receives orders from the web API and prints tickets to the kitchen.",
         "documentation" : { },
-        "id" : "3",
-        "name" : "Web Application",
+        "id" : "5",
+        "name" : "Relay",
         "properties" : {
-          "structurizr.dsl.identifier" : "ss.wa"
+          "structurizr.dsl.identifier" : "kitchen.relay"
         },
         "relationships" : [ {
-          "description" : "Reads from and writes to",
-          "destinationId" : "4",
-          "id" : "7",
-          "sourceId" : "3",
+          "description" : "Sends printing job",
+          "destinationId" : "7",
+          "id" : "23",
+          "linkedRelationshipId" : "22",
+          "sourceId" : "5"
+        }, {
+          "description" : "Confirm successful ticket print",
+          "destinationId" : "16",
+          "id" : "25",
+          "sourceId" : "5",
           "tags" : "Relationship"
+        }, {
+          "description" : "Confirm successful ticket print",
+          "destinationId" : "13",
+          "id" : "26",
+          "linkedRelationshipId" : "25",
+          "sourceId" : "5"
+        }, {
+          "description" : "Confirm successful ticket print",
+          "destinationId" : "8",
+          "id" : "27",
+          "linkedRelationshipId" : "25",
+          "sourceId" : "5"
         } ],
-        "tags" : "Element,Container"
-      }, {
-        "documentation" : { },
-        "id" : "4",
-        "name" : "Database Schema",
-        "properties" : {
-          "structurizr.dsl.identifier" : "ss.db"
-        },
-        "tags" : "Element,Container,Database"
+        "tags" : "Element,Container",
+        "technology" : "Typescript and Node.js"
       } ],
       "documentation" : { },
-      "id" : "2",
-      "name" : "Software System",
+      "id" : "4",
+      "name" : "Kitchen Relay",
       "properties" : {
-        "structurizr.dsl.identifier" : "ss"
+        "structurizr.dsl.identifier" : "kitchen"
       },
+      "relationships" : [ {
+        "description" : "Sends printing job",
+        "destinationId" : "7",
+        "id" : "24",
+        "linkedRelationshipId" : "22",
+        "sourceId" : "4"
+      }, {
+        "description" : "Confirm successful ticket print",
+        "destinationId" : "16",
+        "id" : "28",
+        "linkedRelationshipId" : "25",
+        "sourceId" : "4"
+      }, {
+        "description" : "Confirm successful ticket print",
+        "destinationId" : "13",
+        "id" : "29",
+        "linkedRelationshipId" : "25",
+        "sourceId" : "4"
+      }, {
+        "description" : "Confirm successful ticket print",
+        "destinationId" : "8",
+        "id" : "30",
+        "linkedRelationshipId" : "25",
+        "sourceId" : "4"
+      } ],
       "tags" : "Element,Software System"
+    }, {
+      "containers" : [ {
+        "description" : "Provides admin functionality to the storefront staff.",
+        "documentation" : { },
+        "id" : "9",
+        "name" : "Admin Panel",
+        "properties" : {
+          "structurizr.dsl.identifier" : "commerce.admin"
+        },
+        "relationships" : [ {
+          "description" : "Updates orders",
+          "destinationId" : "17",
+          "id" : "38",
+          "sourceId" : "9",
+          "tags" : "Relationship"
+        }, {
+          "description" : "Updates orders",
+          "destinationId" : "13",
+          "id" : "39",
+          "linkedRelationshipId" : "38",
+          "sourceId" : "9"
+        }, {
+          "description" : "update menu version",
+          "destinationId" : "19",
+          "id" : "40",
+          "sourceId" : "9",
+          "tags" : "Relationship"
+        }, {
+          "description" : "update menu version",
+          "destinationId" : "18",
+          "id" : "41",
+          "linkedRelationshipId" : "40",
+          "sourceId" : "9"
+        } ],
+        "tags" : "Element,Container,Web Browser",
+        "technology" : "Typescript and Next.js"
+      }, {
+        "components" : [ {
+          "description" : "Handles the checkout process with Stripe.",
+          "documentation" : { },
+          "id" : "11",
+          "name" : "Stripe Checkout",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.app.stripe_checkout"
+          },
+          "relationships" : [ {
+            "description" : "Submit Stripe transaction",
+            "destinationId" : "20",
+            "id" : "45",
+            "sourceId" : "11",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Next.js"
+        }, {
+          "description" : "Handles the checkout process with Solana Pay.",
+          "documentation" : { },
+          "id" : "12",
+          "name" : "Solana Pay Checkout",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.app.solana_pay_checkout"
+          },
+          "relationships" : [ {
+            "description" : "Submit Solana Pay transaction",
+            "destinationId" : "21",
+            "id" : "48",
+            "sourceId" : "12",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Next.js"
+        } ],
+        "description" : "Provides all online ordering functionality to customers via their web browser.",
+        "documentation" : { },
+        "id" : "10",
+        "name" : "Web App",
+        "properties" : {
+          "structurizr.dsl.identifier" : "commerce.app"
+        },
+        "relationships" : [ {
+          "description" : "Request order reference",
+          "destinationId" : "13",
+          "id" : "44",
+          "sourceId" : "10",
+          "tags" : "Relationship"
+        }, {
+          "description" : "Submit Stripe transaction",
+          "destinationId" : "20",
+          "id" : "46",
+          "linkedRelationshipId" : "45",
+          "sourceId" : "10"
+        }, {
+          "description" : "Submit Solana Pay transaction",
+          "destinationId" : "21",
+          "id" : "49",
+          "linkedRelationshipId" : "48",
+          "sourceId" : "10"
+        } ],
+        "tags" : "Element,Container,Web Browser",
+        "technology" : "Typescript and Next.js"
+      }, {
+        "components" : [ {
+          "description" : "Polls for Solana transactions to update the database.",
+          "documentation" : { },
+          "id" : "14",
+          "name" : "Solana Poller",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.api.solana_poller"
+          },
+          "relationships" : [ {
+            "description" : "Polls pending order references",
+            "destinationId" : "21",
+            "id" : "31",
+            "sourceId" : "14",
+            "tags" : "Relationship"
+          }, {
+            "description" : "create/update/expire order record",
+            "destinationId" : "19",
+            "id" : "57",
+            "sourceId" : "14",
+            "tags" : "Relationship"
+          }, {
+            "description" : "create/update/expire order record",
+            "destinationId" : "18",
+            "id" : "58",
+            "linkedRelationshipId" : "57",
+            "sourceId" : "14"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Node.js"
+        }, {
+          "description" : "Handles Stripe webhooks to update the database.",
+          "documentation" : { },
+          "id" : "15",
+          "name" : "Stripe Handler",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.api.stripe_handler"
+          },
+          "relationships" : [ {
+            "description" : "create/update order record",
+            "destinationId" : "19",
+            "id" : "53",
+            "sourceId" : "15",
+            "tags" : "Relationship"
+          }, {
+            "description" : "create/update order record",
+            "destinationId" : "18",
+            "id" : "54",
+            "linkedRelationshipId" : "53",
+            "sourceId" : "15"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Node.js"
+        }, {
+          "description" : "Handles ticket printing confirmation",
+          "documentation" : { },
+          "id" : "16",
+          "name" : "Ack Handler",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.api.ack_handler"
+          },
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Node.js"
+        }, {
+          "description" : "Handles updating orders",
+          "documentation" : { },
+          "id" : "17",
+          "name" : "Update Order Handler",
+          "properties" : {
+            "structurizr.dsl.identifier" : "commerce.api.update_order_handler"
+          },
+          "tags" : "Element,Component",
+          "technology" : "Typescript and Node.js"
+        } ],
+        "description" : "Provides backend services for the web app.",
+        "documentation" : { },
+        "id" : "13",
+        "name" : "Web API",
+        "properties" : {
+          "structurizr.dsl.identifier" : "commerce.api"
+        },
+        "relationships" : [ {
+          "description" : "Polls pending order references",
+          "destinationId" : "21",
+          "id" : "32",
+          "linkedRelationshipId" : "31",
+          "sourceId" : "13"
+        }, {
+          "description" : "Sends order.paid event",
+          "destinationId" : "5",
+          "id" : "34",
+          "sourceId" : "13",
+          "tags" : "Relationship"
+        }, {
+          "description" : "Sends order.paid event",
+          "destinationId" : "4",
+          "id" : "35",
+          "linkedRelationshipId" : "34",
+          "sourceId" : "13"
+        }, {
+          "description" : "create/update order record",
+          "destinationId" : "19",
+          "id" : "55",
+          "linkedRelationshipId" : "53",
+          "sourceId" : "13"
+        }, {
+          "description" : "create/update order record",
+          "destinationId" : "18",
+          "id" : "56",
+          "linkedRelationshipId" : "53",
+          "sourceId" : "13"
+        } ],
+        "tags" : "Element,Container,Web API",
+        "technology" : "Typescript and Next.js"
+      } ],
+      "documentation" : { },
+      "id" : "8",
+      "name" : "Online Ordering",
+      "properties" : {
+        "structurizr.dsl.identifier" : "commerce"
+      },
+      "relationships" : [ {
+        "description" : "Polls pending order references",
+        "destinationId" : "21",
+        "id" : "33",
+        "linkedRelationshipId" : "31",
+        "sourceId" : "8"
+      }, {
+        "description" : "Sends order.paid event",
+        "destinationId" : "5",
+        "id" : "36",
+        "linkedRelationshipId" : "34",
+        "sourceId" : "8"
+      }, {
+        "description" : "Sends order.paid event",
+        "destinationId" : "4",
+        "id" : "37",
+        "linkedRelationshipId" : "34",
+        "sourceId" : "8"
+      }, {
+        "description" : "update menu version",
+        "destinationId" : "19",
+        "id" : "42",
+        "linkedRelationshipId" : "40",
+        "sourceId" : "8"
+      }, {
+        "description" : "update menu version",
+        "destinationId" : "18",
+        "id" : "43",
+        "linkedRelationshipId" : "40",
+        "sourceId" : "8"
+      }, {
+        "description" : "Submit Stripe transaction",
+        "destinationId" : "20",
+        "id" : "47",
+        "linkedRelationshipId" : "45",
+        "sourceId" : "8"
+      } ],
+      "tags" : "Element,Software System"
+    }, {
+      "containers" : [ {
+        "description" : "Stores all data for the online ordering system.",
+        "documentation" : { },
+        "id" : "19",
+        "name" : "Database",
+        "properties" : {
+          "structurizr.dsl.identifier" : "turso.db"
+        },
+        "tags" : "Element,Container,Database",
+        "technology" : "SQL"
+      } ],
+      "description" : "Hosted database service",
+      "documentation" : { },
+      "id" : "18",
+      "name" : "Turso",
+      "properties" : {
+        "structurizr.dsl.identifier" : "turso"
+      },
+      "tags" : "Element,Software System,External System"
+    }, {
+      "description" : "Stripe's payment processing system",
+      "documentation" : { },
+      "id" : "20",
+      "name" : "Stripe",
+      "properties" : {
+        "structurizr.dsl.identifier" : "stripe"
+      },
+      "relationships" : [ {
+        "description" : "Announce order reference is paid",
+        "destinationId" : "15",
+        "id" : "50",
+        "sourceId" : "20",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Announce order reference is paid",
+        "destinationId" : "13",
+        "id" : "51",
+        "linkedRelationshipId" : "50",
+        "sourceId" : "20"
+      }, {
+        "description" : "Announce order reference is paid",
+        "destinationId" : "8",
+        "id" : "52",
+        "linkedRelationshipId" : "50",
+        "sourceId" : "20"
+      } ],
+      "tags" : "Element,Software System,External System"
+    }, {
+      "description" : "Solana network services",
+      "documentation" : { },
+      "id" : "21",
+      "name" : "Helius",
+      "properties" : {
+        "structurizr.dsl.identifier" : "helius"
+      },
+      "tags" : "Element,Software System,External System"
     } ]
   },
   "name" : "Name",
   "properties" : {
-    "structurizr.inspection.error" : "11",
-    "structurizr.dsl" : "d29ya3NwYWNlICJOYW1lIiAiRGVzY3JpcHRpb24iIHsKCiAgICAhaWRlbnRpZmllcnMgaGllcmFyY2hpY2FsCgogICAgbW9kZWwgewogICAgICAgIHUgPSBwZXJzb24gIlVzZXIiCiAgICAgICAgc3MgPSBzb2Z0d2FyZVN5c3RlbSAiU29mdHdhcmUgU3lzdGVtIiB7CiAgICAgICAgICAgIHdhID0gY29udGFpbmVyICJXZWIgQXBwbGljYXRpb24iCiAgICAgICAgICAgIGRiID0gY29udGFpbmVyICJEYXRhYmFzZSBTY2hlbWEiIHsKICAgICAgICAgICAgICAgIHRhZ3MgIkRhdGFiYXNlIgogICAgICAgICAgICB9CiAgICAgICAgfQoKICAgICAgICB1IC0+IHNzLndhICJVc2VzIgogICAgICAgIHNzLndhIC0+IHNzLmRiICJSZWFkcyBmcm9tIGFuZCB3cml0ZXMgdG8iCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHN5c3RlbUNvbnRleHQgc3MgIkRpYWdyYW0xIiB7CiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgIH0KCiAgICAgICAgY29udGFpbmVyIHNzICJEaWFncmFtMiIgewogICAgICAgICAgICBpbmNsdWRlICoKICAgICAgICB9CgogICAgICAgIHN0eWxlcyB7CiAgICAgICAgICAgIGVsZW1lbnQgIkVsZW1lbnQiIHsKICAgICAgICAgICAgICAgIGNvbG9yICM1NWFhNTUKICAgICAgICAgICAgICAgIHN0cm9rZSAjNTVhYTU1CiAgICAgICAgICAgICAgICBzdHJva2VXaWR0aCA3CiAgICAgICAgICAgICAgICBzaGFwZSByb3VuZGVkYm94CiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiUGVyc29uIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBwZXJzb24KICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJEYXRhYmFzZSIgewogICAgICAgICAgICAgICAgc2hhcGUgY3lsaW5kZXIKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJCb3VuZGFyeSIgewogICAgICAgICAgICAgICAgc3Ryb2tlV2lkdGggNQogICAgICAgICAgICB9CiAgICAgICAgICAgIHJlbGF0aW9uc2hpcCAiUmVsYXRpb25zaGlwIiB7CiAgICAgICAgICAgICAgICB0aGlja25lc3MgNAogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQoKICAgIGNvbmZpZ3VyYXRpb24gewogICAgICAgIHNjb3BlIHNvZnR3YXJlc3lzdGVtCiAgICB9Cgp9",
+    "structurizr.inspection.error" : "77",
+    "structurizr.dsl" : "d29ya3NwYWNlICJOYW1lIiAiRGVzY3JpcHRpb24iIHsKCiAgICAhaWRlbnRpZmllcnMgaGllcmFyY2hpY2FsCgogICAgbW9kZWwgewogICAgICAgIGMgPSBwZXJzb24gIkN1c3RvbWVyIgogICAgICAgIGsgPSBwZXJzb24gIktpdGNoZW4gU3RhZmYiCiAgICAgICAgcyA9IHBlcnNvbiAiU3RvcmVmcm9udCBTdGFmZiIKCiAgICAgICAga2l0Y2hlbiA9IHNvZnR3YXJlU3lzdGVtICJLaXRjaGVuIFJlbGF5IiB7CiAgICAgICAgICAgIHJlbGF5ID0gY29udGFpbmVyICJSZWxheSIgIlJlY2VpdmVzIG9yZGVycyBmcm9tIHRoZSB3ZWIgQVBJIGFuZCBwcmludHMgdGlja2V0cyB0byB0aGUga2l0Y2hlbi4iICJUeXBlc2NyaXB0IGFuZCBOb2RlLmpzIiB7CiAgICAgICAgICAgICAgICB0aWNrZXRfcHJpbnRpbmcgPSBjb21wb25lbnQgIlRpY2tldCBQcmludGluZyIgIkZvcm1hdHMgdGlja2V0cyBhbmQgc2VuZHMgdGhlbSB0byBjb25zb2xlIG9yIENVUFMgbHAuIiAiVHlwZXNjcmlwdCBhbmQgTm9kZS5qcyIKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgcHJpbnRlciA9IGVsZW1lbnQgIktpdGNoZW4gUHJpbnRlciIgIlByaW50cyB0aWNrZXRzIHRvIHRoZSBraXRjaGVuLiIKCiAgICAgICAgY29tbWVyY2UgPSBzb2Z0d2FyZVN5c3RlbSAiT25saW5lIE9yZGVyaW5nIiB7CiAgICAgICAgICAgIGFkbWluID0gY29udGFpbmVyICJBZG1pbiBQYW5lbCIgIlByb3ZpZGVzIGFkbWluIGZ1bmN0aW9uYWxpdHkgdG8gdGhlIHN0b3JlZnJvbnQgc3RhZmYuIiAiVHlwZXNjcmlwdCBhbmQgTmV4dC5qcyIgIldlYiBCcm93c2VyIgogICAgICAgICAgICBhcHAgPSBjb250YWluZXIgIldlYiBBcHAiICJQcm92aWRlcyBhbGwgb25saW5lIG9yZGVyaW5nIGZ1bmN0aW9uYWxpdHkgdG8gY3VzdG9tZXJzIHZpYSB0aGVpciB3ZWIgYnJvd3Nlci4iICJUeXBlc2NyaXB0IGFuZCBOZXh0LmpzIiAiV2ViIEJyb3dzZXIiIHsKICAgICAgICAgICAgICAgIHN0cmlwZV9jaGVja291dCA9IGNvbXBvbmVudCAiU3RyaXBlIENoZWNrb3V0IiAiSGFuZGxlcyB0aGUgY2hlY2tvdXQgcHJvY2VzcyB3aXRoIFN0cmlwZS4iICJUeXBlc2NyaXB0IGFuZCBOZXh0LmpzIgogICAgICAgICAgICAgICAgc29sYW5hX3BheV9jaGVja291dCA9IGNvbXBvbmVudCAiU29sYW5hIFBheSBDaGVja291dCIgIkhhbmRsZXMgdGhlIGNoZWNrb3V0IHByb2Nlc3Mgd2l0aCBTb2xhbmEgUGF5LiIgIlR5cGVzY3JpcHQgYW5kIE5leHQuanMiCiAgICAgICAgICAgIH0KICAgICAgICAgICAgYXBpID0gY29udGFpbmVyICJXZWIgQVBJIiAiUHJvdmlkZXMgYmFja2VuZCBzZXJ2aWNlcyBmb3IgdGhlIHdlYiBhcHAuIiAiVHlwZXNjcmlwdCBhbmQgTmV4dC5qcyIgIldlYiBBUEkiIHsKICAgICAgICAgICAgICAgIHNvbGFuYV9wb2xsZXIgPSBjb21wb25lbnQgIlNvbGFuYSBQb2xsZXIiICJQb2xscyBmb3IgU29sYW5hIHRyYW5zYWN0aW9ucyB0byB1cGRhdGUgdGhlIGRhdGFiYXNlLiIgIlR5cGVzY3JpcHQgYW5kIE5vZGUuanMiCiAgICAgICAgICAgICAgICBzdHJpcGVfaGFuZGxlciA9IGNvbXBvbmVudCAiU3RyaXBlIEhhbmRsZXIiICJIYW5kbGVzIFN0cmlwZSB3ZWJob29rcyB0byB1cGRhdGUgdGhlIGRhdGFiYXNlLiIgIlR5cGVzY3JpcHQgYW5kIE5vZGUuanMiCiAgICAgICAgICAgICAgICBhY2tfaGFuZGxlciA9IGNvbXBvbmVudCAiQWNrIEhhbmRsZXIiICJIYW5kbGVzIHRpY2tldCBwcmludGluZyBjb25maXJtYXRpb24iICJUeXBlc2NyaXB0IGFuZCBOb2RlLmpzIgogICAgICAgICAgICAgICAgdXBkYXRlX29yZGVyX2hhbmRsZXIgPSBjb21wb25lbnQgIlVwZGF0ZSBPcmRlciBIYW5kbGVyIiAiSGFuZGxlcyB1cGRhdGluZyBvcmRlcnMiICJUeXBlc2NyaXB0IGFuZCBOb2RlLmpzIgogICAgICAgICAgICB9CiAgICAgICAgfQogICAgICAgIHR1cnNvID0gc29mdHdhcmVTeXN0ZW0gIlR1cnNvIiAiSG9zdGVkIGRhdGFiYXNlIHNlcnZpY2UiICJFeHRlcm5hbCBTeXN0ZW0iIHsKICAgICAgICAgICAgZGIgPSBjb250YWluZXIgIkRhdGFiYXNlIiAiU3RvcmVzIGFsbCBkYXRhIGZvciB0aGUgb25saW5lIG9yZGVyaW5nIHN5c3RlbS4iICJTUUwiICJEYXRhYmFzZSIKICAgICAgICB9ICAgICAgICAKICAgICAgICAKICAgICAgICBzdHJpcGUgPSBzb2Z0d2FyZVN5c3RlbSAiU3RyaXBlIiAiU3RyaXBlJ3MgcGF5bWVudCBwcm9jZXNzaW5nIHN5c3RlbSIgIkV4dGVybmFsIFN5c3RlbSIKICAgICAgICBoZWxpdXMgPSBzb2Z0d2FyZVN5c3RlbSAiSGVsaXVzIiAiU29sYW5hIG5ldHdvcmsgc2VydmljZXMiICJFeHRlcm5hbCBTeXN0ZW0iCiAgICAKICAgIAogICAgICAgIGtpdGNoZW4ucmVsYXkudGlja2V0X3ByaW50aW5nIC0+IHByaW50ZXIgIlNlbmRzIHByaW50aW5nIGpvYiIKICAgICAgICBraXRjaGVuLnJlbGF5IC0+IGNvbW1lcmNlLmFwaS5hY2tfaGFuZGxlciAiQ29uZmlybSBzdWNjZXNzZnVsIHRpY2tldCBwcmludCIKICAgICAgICBjb21tZXJjZS5hcGkuc29sYW5hX3BvbGxlciAtPiBoZWxpdXMgIlBvbGxzIHBlbmRpbmcgb3JkZXIgcmVmZXJlbmNlcyIKICAgICAgICBjb21tZXJjZS5hcGkgLT4ga2l0Y2hlbi5yZWxheSAiU2VuZHMgb3JkZXIucGFpZCBldmVudCIKICAgICAgICBjb21tZXJjZS5hZG1pbiAtPiBjb21tZXJjZS5hcGkudXBkYXRlX29yZGVyX2hhbmRsZXIgIlVwZGF0ZXMgb3JkZXJzIgogICAgICAgIGNvbW1lcmNlLmFkbWluIC0+IHR1cnNvLmRiICJ1cGRhdGUgbWVudSB2ZXJzaW9uIgogICAgICAgIGNvbW1lcmNlLmFwcCAtPiBjb21tZXJjZS5hcGkgIlJlcXVlc3Qgb3JkZXIgcmVmZXJlbmNlIgogICAgICAgIGNvbW1lcmNlLmFwcC5zdHJpcGVfY2hlY2tvdXQgLT4gc3RyaXBlICJTdWJtaXQgU3RyaXBlIHRyYW5zYWN0aW9uIgogICAgICAgIGNvbW1lcmNlLmFwcC5zb2xhbmFfcGF5X2NoZWNrb3V0IC0+IGhlbGl1cyAiU3VibWl0IFNvbGFuYSBQYXkgdHJhbnNhY3Rpb24iCiAgICAgICAgc3RyaXBlIC0+IGNvbW1lcmNlLmFwaS5zdHJpcGVfaGFuZGxlciAiQW5ub3VuY2Ugb3JkZXIgcmVmZXJlbmNlIGlzIHBhaWQiCgogICAgICAgIC8vIFRPRE86IGNyZWF0ZSBhbiBvcmRlciByZWNvcmQgZXhwaXJhdGlvbiBtZWNoYW5pc20uIERvbid0IHJlbHkgb24gc29sYW5hcG9sbGVyLgogICAgICAgIGNvbW1lcmNlLmFwaS5zdHJpcGVfaGFuZGxlciAtPiB0dXJzby5kYiAiY3JlYXRlL3VwZGF0ZSBvcmRlciByZWNvcmQiCiAgICAgICAgY29tbWVyY2UuYXBpLnNvbGFuYV9wb2xsZXIgLT4gdHVyc28uZGIgImNyZWF0ZS91cGRhdGUvZXhwaXJlIG9yZGVyIHJlY29yZCIKCiAgICAgICAgLy8gUGVyc29uIHJlbGF0aW9uc2hpcHMKICAgICAgICBjIC0+IGNvbW1lcmNlLmFwcCAiT3JkZXJzIGZyb20gdGhlIHdlYiBhcHAiCiAgICAgICAgayAtPiBwcmludGVyICJUYWtlcyBwcmludGVkIGtpdGNoZW4gb3JkZXJzIgogICAgICAgIHMgLT4gY29tbWVyY2UuYWRtaW4gIkZpbmFsaXplL1JlZnVuZCBvcmRlcnMiCgogICAgICAgIC8vIEhpZ2hlci1sZXZlbCByZWxhdGlvbnNoaXAgYWJzdHJhY3Rpb25zCiAgICAgICAgIyBjb21tZXJjZSAtPiB0dXJzbyAiVHJhY2sgb3JkZXIgbGlmZWN5Y2xlIGFuZCBtZW51IHZlcnNpb25zIgogICAgfQoKCiAgICB2aWV3cyB7CiAgICAgICAgc3R5bGVzIHsKICAgICAgICAgICAgZWxlbWVudCAiVW51c2VkIiB7CiAgICAgICAgICAgICAgICBib3JkZXIgZGFzaGVkCiAgICAgICAgICAgICAgICAvLyBiYWNrZ3JvdW5kICMwMDAwMDAKICAgICAgICAgICAgICAgIC8vIHN0cm9rZSAjZTVlNWU1CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkVsZW1lbnQiIHsKICAgICAgICAgICAgICAgIGNvbG9yICM0Njk5ZWIKICAgICAgICAgICAgICAgIHN0cm9rZSAjNDY5OWViCiAgICAgICAgICAgICAgICBzaGFwZSByb3VuZGVkYm94CiAgICAgICAgICAgICAgICBzdHJva2VXaWR0aCA1CgogICAgICAgICAgICB9CgogICAgICAgICAgICBlbGVtZW50ICJFeHRlcm5hbCBTeXN0ZW0iIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzM3MzgzNwogICAgICAgICAgICAgICAgY29sb3IgI2NiY2JjYgogICAgICAgICAgICAgICAgc3Ryb2tlICNjYmNiY2IKICAgICAgICAgICAgICAgIHNoYXBlIHJvdW5kZWRib3gKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJEYXRhYmFzZSIgewogICAgICAgICAgICAgICAgc2hhcGUgY3lsaW5kZXIKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJCb3VuZGFyeSIgewogICAgICAgICAgICAgICAgc3Ryb2tlV2lkdGggMwogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIldlYiBCcm93c2VyIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBXZWJCcm93c2VyCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiQ29tcG9uZW50IiB7CiAgICAgICAgICAgICAgICBzaGFwZSBjb21wb25lbnQKICAgICAgICAgICAgICAgIGNvbG9yICM0Njk5ZWIKICAgICAgICAgICAgICAgIHN0cm9rZSAjNDY5OWViCiAgICAgICAgICAgIH0KICAgICAgICAgICAgcmVsYXRpb25zaGlwICJSZWxhdGlvbnNoaXAiIHsKICAgICAgICAgICAgICAgIHRoaWNrbmVzcyAyCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZGFyayB7CiAgICAgICAgICAgICAgICBlbGVtZW50ICJQZXJzb24iIHsKICAgICAgICAgICAgICAgICAgICBzaGFwZSBwZXJzb24KICAgICAgICAgICAgICAgICAgICBzdHJva2UgI2NiY2JjYgogICAgICAgICAgICAgICAgICAgIGNvbG9yICNjYmNiY2IKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgICAgICBsaWdodCB7CiAgICAgICAgICAgICAgICBlbGVtZW50ICJQZXJzb24iIHsKICAgICAgICAgICAgICAgICAgICBzaGFwZSBwZXJzb24KICAgICAgICAgICAgICAgICAgICBzdHJva2UgI2NiY2JjYgogICAgICAgICAgICAgICAgICAgIGNvbG9yICNjYmNiY2IKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KfQ==",
     "structurizr.inspection.info" : "0",
     "structurizr.inspection.ignore" : "0",
     "structurizr.inspection.warning" : "0"
   },
   "views" : {
+    "componentViews" : [ {
+      "containerId" : "5",
+      "elements" : [ {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Component-001",
+      "name" : "Component View: Kitchen Relay - Relay",
+      "order" : 5,
+      "relationships" : [ {
+        "id" : "22"
+      } ]
+    }, {
+      "containerId" : "13",
+      "elements" : [ {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "15",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "16",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Component-002",
+      "name" : "Component View: Online Ordering - Web API",
+      "order" : 8,
+      "relationships" : [ {
+        "id" : "28"
+      }, {
+        "id" : "31"
+      }, {
+        "id" : "38"
+      }, {
+        "id" : "41"
+      }, {
+        "id" : "50"
+      }, {
+        "id" : "54"
+      }, {
+        "id" : "58"
+      } ]
+    }, {
+      "containerId" : "10",
+      "elements" : [ {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "12",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Component-003",
+      "name" : "Component View: Online Ordering - Web App",
+      "order" : 9,
+      "relationships" : [ {
+        "id" : "45"
+      }, {
+        "id" : "48"
+      } ]
+    } ],
     "configuration" : {
       "styles" : {
         "elements" : [ {
-          "strokeWidth" : 5,
+          "strokeWidth" : 3,
           "tag" : "Boundary"
+        }, {
+          "color" : "#4699eb",
+          "shape" : "Component",
+          "stroke" : "#4699eb",
+          "tag" : "Component"
         }, {
           "shape" : "Cylinder",
           "tag" : "Database"
         }, {
-          "color" : "#55aa55",
+          "color" : "#4699eb",
           "shape" : "RoundedBox",
-          "stroke" : "#55aa55",
-          "strokeWidth" : 7,
+          "stroke" : "#4699eb",
+          "strokeWidth" : 5,
           "tag" : "Element"
         }, {
+          "background" : "#373837",
+          "color" : "#cbcbcb",
+          "shape" : "RoundedBox",
+          "stroke" : "#cbcbcb",
+          "tag" : "External System"
+        }, {
+          "border" : "Dashed",
+          "tag" : "Unused"
+        }, {
+          "shape" : "WebBrowser",
+          "tag" : "Web Browser"
+        }, {
+          "color" : "#cbcbcb",
+          "colorScheme" : "Dark",
           "shape" : "Person",
+          "stroke" : "#cbcbcb",
+          "tag" : "Person"
+        }, {
+          "color" : "#cbcbcb",
+          "colorScheme" : "Light",
+          "shape" : "Person",
+          "stroke" : "#cbcbcb",
           "tag" : "Person"
         } ],
         "relationships" : [ {
           "tag" : "Relationship",
-          "thickness" : 4
+          "thickness" : 2
         } ]
       },
       "terminology" : { }
     },
     "containerViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "elements" : [ {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Container-001",
+      "name" : "Container View: Kitchen Relay",
+      "order" : 4,
+      "relationships" : [ {
+        "id" : "23"
+      }, {
+        "id" : "27"
+      }, {
+        "id" : "36"
+      } ],
+      "softwareSystemId" : "4"
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
       "elements" : [ {
         "id" : "1",
         "x" : 0,
@@ -109,19 +696,230 @@
         "id" : "4",
         "x" : 0,
         "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
       } ],
       "externalSoftwareSystemBoundariesVisible" : false,
-      "key" : "Diagram2",
-      "name" : "Container View: Software System",
-      "order" : 2,
+      "generatedKey" : true,
+      "key" : "Container-002",
+      "name" : "Container View: Online Ordering",
+      "order" : 7,
       "relationships" : [ {
-        "id" : "5"
+        "id" : "29"
       }, {
-        "id" : "7"
+        "id" : "32"
+      }, {
+        "id" : "35"
+      }, {
+        "id" : "39"
+      }, {
+        "id" : "41"
+      }, {
+        "id" : "44"
+      }, {
+        "id" : "46"
+      }, {
+        "id" : "49"
+      }, {
+        "id" : "51"
+      }, {
+        "id" : "56"
+      }, {
+        "id" : "59"
+      }, {
+        "id" : "62"
       } ],
-      "softwareSystemId" : "2"
+      "softwareSystemId" : "8"
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "elements" : [ {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "19",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Container-003",
+      "name" : "Container View: Turso",
+      "order" : 12,
+      "relationships" : [ {
+        "id" : "42"
+      } ],
+      "softwareSystemId" : "18"
     } ],
     "systemContextViews" : [ {
+      "elements" : [ {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "generatedKey" : true,
+      "key" : "SystemContext-001",
+      "name" : "System Context View: Helius",
+      "order" : 2,
+      "relationships" : [ {
+        "id" : "33"
+      } ],
+      "softwareSystemId" : "21"
+    }, {
+      "elements" : [ {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "generatedKey" : true,
+      "key" : "SystemContext-002",
+      "name" : "System Context View: Kitchen Relay",
+      "order" : 3,
+      "relationships" : [ {
+        "id" : "24"
+      }, {
+        "id" : "30"
+      }, {
+        "id" : "37"
+      } ],
+      "softwareSystemId" : "4"
+    }, {
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "generatedKey" : true,
+      "key" : "SystemContext-003",
+      "name" : "System Context View: Online Ordering",
+      "order" : 6,
+      "relationships" : [ {
+        "id" : "30"
+      }, {
+        "id" : "33"
+      }, {
+        "id" : "37"
+      }, {
+        "id" : "43"
+      }, {
+        "id" : "47"
+      }, {
+        "id" : "52"
+      }, {
+        "id" : "60"
+      }, {
+        "id" : "63"
+      } ],
+      "softwareSystemId" : "8"
+    }, {
+      "elements" : [ {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "generatedKey" : true,
+      "key" : "SystemContext-004",
+      "name" : "System Context View: Stripe",
+      "order" : 10,
+      "relationships" : [ {
+        "id" : "47"
+      }, {
+        "id" : "52"
+      } ],
+      "softwareSystemId" : "20"
+    }, {
+      "elements" : [ {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "generatedKey" : true,
+      "key" : "SystemContext-005",
+      "name" : "System Context View: Turso",
+      "order" : 11,
+      "relationships" : [ {
+        "id" : "43"
+      } ],
+      "softwareSystemId" : "18"
+    } ],
+    "systemLandscapeViews" : [ {
       "elements" : [ {
         "id" : "1",
         "x" : 0,
@@ -130,15 +928,61 @@
         "id" : "2",
         "x" : 0,
         "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
       } ],
       "enterpriseBoundaryVisible" : true,
-      "key" : "Diagram1",
-      "name" : "System Context View: Software System",
+      "generatedKey" : true,
+      "key" : "SystemLandscape-001",
+      "name" : "System Landscape View",
       "order" : 1,
       "relationships" : [ {
-        "id" : "6"
-      } ],
-      "softwareSystemId" : "2"
+        "id" : "24"
+      }, {
+        "id" : "30"
+      }, {
+        "id" : "33"
+      }, {
+        "id" : "37"
+      }, {
+        "id" : "43"
+      }, {
+        "id" : "47"
+      }, {
+        "id" : "52"
+      }, {
+        "id" : "60"
+      }, {
+        "id" : "61"
+      }, {
+        "id" : "63"
+      } ]
     } ]
   }
 }
