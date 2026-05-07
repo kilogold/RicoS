@@ -1,13 +1,14 @@
 import type { Client } from "@libsql/client";
-import { address, createSolanaRpc } from "@solana/kit";
+import { address } from "@solana/kit";
+import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
+import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
+import { getSolanaRpcClient, parsePositiveInt, rpcCall } from "@/lib/infrastructure/helius/solana-rpc";
 import {
   expireStalePendingPayments,
   listActivePendingPayments,
   markPendingPaymentConfirmed,
   markPendingPaymentExpired,
-} from "./db";
-import { executeIngressEvent } from "./ingress/execute";
-import type { NormalizedIngressEvent } from "./ingress/types";
+} from "@/lib/infrastructure/turso/webhook-db";
 
 type PollerState = {
   started: boolean;
@@ -26,54 +27,10 @@ if (!state.__ricosSolanaPoller) {
 }
 
 const pollerState = state.__ricosSolanaPoller;
-const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
 const POLL_INTERVAL_MS = parsePositiveInt(process.env.SOLANA_POLL_INTERVAL_MS, 2000);
-let cachedRpcUrl: string | null = null;
-let cachedRpcClient: ReturnType<typeof createSolanaRpc> | null = null;
-
-function parsePositiveInt(raw: string | undefined, fallback: number): number {
-  if (!raw?.trim()) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function rpcUrl(): string {
-  return process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() || DEFAULT_RPC_URL;
-}
-
-function rpcClient() {
-  const url = rpcUrl();
-  if (!cachedRpcClient || cachedRpcUrl !== url) {
-    cachedRpcClient = createSolanaRpc(url);
-    cachedRpcUrl = url;
-  }
-  return cachedRpcClient;
-}
-
-async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(rpcUrl(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: `ricos-${Date.now()}-${method}`,
-      method,
-      params,
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw new Error(`RPC ${method} failed: ${res.status}`);
-  }
-  const json = (await res.json()) as { result?: T; error?: { message?: string } };
-  if (json.error) {
-    throw new Error(`RPC ${method} error: ${json.error.message ?? "unknown_error"}`);
-  }
-  return json.result as T;
-}
 
 async function getLatestSignatureForReference(reference: string): Promise<string | undefined> {
-  const result = await rpcClient()
+  const result = await getSolanaRpcClient()
     .getSignaturesForAddress(address(reference), {
       commitment: "confirmed",
       limit: 1,

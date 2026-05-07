@@ -1,6 +1,6 @@
 # RicoS
 
-Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), backend routes in the **`web`** app that persist pending Solana payment references and poll chain confirmations into the `order.paid` queue, a **kitchen-relay** printing service that subscribes to that stream and prints tickets, and shared **menu data** with stable opaque item IDs.
+Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stripe** Payment Element (guest checkout), backend routes in the `**web`** app that persist pending Solana payment references and poll chain confirmations into the `order.paid` queue, a **kitchen-relay** printing service that subscribes to that stream and prints tickets, and shared **menu data** with stable opaque item IDs.
 
 **Webhook integration status:** Stripe and Helius webhook routes remain integrated and ready for use, but Solana order ingestion currently relies on backend polling and is not actively using webhook delivery.
 
@@ -10,11 +10,13 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 
 ## Layout
 
-| Path | Description |
-|------|-------------|
-| [`web/`](web/) | Next.js App Router — menu, cart, checkout, confirmation |
-| [`kitchen-relay/`](kitchen-relay/) | Bun — SSE client + `GET /health`; prints tickets (console or CUPS) and POSTs ack to web backend |
-| [`packages/shared/`](packages/shared/) | Canonical `menu.json` and helpers (`getItemById`, Stripe kitchen metadata parsing, etc.) |
+
+| Path                                   | Description                                                                                     |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `[web/](web/)`                         | Next.js App Router — menu, cart, checkout, confirmation                                         |
+| `[kitchen-relay/](kitchen-relay/)`     | Bun — SSE client + `GET /health`; prints tickets (console or CUPS) and POSTs ack to web backend |
+| `[packages/shared/](packages/shared/)` | Canonical `menu.json` and helpers (`getItemById`, Stripe kitchen metadata parsing, etc.)        |
+
 
 ## Prerequisites
 
@@ -24,7 +26,7 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 
 ## Environment variables
 
-See [`.env.example`](.env.example) and [`.env.local.example`](.env.local.example).
+See `[.env.example](.env.example)` and `[.env.local.example](.env.local.example)`.
 
 **Root env loading policy: `.env` then `.env.local`**
 
@@ -66,35 +68,25 @@ Optional:
 ## Local development (v1)
 
 1. **Install dependencies** (from repo root):
-
-   ```bash
+  ```bash
    bun install
-   ```
-
+  ```
 2. **Configure env files**:
-
-   - Copy `.env.example` to `.env` at the repo root.
-   - Copy `.env.local.example` to `.env.local` at the repo root.
-   - Fill real Stripe values in `.env.local`.
-
+  - Copy `.env.example` to `.env` at the repo root.
+  - Copy `.env.local.example` to `.env.local` at the repo root.
+  - Fill real Stripe values in `.env.local`.
 3. **Start backend + storefront** — **recommended in Cursor:** one integrated terminal per process.
-
-   - Command Palette (**Cmd+Shift+P** / **Ctrl+Shift+P**) → **Tasks: Run Task** → **`RicoS: Dev bootstrap`**.  
-     That starts **kitchen-relay** and **web** in separate terminal tabs (see [`.vscode/tasks.json`](.vscode/tasks.json)).  
-     If tasks fail with **`bun: command not found`**, the workspace prepends **`~/.bun/bin`** (and common Homebrew paths) to `PATH` in [`.vscode/tasks.json`](.vscode/tasks.json) and [`.vscode/settings.json`](.vscode/settings.json); reload the window after pulling changes. On Windows, add your Bun install directory to `PATH` or extend `.vscode/tasks.json` `options.env` with `;`-separated paths.
-
+  - Command Palette (**Cmd+Shift+P** / **Ctrl+Shift+P**) → **Tasks: Run Task** → `**RicoS: Dev bootstrap`**.  
+   That starts **kitchen-relay** and **web** in separate terminal tabs (see `[.vscode/tasks.json](.vscode/tasks.json)`).  
+   If tasks fail with `**bun: command not found`**, the workspace prepends `**~/.bun/bin**` (and common Homebrew paths) to `PATH` in `[.vscode/tasks.json](.vscode/tasks.json)` and `[.vscode/settings.json](.vscode/settings.json)`; reload the window after pulling changes. On Windows, add your Bun install directory to `PATH` or extend `.vscode/tasks.json` `options.env` with `;`-separated paths.
    **From a normal shell** (no split tabs): run the three commands in three terminals, or `bun run dev:bootstrap` for printed instructions (it does not multiplex one session).
-
    Set `STRIPE_WEBHOOK_SECRET` for the **web backend** in `.env.local`. Set `KITCHEN_PRINTER_ADAPTER` (e.g. `console`) in `.env`.
-
 4. **Configure provider webhooks to hit hosted web routes**:
-   - Stripe endpoint: `https://<your-web-domain>/api/webhooks/stripe`
-   - Helius endpoint: `https://<your-web-domain>/api/webhooks/helius` (integration can remain configured while ingestion is disabled by default)
-   - Relay SSE endpoint: `https://<your-web-domain>/api/events/stream`
-   - Relay ack endpoint: `https://<your-web-domain>/api/print/ack`
-
-   Solana Pay checkout now registers pending payment references on the backend; a poller confirms on-chain settlement and persists the order. The backend then emits **`order.paid`** over SSE; the relay prints a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
-
+  - Stripe endpoint: `https://<your-web-domain>/api/webhooks/stripe`
+  - Helius endpoint: `https://<your-web-domain>/api/webhooks/helius` (integration can remain configured while ingestion is disabled by default)
+  - Relay SSE endpoint: `https://<your-web-domain>/api/events/stream`
+  - Relay ack endpoint: `https://<your-web-domain>/api/print/ack`
+   Solana Pay checkout now registers pending payment references on the backend; a poller confirms on-chain settlement and persists the order. The backend then emits `**order.paid`** over SSE; the relay prints a kitchen ticket (and appends to `KITCHEN_PRINT_LOG` if set).
 5. Open [http://localhost:3000](http://localhost:3000), add items, complete checkout with a [Stripe test card](https://stripe.com/docs/testing#cards) (e.g. `4242 4242 4242 4242`).
 
 ## Deploying the storefront on Vercel
@@ -128,16 +120,16 @@ Practical goal: maintain near-real-time confirmation for active checkouts while 
 
 ## Kitchen relay host (on-prem)
 
-- Run **`kitchen-relay`** under **systemd** (or another supervisor), with `KITCHEN_BACKEND_BASE_URL` pointing at your hosted web backend.
+- Run `**kitchen-relay`** under **systemd** (or another supervisor), with `KITCHEN_BACKEND_BASE_URL` pointing at your hosted web backend.
 - Configure Stripe webhook to call hosted `web` route directly (`/api/webhooks/stripe`).
 - Helius webhook can remain configured for future use, but Solana ingestion no longer uses webhook delivery by default.
-- Replace or extend the print layer in [`kitchen-relay/src/print.ts`](kitchen-relay/src/print.ts) for USB or network thermal printers (e.g. ESC/POS) as needed.
+- Replace or extend the print layer in `[kitchen-relay/src/print.ts](kitchen-relay/src/print.ts)` for USB or network thermal printers (e.g. ESC/POS) as needed.
 
 ## Menu item IDs
 
 Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mod_...`, `opt_...` in `packages/shared/src/menu.json`). Keep IDs stable even if display copy changes.
 
-Menu snapshots are versioned in [`packages/shared/src/menu-versions/`](packages/shared/src/menu-versions/); the web app stamps `CURRENT_MENU_VERSION` on every cart. Webhook handlers validate and decode against the same registry.
+Menu snapshots are versioned in `[packages/shared/src/menu-versions/](packages/shared/src/menu-versions/)`; the web app stamps `CURRENT_MENU_VERSION` on every cart. Webhook handlers validate and decode against the same registry.
 
 ## Predefined customizations (v1)
 
@@ -157,63 +149,23 @@ Menu snapshots are versioned in [`packages/shared/src/menu-versions/`](packages/
   - missing required selections
   - invalid single-vs-multiple selection counts
 
-The on-wire shape of the cart inside Stripe metadata (codec identifier, base64url payload, binary byte layout, integrity checks) is decoded by the webhook backend logic in `web/lib/webhook-backend`.
+The on-wire shape of the cart inside Stripe metadata (codec identifier, base64url payload, binary byte layout, integrity checks) is decoded by Web API component logic in `web/lib/commerce/web-api/`* with supporting adapters in `web/lib/infrastructure/*`.
 
 ## Scripts (root `package.json`)
 
-| Script | Command |
-|--------|---------|
-| Dev — bootstrap (split terminals in Cursor) | Command Palette → **Tasks: Run Task** → **RicoS: Dev bootstrap** (see [`.vscode/tasks.json`](.vscode/tasks.json)) |
-| Dev — bootstrap hint (shell only) | `bun run dev:bootstrap` |
-| Dev — web | `bun run dev:web` |
-| Dev — kitchen (printing relay) | `bun run dev:kitchen` |
-| Build — web | `bun run build` |
-| Lint — web | `bun run lint` |
+
+| Script                                      | Command                                                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Dev — bootstrap (split terminals in Cursor) | Command Palette → **Tasks: Run Task** → **RicoS: Dev bootstrap** (see `[.vscode/tasks.json](.vscode/tasks.json)`) |
+| Dev — bootstrap hint (shell only)           | `bun run dev:bootstrap`                                                                                           |
+| Dev — web                                   | `bun run dev:web`                                                                                                 |
+| Dev — kitchen (printing relay)              | `bun run dev:kitchen`                                                                                             |
+| Build — web                                 | `bun run build`                                                                                                   |
+| Lint — web                                  | `bun run lint`                                                                                                    |
+
 
 Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env` and `.env.local` are always loaded in the correct order.
 
 ## Architecture
 
-The diagram below reflects the deployed architecture: pending-reference polling in the hosted web backend with Turso-backed queue and on-prem kitchen relay.
-
-```mermaid
-flowchart TB
-  U[Customer Browser]
-
-  subgraph Vercel frontend
-    W[Storefront]
-  end
-
-  subgraph Providers
-    S[Stripe]
-    H[Helius]
-  end
-
-  subgraph Turso
-    DB[(pending kitchen orders)]
-  end
-
-  subgraph VercelBackend
-    X[Webhook backend routes]
-  end
-
-  subgraph Local
-    subgraph relay process
-      K[Printing relay]
-      P[Printer adapter]
-    end
-  end
-
-  U -->|Checkout + Order Confirmation| W
-  W ---->|Create Stripe payment request| S
-  S -.->|Stripe payment confirmation| W 
-  W -->|Create Solana Pay payment request|W
-  W ---->|Solana Pay transaction|H
-
-  S -->|Webhook event| X
-  X -->|poll pending references| H
-  X -->|track print queue| DB
-  X -->|SSE order.paid event| K
-  K -->|SSE subscribe & POST print ack| X
-  K -->|Print ticket| P
-```
+See [C4 Model](docs/C4/workspace.dsl) for details.

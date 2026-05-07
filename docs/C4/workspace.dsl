@@ -1,4 +1,4 @@
-workspace "Name" "Description" {
+workspace "RicoS" "Restaurant online ordering system" {
 
     !identifiers hierarchical
 

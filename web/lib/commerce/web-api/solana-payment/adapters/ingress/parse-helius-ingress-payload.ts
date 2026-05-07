@@ -1,5 +1,5 @@
 import { CART_B64_KEY, CART_CODEC_ID_V1, CART_CODEC_KEY } from "@ricos/shared";
-import type { NormalizedIngressEvent } from "./types";
+import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 
 type UnknownRecord = Record<string, unknown>;
 

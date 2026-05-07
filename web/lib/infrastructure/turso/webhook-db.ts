@@ -6,22 +6,7 @@ import {
   type DecodeIndex,
   type MenuVersion,
 } from "@ricos/shared";
-
-export type KitchenOrderPayload = {
-  stripeEventId: string;
-  paymentIntentId: string;
-  amountCents: number;
-  currency: string;
-  lines: {
-    id: string;
-    quantity: number;
-    selections: Record<string, string[]>;
-    unitBasePriceCents: number;
-    selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
-    lineUnitTotalCents: number;
-    lineExtendedTotalCents: number;
-  }[];
-};
+import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 
 export type PendingPaymentStatus = "pending" | "confirmed" | "expired";
 

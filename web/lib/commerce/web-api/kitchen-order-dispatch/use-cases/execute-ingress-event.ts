@@ -1,7 +1,7 @@
 import type { Client } from "@libsql/client";
-import { processIngressEvent, IngressProcessError } from "./process";
-import type { NormalizedIngressEvent } from "./types";
-import { publishOrderPaid } from "../runtime";
+import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
+import { publishOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
+import { IngressProcessError, processIngressEvent } from "./process-ingress-event";
 
 export async function executeIngressEvent(
   db: Client,

@@ -141,7 +141,9 @@ export function SolanaPayStub() {
   // dispatchers without retriggering effects.
   const payment = usePaymentStatus();
   const paymentRef = useRef(payment);
-  paymentRef.current = payment;
+  useEffect(() => {
+    paymentRef.current = payment;
+  }, [payment]);
 
   const [qr, setQr] = useState<string | null>(null);
   const [url, setUrl] = useState<URL | null>(null);
@@ -151,16 +153,20 @@ export function SolanaPayStub() {
 
   // Build URL + QR once per mount (re-runnable via retryKey).
   useEffect(() => {
-    paymentRef.current.reset();
-    setQr(null);
-    setUrl(null);
-    setSignature(null);
-    setReferenceAddress(null);
-
-    if (cents <= 0) return;
-
     let cancelled = false;
+
     const run = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      paymentRef.current.reset();
+      setQr(null);
+      setUrl(null);
+      setSignature(null);
+      setReferenceAddress(null);
+
+      if (cents <= 0) return;
+
       let memo: string;
       try {
         memo = encodeCartMemo(cartLines);

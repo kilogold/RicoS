@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import type { NormalizedIngressEvent } from "./types";
+import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 
 export type StripeIngressParseResult =
   | { kind: "error"; status: number; message: string }

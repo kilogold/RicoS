@@ -1,0 +1,25 @@
+name: Web Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.0"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run architecture lint
+        run: bun --cwd web eslint "app/api/**/*.{ts,tsx}" "lib/commerce/**/*.{ts,tsx}" "lib/infrastructure/**/*.{ts,tsx}"

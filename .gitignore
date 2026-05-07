@@ -16,3 +16,4 @@ pnpm-lock.yaml
 .vercel
 docs/C4/.structurizr/
 docs/C4/workspace.json
+kitchen-relay/src/.kitchen-processed-events.db
