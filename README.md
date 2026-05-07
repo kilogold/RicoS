@@ -169,3 +169,55 @@ Run root scripts (`bun run dev:web`, `bun run dev:kitchen`, etc.) so root `.env`
 ## Architecture
 
 See [C4 Model](docs/C4/workspace.dsl) for details.
+
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+graph LR
+  linkStyle default stroke:#94a3b8,color:#e5e7eb
+
+  subgraph diagram ["Container View: Online Ordering"]
+    style diagram fill:#0b1220,stroke:#0b1220,color:#e5e7eb
+
+    1["<div style='font-weight: bold'>Customer</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div>"]
+    style 1 fill:#111827,stroke:#94a3b8,color:#e5e7eb
+    2["<div style='font-weight: bold'>Storefront Staff</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div>"]
+    style 2 fill:#111827,stroke:#94a3b8,color:#e5e7eb
+    3("<div style='font-weight: bold'>Kitchen Relay</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div>")
+    style 3 fill:#0f172a,stroke:#60a5fa,color:#bfdbfe
+    11("<div style='font-weight: bold'>Stripe</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Stripe's payment processing<br />system</div>")
+    style 11 fill:#1f2937,stroke:#9ca3af,color:#e5e7eb
+    12("<div style='font-weight: bold'>Helius</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Solana network services</div>")
+    style 12 fill:#1f2937,stroke:#9ca3af,color:#e5e7eb
+
+    subgraph 5 ["Online Ordering"]
+      style 5 fill:#0f172a,stroke:#60a5fa,color:#dbeafe
+
+      10[("<div style='font-weight: bold'>Database</div><div style='font-size: 70%; margin-top: 0px'>[Container: SQL]</div><div style='font-size: 80%; margin-top:10px'>Stores payment state, kitchen<br />dispatch queue state, and<br />staff order lifecycle state.</div>")]
+      style 10 fill:#111827,stroke:#60a5fa,color:#dbeafe
+      6["<div style='font-weight: bold'>Admin Panel</div><div style='font-size: 70%; margin-top: 0px'>[Container: Typescript and Next.js]</div><div style='font-size: 80%; margin-top:10px'>Provides admin functionality<br />to the storefront staff.</div>"]
+      style 6 fill:#111827,stroke:#60a5fa,color:#dbeafe
+      7["<div style='font-weight: bold'>Web Client</div><div style='font-size: 70%; margin-top: 0px'>[Container: Typescript and Next.js]</div><div style='font-size: 80%; margin-top:10px'>Browser runtime for customer<br />ordering flows.</div>"]
+      style 7 fill:#111827,stroke:#60a5fa,color:#dbeafe
+      8("<div style='font-weight: bold'>Web Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: Typescript and Next.js]</div><div style='font-size: 80%; margin-top:10px'>Serves customer/staff web<br />content and executes<br />server-rendered flows.</div>")
+      style 8 fill:#111827,stroke:#60a5fa,color:#dbeafe
+      9("<div style='font-weight: bold'>Web API</div><div style='font-size: 70%; margin-top: 0px'>[Container: Typescript and Next.js]</div><div style='font-size: 80%; margin-top:10px'>Operates RicoS payment<br />confirmation, kitchen<br />dispatch, and staff-driven<br />order lifecycle transitions.</div>")
+      style 9 fill:#111827,stroke:#60a5fa,color:#dbeafe
+    end
+
+    11-. "<div>Send payment confirmation<br />event</div><div style='font-size: 70%'></div>" .->9
+    3-. "<div>Acknowledge order ticket<br />printed</div><div style='font-size: 70%'></div>" .->9
+    6-. "<div>Finalize or refund order from<br />staff console</div><div style='font-size: 70%'></div>" .->9
+    7-. "<div>Create payment reference and<br />confirm paid order</div><div style='font-size: 70%'></div>" .->9
+    7-. "<div>Charge customer card</div><div style='font-size: 70%'></div>" .->11
+    7-. "<div>Submit Solana Pay transaction</div><div style='font-size: 70%'></div>" .->12
+    9-. "<div>Verify payment reference<br />settlement status</div><div style='font-size: 70%'></div>" .->12
+    9-. "<div>Track order lifecycle and<br />menu versions</div><div style='font-size: 70%'></div>" .->10
+    9-. "<div>Notify newly paid order</div><div style='font-size: 70%'></div>" .->3
+    1-. "<div>Orders from the web client</div><div style='font-size: 70%'></div>" .->7
+    2-. "<div>Finalize/Refund orders</div><div style='font-size: 70%'></div>" .->6
+    7-. "<div>Load customer web content and<br />server-rendered responses</div><div style='font-size: 70%'></div>" .->8
+    6-. "<div>Load staff web content and<br />server-rendered responses</div><div style='font-size: 70%'></div>" .->8
+
+  end
+```
+
