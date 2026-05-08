@@ -28,10 +28,9 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
 
   const startedAt = Date.now();
   let db;
-  let heliusConfig;
+  let heliusConfig = getHeliusIngressConfig();
   try {
     db = await getWebhookDb();
-    heliusConfig = getHeliusIngressConfig();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Helius webhook misconfiguration:", message);

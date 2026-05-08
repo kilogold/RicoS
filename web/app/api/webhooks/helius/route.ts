@@ -26,7 +26,8 @@ export async function POST(req: Request) {
 
 
     after(async () => {
-        void handleHeliusWebhookRequest(headers, body);
+        console.log("Starting [after] Helius webhook handler...");
+        await handleHeliusWebhookRequest(headers, body);
     });
 
     return Response.json({ received: true });
