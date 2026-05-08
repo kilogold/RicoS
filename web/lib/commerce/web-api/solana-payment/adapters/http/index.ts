@@ -153,9 +153,11 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     }
 
     return NextResponse.json({ reference });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Failed to generate Solana reference address:", err);
     return NextResponse.json(
-      { error: "Failed to generate reference address" },
+      { error: "Failed to generate reference address", detail: message },
       { status: 500 },
     );
   }

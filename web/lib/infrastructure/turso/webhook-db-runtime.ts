@@ -34,7 +34,11 @@ export async function getWebhookDb(): Promise<Client> {
     await migrate(db);
     await seedMenuVersions(db, MENU_VERSIONS);
     return db;
-  })();
+  })().catch((err) => {
+    // Avoid cache-poisoning: allow future calls to retry initialization.
+    runtime.dbPromise = null;
+    throw err;
+  });
 
   return runtime.dbPromise;
 }
