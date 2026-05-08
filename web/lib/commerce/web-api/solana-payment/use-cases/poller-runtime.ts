@@ -31,6 +31,7 @@ export type PollerLoopStep =
   | "sleep";
 
 type PollerState = {
+  instanceTag: string;
   started: boolean;
   loopPromise: Promise<void> | null;
   wakePromise: WakeSignalPromise | null;
@@ -41,6 +42,7 @@ type PollerState = {
 };
 
 export type SolanaPaymentPollerStatus = {
+  instanceTag: string;
   started: boolean;
   parked: boolean;
   loopPhase: PollerLoopPhase;
@@ -51,6 +53,8 @@ export type SolanaPaymentPollerStatus = {
 const state = globalThis as typeof globalThis & { __ricosSolanaPoller?: PollerState };
 if (!state.__ricosSolanaPoller) {
   state.__ricosSolanaPoller = {
+    // Per-process tag to distinguish warm instances in status responses.
+    instanceTag: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     started: false,
     loopPromise: null,
     wakePromise: null,
@@ -115,6 +119,7 @@ export function wakeSolanaPaymentPoller(): void {
 
 export function getSolanaPaymentPollerStatus(): SolanaPaymentPollerStatus {
   return {
+    instanceTag: pollerState.instanceTag,
     started: pollerState.started,
     // Parked means the loop is waiting on the wake signal promise.
     parked: Boolean(pollerState.wakePromise),
