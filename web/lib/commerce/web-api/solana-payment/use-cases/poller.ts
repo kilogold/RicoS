@@ -1,33 +1,37 @@
+/**
+ * Solana payment business poller.
+ *
+ * Business responsibility:
+ * - Read active pending payment references from DB.
+ * - Verify on-chain settlement and transfer correctness.
+ * - Convert confirmed settlements into normalized ingress events.
+ * - Publish paid-order facts through existing ingress/order dispatch flow.
+ * - Mark references as confirmed or expired based on processing outcome.
+ *
+ * Separation of concerns:
+ * - This file owns domain/business decisions and payment-processing workflow.
+ * - Runtime lifecycle concerns (singleton state, wake/sleep signaling, loop timing)
+ *   are delegated to `poller-runtime.ts`.
+ */
 import type { Client } from "@libsql/client";
 import { address } from "@solana/kit";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
-import { getSolanaRpcClient, parsePositiveInt, rpcCall } from "@/lib/infrastructure/helius/solana-rpc";
+import { getSolanaRpcClient, rpcCall } from "@/lib/infrastructure/helius/solana-rpc";
 import {
   expireStalePendingPayments,
   listActivePendingPayments,
   markPendingPaymentConfirmed,
   markPendingPaymentExpired,
 } from "@/lib/infrastructure/turso/webhook-db";
-
-type PollerState = {
-  started: boolean;
-  loopPromise: Promise<void> | null;
-};
+import { POLL_INTERVAL_MS, pollerState, sleep, waitForWakeSignal } from "./poller-runtime";
+import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 type PendingMetadata = {
   metadata: Record<string, string | undefined>;
   amountCents: number;
   currency: string;
 };
-
-const state = globalThis as typeof globalThis & { __ricosSolanaPoller?: PollerState };
-if (!state.__ricosSolanaPoller) {
-  state.__ricosSolanaPoller = { started: false, loopPromise: null };
-}
-
-const pollerState = state.__ricosSolanaPoller;
-const POLL_INTERVAL_MS = parsePositiveInt(process.env.SOLANA_POLL_INTERVAL_MS, 2000);
 
 async function getLatestSignatureForReference(reference: string): Promise<string | undefined> {
   const result = await getSolanaRpcClient()
@@ -288,7 +292,8 @@ async function processPending(db: Client, pending: { reference: string; metadata
 }
 
 async function runLoop(getDb: () => Promise<Client>): Promise<void> {
-  while (true) {
+  // Keep running while this process has the poller enabled.
+  while (pollerState.started) {
     try {
       const db = await getDb();
       const nowMs = Date.now();
@@ -297,22 +302,29 @@ async function runLoop(getDb: () => Promise<Client>): Promise<void> {
         console.info("Pending payments expired:", expired);
       }
       const pending = await listActivePendingPayments(db, nowMs);
+      if (pending.length === 0) {
+        // TODO: add a low-frequency heartbeat DB check as a quick fix for multi-instance wake gaps.
+        // Nothing left to process, so sleep until a new reference is inserted.
+        await waitForWakeSignal();
+        continue;
+      }
+      // Process every currently active pending reference before the next delay.
       for (const row of pending) {
         await processPending(db, row);
       }
     } catch (err) {
       console.error("Solana payment poller iteration failed:", err);
     }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    await sleep(POLL_INTERVAL_MS);
   }
 }
 
-export function ensureSolanaPaymentPollerStarted(getDb: () => Promise<Client>): void {
-  if (pollerState.started) return;
-  pollerState.started = true;
-  pollerState.loopPromise = runLoop(getDb);
-  pollerState.loopPromise.catch((err) => {
-    pollerState.started = false;
-    console.error("Solana payment poller terminated:", err);
-  });
+export function ensureSolanaPaymentPollerStarted(): void {
+    if (pollerState.started) return;
+    pollerState.started = true;
+    pollerState.loopPromise = runLoop(getWebhookDb);
+    pollerState.loopPromise.catch((err) => {
+      pollerState.started = false;
+      console.error("Solana payment poller terminated:", err);
+    });
 }

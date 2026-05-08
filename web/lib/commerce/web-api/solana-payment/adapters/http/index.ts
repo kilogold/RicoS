@@ -2,6 +2,7 @@ import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
+import { wakeSolanaPaymentPoller } from "@/lib/commerce/web-api/solana-payment/use-cases/poller-runtime";
 import { insertPendingPaymentIfNew } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {
@@ -10,24 +11,14 @@ import {
   isHeliusWebhookEnabled,
 } from "../../config";
 import { parseHeliusIngressPayload } from "../ingress/parse-helius-ingress-payload";
-import { ensureSolanaPaymentBackendPollerStarted } from "../../use-cases/ensure-poller-started";
 
-const DEFAULT_PENDING_TTL_SECONDS = 15 * 60;
-const MAX_PENDING_TTL_SECONDS = 30 * 60;
+const PENDING_TTL_SECONDS = 120; // Solana blockhash expiry + padding
 
 type ReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
   amountCents?: unknown;
   currency?: unknown;
-  ttlSeconds?: unknown;
 };
-
-function parseTtlSeconds(raw: unknown): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return DEFAULT_PENDING_TTL_SECONDS;
-  const rounded = Math.floor(raw);
-  if (rounded <= 0) return DEFAULT_PENDING_TTL_SECONDS;
-  return Math.min(rounded, MAX_PENDING_TTL_SECONDS);
-}
 
 function headersToRecord(headers: Headers): Record<string, string | string[] | undefined> {
   const record: Record<string, string | undefined> = {};
@@ -121,7 +112,6 @@ export async function handleHeliusWebhookRequest(req: Request): Promise<Response
 
 export async function handleSolanaReferenceRegistrationRequest(req: Request): Promise<Response> {
   try {
-    ensureSolanaPaymentBackendPollerStarted();
     const body = (await req.json().catch(() => ({}))) as ReferenceRegistrationRequest;
     const metadata = body.metadata;
     const amountCents = body.amountCents;
@@ -141,19 +131,23 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
 
     const signer = await generateKeyPairSigner();
     const reference = signer.address;
-    const ttlSeconds = parseTtlSeconds(body.ttlSeconds);
-    const nowMs = Date.now();
+    const issuedAt = Date.now();
+    const expiresAt = issuedAt + PENDING_TTL_SECONDS * 1000;
     const db = await getWebhookDb();
-    await insertPendingPaymentIfNew(db, {
+    const inserted = await insertPendingPaymentIfNew(db, {
       reference,
       metadataJson: JSON.stringify({
         metadata,
         amountCents: Math.floor(amountCents),
         currency: currency.trim().toLowerCase(),
       }),
-      expiresAt: nowMs + ttlSeconds * 1000,
+      issuedAt,
+      expiresAt,
       status: "pending",
     });
+    if (inserted) {
+      wakeSolanaPaymentPoller();
+    }
 
     return NextResponse.json({ reference });
   } catch {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
-import { ensureSolanaPaymentBackendPollerStarted } from "@/lib/commerce/web-api/solana-payment/use-cases/ensure-poller-started";
 import { subscribeOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
 import { deletePending, listPending } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
@@ -11,7 +10,6 @@ function formatEvent(event: string, payload: KitchenOrderPayload): string {
 }
 
 export async function handleKitchenOrderEventStream(req: Request): Promise<Response> {
-  ensureSolanaPaymentBackendPollerStarted();
   let db;
   try {
     db = await getWebhookDb();

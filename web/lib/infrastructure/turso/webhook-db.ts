@@ -13,6 +13,7 @@ export type PendingPaymentStatus = "pending" | "confirmed" | "expired";
 export type PendingPaymentRecord = {
   reference: string;
   metadataJson: string;
+  issuedAt: number;
   expiresAt: number;
   status: PendingPaymentStatus;
   signature?: string;
@@ -43,10 +44,15 @@ export async function migrate(client: Client): Promise<void> {
     CREATE TABLE IF NOT EXISTS pending_payments (
       reference     TEXT PRIMARY KEY,
       metadata_json TEXT NOT NULL,
+      issued_at     INTEGER NOT NULL,
       expires_at    INTEGER NOT NULL,
       status        TEXT NOT NULL DEFAULT 'pending',
       signature     TEXT
     )
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_pending_payments_status_expires_at
+    ON pending_payments(status, expires_at)
   `);
 }
 
@@ -83,12 +89,20 @@ export async function insertPendingPaymentIfNew(
 ): Promise<boolean> {
   const result = await client.execute({
     sql: `
-      INSERT OR IGNORE INTO pending_payments (reference, metadata_json, expires_at, status, signature)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO pending_payments (
+        reference,
+        metadata_json,
+        issued_at,
+        expires_at,
+        status,
+        signature
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
     `,
     args: [
       record.reference,
       record.metadataJson,
+      record.issuedAt,
       record.expiresAt,
       record.status,
       record.signature ?? null,
@@ -103,7 +117,7 @@ export async function listActivePendingPayments(
 ): Promise<PendingPaymentRecord[]> {
   const result = await client.execute({
     sql: `
-      SELECT reference, metadata_json, expires_at, status, signature
+      SELECT reference, metadata_json, issued_at, expires_at, status, signature
       FROM pending_payments
       WHERE status = 'pending' AND expires_at >= ?
       ORDER BY expires_at ASC
@@ -114,6 +128,7 @@ export async function listActivePendingPayments(
   return rows.map((row) => ({
     reference: String(row.reference ?? row.REFERENCE ?? ""),
     metadataJson: String(row.metadata_json ?? row.METADATA_JSON ?? ""),
+    issuedAt: Number(row.issued_at ?? row.ISSUED_AT ?? 0),
     expiresAt: Number(row.expires_at ?? row.EXPIRES_AT ?? 0),
     status: String(row.status ?? row.STATUS ?? "pending") as PendingPaymentStatus,
     signature:
