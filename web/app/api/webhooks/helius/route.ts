@@ -12,7 +12,6 @@ function headersToRecord(headers: Headers): Record<string, string | string[] | u
 }
 
 export async function POST(req: Request) {
-    console.log("Helius webhook received.");
     const headers = headersToRecord(req.headers);
 
     let body: unknown;
@@ -22,6 +21,9 @@ export async function POST(req: Request) {
       console.error("Invalid JSON body in Helius webhook"); 
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+
+    console.log("Helius webhook received.", headers, body);
+
 
     after(async () => {
         void handleHeliusWebhookRequest(headers, body);
