@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { createClient, type Client } from "@libsql/client";
 import {
   buildDecodeIndex,
@@ -166,8 +165,11 @@ export async function expireStalePendingPayments(client: Client, nowMs: number):
 
 const decodeIndexCache = new Map<number, DecodeIndex>();
 
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
+async function sha256Hex(value: string): Promise<string> {
+  const input = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", input);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function seedMenuVersions(
@@ -181,7 +183,7 @@ export async function seedMenuVersions(
     const canonicalCatalog = canonicalJson(entry.catalog);
     const decodeIndex = buildDecodeIndex(entry.version, entry.catalog);
     const canonicalDecodeIndex = canonicalJson(decodeIndex);
-    const hash = sha256Hex(canonicalCatalog);
+    const hash = await sha256Hex(canonicalCatalog);
     const publishedAtMs = Date.parse(entry.publishedAt);
     if (!Number.isFinite(publishedAtMs)) {
       throw new Error(`menuVersion ${entry.version} has invalid publishedAt`);
