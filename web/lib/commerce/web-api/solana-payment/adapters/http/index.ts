@@ -23,22 +23,8 @@ type ReferenceRegistrationRequest = {
   currency?: unknown;
 };
 
-function headersToRecord(headers: Headers): Record<string, string | string[] | undefined> {
-  const record: Record<string, string | undefined> = {};
-  for (const [key, value] of headers.entries()) {
-    record[key.toLowerCase()] = value;
-  }
-  return record;
-}
-
-export async function handleHeliusWebhookRequest(req: Request): Promise<Response> {
+export async function handleHeliusWebhookRequest(headers: Record<string, string | string[] | undefined>, body: unknown): Promise<Response> {
   const heliusDebug = isHeliusWebhookDebugEnabled();
-  if (!isHeliusWebhookEnabled()) {
-    if (heliusDebug) {
-      console.info("Helius webhook received while disabled; ignoring request.");
-    }
-    return NextResponse.json({ received: true, ignored: true, reason: "webhook_disabled" });
-  }
 
   const startedAt = Date.now();
   let db;
@@ -52,16 +38,9 @@ export async function handleHeliusWebhookRequest(req: Request): Promise<Response
     return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
   const parsed = parseHeliusIngressPayload({
     body,
-    headers: headersToRecord(req.headers),
+    headers,
     config: heliusConfig,
   });
 

@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   // Extend via NEXT_DEV_ALLOWED_ORIGINS="ip1,ip2,*.local" without a code edit.
   allowedDevOrigins: [
     "10.0.0.93",
+    "f754-67-224-139-203.ngrok-free.app",
     "*.local",
     ...(process.env.NEXT_DEV_ALLOWED_ORIGINS?.split(",")
       .map((s) => s.trim())

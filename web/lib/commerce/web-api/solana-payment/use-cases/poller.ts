@@ -345,11 +345,15 @@ async function runLoop(getDb: () => Promise<Client>): Promise<void> {
 }
 
 export function ensureSolanaPaymentPollerStarted(): void {
-    if (pollerState.started) return;
-    pollerState.started = true;
-    pollerState.loopPromise = runLoop(getWebhookDb);
-    pollerState.loopPromise.catch((err) => {
-      pollerState.started = false;
-      console.error("Solana payment poller terminated:", err);
-    });
+
+    // HACK: Disable the poller for now
+    return;
+
+    // if (pollerState.started) return;
+    // pollerState.started = true;
+    // pollerState.loopPromise = runLoop(getWebhookDb);
+    // pollerState.loopPromise.catch((err) => {
+    //   pollerState.started = false;
+    //   console.error("Solana payment poller terminated:", err);
+    // });
 }
