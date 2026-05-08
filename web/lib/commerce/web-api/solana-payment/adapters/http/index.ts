@@ -2,7 +2,10 @@ import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
-import { wakeSolanaPaymentPoller } from "@/lib/commerce/web-api/solana-payment/use-cases/poller-runtime";
+import {
+  getSolanaPaymentPollerStatus,
+  wakeSolanaPaymentPoller,
+} from "@/lib/commerce/web-api/solana-payment/use-cases/poller-runtime";
 import { insertPendingPaymentIfNew } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {
@@ -156,4 +159,23 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       { status: 500 },
     );
   }
+}
+
+export async function handleSolanaPollerPokeRequest(): Promise<Response> {
+  const before = getSolanaPaymentPollerStatus();
+  wakeSolanaPaymentPoller();
+  const after = getSolanaPaymentPollerStatus();
+
+  return NextResponse.json({
+    ok: true,
+    before,
+    after,
+  });
+}
+
+export async function handleSolanaPollerStatusRequest(): Promise<Response> {
+  return NextResponse.json({
+    ok: true,
+    status: getSolanaPaymentPollerStatus(),
+  });
 }

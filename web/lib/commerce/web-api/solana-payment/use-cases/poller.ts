@@ -295,26 +295,51 @@ async function runLoop(getDb: () => Promise<Client>): Promise<void> {
   // Keep running while this process has the poller enabled.
   while (pollerState.started) {
     try {
+      pollerState.loopPhase = "working";
+      pollerState.loopStep = "get_db";
+      pollerState.lastLoopError = null;
       const db = await getDb();
       const nowMs = Date.now();
+      pollerState.loopStep = "expire_stale";
       const expired = await expireStalePendingPayments(db, nowMs);
       if (expired > 0) {
         console.info("Pending payments expired:", expired);
       }
+      pollerState.loopStep = "list_pending";
       const pending = await listActivePendingPayments(db, nowMs);
       if (pending.length === 0) {
         // TODO: add a low-frequency heartbeat DB check as a quick fix for multi-instance wake gaps.
         // Nothing left to process, so sleep until a new reference is inserted.
+        pollerState.loopPhase = "parked";
+        pollerState.loopStep = "wait_for_wake";
         await waitForWakeSignal();
         continue;
       }
       // Process every currently active pending reference before the next delay.
+      pollerState.loopStep = "process_pending";
       for (const row of pending) {
         await processPending(db, row);
       }
+      // Park immediately when nothing is left, instead of sleeping first (sleep
+      // leaves wakePromise unset so instance-local "parked" reads false).
+      pollerState.loopStep = "list_remaining";
+      const remaining = await listActivePendingPayments(db, Date.now());
+      if (remaining.length === 0) {
+        pollerState.loopPhase = "parked";
+        pollerState.loopStep = "wait_for_wake";
+        await waitForWakeSignal();
+        continue;
+      }
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      pollerState.lastLoopError = `${pollerState.loopStep}: ${message}`;
+      pollerState.loopPhase = "error_sleep";
       console.error("Solana payment poller iteration failed:", err);
     }
+    if (pollerState.loopPhase !== "error_sleep") {
+      pollerState.loopPhase = "poll_sleep";
+    }
+    pollerState.loopStep = "sleep";
     await sleep(POLL_INTERVAL_MS);
   }
 }

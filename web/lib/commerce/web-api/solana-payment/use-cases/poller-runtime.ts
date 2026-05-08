@@ -19,11 +19,33 @@ type WakeSignal = {
   resolve: WakeSignalResolver;
 };
 
+export type PollerLoopPhase = "init" | "working" | "parked" | "poll_sleep" | "error_sleep";
+export type PollerLoopStep =
+  | "idle"
+  | "get_db"
+  | "expire_stale"
+  | "list_pending"
+  | "process_pending"
+  | "list_remaining"
+  | "wait_for_wake"
+  | "sleep";
+
 type PollerState = {
   started: boolean;
   loopPromise: Promise<void> | null;
   wakePromise: WakeSignalPromise | null;
   wakeResolver: WakeSignalResolver | null;
+  loopPhase: PollerLoopPhase;
+  loopStep: PollerLoopStep;
+  lastLoopError: string | null;
+};
+
+export type SolanaPaymentPollerStatus = {
+  started: boolean;
+  parked: boolean;
+  loopPhase: PollerLoopPhase;
+  loopStep: PollerLoopStep;
+  lastLoopError: string | null;
 };
 
 const state = globalThis as typeof globalThis & { __ricosSolanaPoller?: PollerState };
@@ -33,6 +55,9 @@ if (!state.__ricosSolanaPoller) {
     loopPromise: null,
     wakePromise: null,
     wakeResolver: null,
+    loopPhase: "init",
+    loopStep: "idle",
+    lastLoopError: null,
   };
 }
 
@@ -86,4 +111,15 @@ export function waitForWakeSignal(): WakeSignalPromise {
 export function wakeSolanaPaymentPoller(): void {
   // No-op if the poller is already awake.
   pollerState.wakeResolver?.();
+}
+
+export function getSolanaPaymentPollerStatus(): SolanaPaymentPollerStatus {
+  return {
+    started: pollerState.started,
+    // Parked means the loop is waiting on the wake signal promise.
+    parked: Boolean(pollerState.wakePromise),
+    loopPhase: pollerState.loopPhase,
+    loopStep: pollerState.loopStep,
+    lastLoopError: pollerState.lastLoopError,
+  };
 }
