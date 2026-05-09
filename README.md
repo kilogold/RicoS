@@ -154,8 +154,7 @@ The rest of the file is the catalog (`restaurant`, `menuName`, `categories`, …
 2. Merge to **`main`**. Vercel builds and promotes a new production deployment.
 3. After promotion, GitHub fires a `deployment_status: success` event for the production environment. The workflow `[.github/workflows/menu-publish.yml](.github/workflows/menu-publish.yml)` listens for that event and:
    - Checks out the deployed commit and detects whether `[packages/shared/src/menu.json](packages/shared/src/menu.json)` changed vs. the parent commit — if not, exits 0.
-   - Asserts that `catalogVersion` is **strictly greater** than the parent commit's value, mirroring the server's monotonic publish rule. CI fails the run if the file changed without a version bump.
-   - Calls **`POST /api/staff/menu/publish`** with `Authorization: Bearer ${{ secrets.STAFF_MENU_PUBLISH_SECRET }}`.
+   - Calls **`POST /api/staff/menu/publish`** with `Authorization: Bearer ${{ secrets.STAFF_MENU_PUBLISH_SECRET }}`. It prints HTTP status and the response body and fails the job on non-2xx. Version and timestamp rules are enforced only by the API (step 5), not duplicated in CI.
 4. The handler **fetches** the file from **`MENU_PUBLISH_MENU_JSON_URL`** (required), which should be the **GitHub raw URL** for `main`, e.g.  
    `https://raw.githubusercontent.com/<org>/<repo>/main/packages/shared/src/menu.json`  
    so production publish tracks **what is on `main`**, not whatever happens to be in a particular deployment bundle. For private repositories, set **`GITHUB_TOKEN`** (read access to the file).

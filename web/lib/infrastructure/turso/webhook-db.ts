@@ -238,7 +238,8 @@ async function menuVersionsRowCount(client: Client): Promise<number> {
 
 /**
  * Insert or verify an immutable menu version row (staff publish).
- * Enforces `catalogVersion === MAX(version)+1` when the table is non-empty.
+ * Enforces `catalogVersion === MAX(version)+1` when the table is non-empty, and for each new
+ * row `publishedAt` strictly after the previous version’s `published_at`.
  */
 export async function upsertMenuVersionForPublish(
   client: Client,
@@ -256,6 +257,30 @@ export async function upsertMenuVersionForPublish(
     );
   }
 
+  const existing = await client.execute({
+    sql: `SELECT content_hash FROM menu_versions WHERE version = ?`,
+    args: [parsed.catalogVersion],
+  });
+  const existingRows = (existing.rows ?? []) as Record<string, unknown>[];
+
+  if (existingRows.length === 0 && maxV !== null) {
+    const prevAt = await client.execute({
+      sql: `SELECT published_at FROM menu_versions WHERE version = ?`,
+      args: [maxV],
+    });
+    const prevRows = (prevAt.rows ?? []) as Record<string, unknown>[];
+    const prevMs = Number(prevRows[0]?.published_at ?? prevRows[0]?.PUBLISHED_AT ?? NaN);
+    if (!Number.isFinite(prevMs)) {
+      throw new Error(`menu publish: invalid published_at stored for version ${maxV}`);
+    }
+    if (publishedAtMs <= prevMs) {
+      throw new Error(
+        `menu publish: publishedAt must be later than version ${maxV} (${new Date(prevMs).toISOString()}); ` +
+          `got ${new Date(publishedAtMs).toISOString()}`,
+      );
+    }
+  }
+
   const manifest = buildManifestForHash({
     catalogVersion: parsed.catalogVersion,
     publishedAtMs,
@@ -265,12 +290,6 @@ export async function upsertMenuVersionForPublish(
   const catalogJson = canonicalJson(parsed.catalog);
   const decodeIndex = buildDecodeIndex(parsed.catalogVersion, parsed.catalog);
   const decodeIndexJson = canonicalJson(decodeIndex);
-
-  const existing = await client.execute({
-    sql: `SELECT content_hash FROM menu_versions WHERE version = ?`,
-    args: [parsed.catalogVersion],
-  });
-  const existingRows = (existing.rows ?? []) as Record<string, unknown>[];
 
   if (existingRows.length > 0) {
     const storedHash = String(existingRows[0].content_hash ?? existingRows[0].CONTENT_HASH ?? "");

@@ -1,9 +1,12 @@
 # Menu Publish
 #
 # Runs after a successful Vercel Production deployment and, if
-# packages/shared/src/menu.json changed in the deployed commit, asserts that
-# `catalogVersion` was bumped vs. the parent commit, then calls
+# packages/shared/src/menu.json changed in the deployed commit, calls
 # POST /api/staff/menu/publish on the just-promoted deployment.
+#
+# Validation (monotonic version, publishedAt ordering, etc.) is enforced by the
+# deployment — this workflow only detects a menu file change and reports the
+# HTTP response from the publish endpoint.
 #
 # Required setup:
 #   - Repo Actions secret: STAFF_MENU_PUBLISH_SECRET (must match the Vercel env var
@@ -41,7 +44,7 @@ jobs:
           ref: ${{ github.event.deployment.sha }}
           fetch-depth: 0
 
-      - name: Detect menu.json change and assert version bump
+      - name: Detect menu.json change
         id: detect
         env:
           SHA: ${{ github.event.deployment.sha }}
@@ -59,31 +62,13 @@ jobs:
             exit 1
           fi
 
-          NEW=$(jq -r '.catalogVersion' "${MENU_FILE}")
-          OLD=$(git show "${SHA}^:${MENU_FILE}" 2>/dev/null | jq -r '.catalogVersion' 2>/dev/null || echo 0)
-
-          if ! [[ "${NEW}" =~ ^[0-9]+$ ]]; then
-            echo "::error::catalogVersion in ${MENU_FILE} is not an integer (got '${NEW}')."
-            exit 1
-          fi
-          if ! [[ "${OLD}" =~ ^[0-9]+$ ]]; then
-            OLD=0
-          fi
-
-          if [ "${NEW}" -le "${OLD}" ]; then
-            echo "::error::catalogVersion must be strictly greater than parent commit's value (got ${NEW}, was ${OLD})."
-            exit 1
-          fi
-
-          echo "menu.json changed; catalogVersion ${OLD} -> ${NEW}."
+          echo "menu.json changed in ${SHA}; will POST staff publish."
           echo "should_publish=true" >> "$GITHUB_OUTPUT"
-          echo "new_version=${NEW}" >> "$GITHUB_OUTPUT"
 
       - name: POST staff publish
         if: steps.detect.outputs.should_publish == 'true'
         env:
           STAFF_MENU_PUBLISH_SECRET: ${{ secrets.STAFF_MENU_PUBLISH_SECRET }}
-          NEW_VERSION: ${{ steps.detect.outputs.new_version }}
         run: |
           set -euo pipefail
 
@@ -92,7 +77,7 @@ jobs:
             exit 1
           fi
 
-          echo "Publishing catalogVersion=${NEW_VERSION} to ${PUBLISH_URL}"
+          echo "POST ${PUBLISH_URL}"
 
           response=$(mktemp)
           http_code=$(curl \

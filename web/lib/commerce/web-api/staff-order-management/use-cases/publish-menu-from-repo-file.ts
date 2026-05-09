@@ -26,6 +26,9 @@ export type PublishMenuFromRepoFileResult = {
  *
  * The DB string is JSON-parsed and `categories` re-serialized through `canonicalJson`,
  * so whitespace, key order, or non-canonical legacy/manual writes do not affect the result.
+ *
+ * DB publish also requires each new row’s `publishedAt` to be strictly after the prior version’s
+ * timestamp (see `upsertMenuVersionForPublish`).
  */
 export async function publishMenuFromRepoFile(): Promise<PublishMenuFromRepoFileResult> {
   const parsed = await fetchMenuCatalogForPublish();
