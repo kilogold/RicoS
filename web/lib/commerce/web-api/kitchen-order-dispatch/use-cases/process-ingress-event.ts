@@ -38,8 +38,8 @@ export async function processIngressEvent(
   }
 
   const payload: KitchenOrderPayload = {
-    stripeEventId: event.ingressEventId,
-    paymentIntentId: event.paymentReferenceId,
+    paymentIngressEventId: event.paymentIngressEventId,
+    paymentReferenceId: event.paymentReferenceId,
     amountCents: Number(event.amountCents),
     currency: event.currency,
     lines: decodedCart.lines,

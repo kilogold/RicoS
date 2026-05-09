@@ -37,8 +37,8 @@ export async function handleKitchenOrderEventStream(req: Request): Promise<Respo
       };
 
       const pushOrderIfNew = (payload: KitchenOrderPayload): void => {
-        if (sentEventIds.has(payload.stripeEventId)) return;
-        sentEventIds.add(payload.stripeEventId);
+        if (sentEventIds.has(payload.paymentIngressEventId)) return;
+        sentEventIds.add(payload.paymentIngressEventId);
         safeEnqueue(formatEvent("order.paid", payload));
       };
 
@@ -119,18 +119,18 @@ export async function handlePrintAckRequest(req: Request): Promise<Response> {
     }
   }
 
-  let body: { stripeEventId?: unknown };
+  let body: { paymentIngressEventId?: unknown };
   try {
-    body = (await req.json()) as { stripeEventId?: unknown };
+    body = (await req.json()) as { paymentIngressEventId?: unknown };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const stripeEventId = body.stripeEventId;
-  if (typeof stripeEventId !== "string" || !stripeEventId.startsWith("evt_")) {
-    return NextResponse.json({ error: "Invalid stripeEventId" }, { status: 400 });
+  const paymentIngressEventId = body.paymentIngressEventId;
+  if (typeof paymentIngressEventId !== "string" || !paymentIngressEventId.startsWith("evt_")) {
+    return NextResponse.json({ error: "Invalid paymentIngressEventId" }, { status: 400 });
   }
 
-  await deletePending(db, stripeEventId);
+  await deletePending(db, paymentIngressEventId);
   return new NextResponse(null, { status: 204 });
 }

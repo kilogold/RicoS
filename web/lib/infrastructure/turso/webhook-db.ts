@@ -25,7 +25,7 @@ export function openDb(url: string, authToken: string): Client {
 export async function migrate(client: Client): Promise<void> {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS kitchen_orders (
-      stripe_event_id TEXT PRIMARY KEY,
+      payment_ingress_event_id TEXT PRIMARY KEY,
       payload TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )
@@ -60,8 +60,8 @@ export async function insertPendingIfNew(
   payload: KitchenOrderPayload,
 ): Promise<boolean> {
   const result = await client.execute({
-    sql: `INSERT OR IGNORE INTO kitchen_orders (stripe_event_id, payload, created_at) VALUES (?, ?, ?)`,
-    args: [payload.stripeEventId, JSON.stringify(payload), Date.now()],
+    sql: `INSERT OR IGNORE INTO kitchen_orders (payment_ingress_event_id, payload, created_at) VALUES (?, ?, ?)`,
+    args: [payload.paymentIngressEventId, JSON.stringify(payload), Date.now()],
   });
   return (result.rowsAffected ?? 0) > 0;
 }
@@ -75,10 +75,10 @@ export async function listPending(client: Client): Promise<KitchenOrderPayload[]
   });
 }
 
-export async function deletePending(client: Client, stripeEventId: string): Promise<void> {
+export async function deletePending(client: Client, paymentIngressEventId: string): Promise<void> {
   await client.execute({
-    sql: `DELETE FROM kitchen_orders WHERE stripe_event_id = ?`,
-    args: [stripeEventId],
+    sql: `DELETE FROM kitchen_orders WHERE payment_ingress_event_id = ?`,
+    args: [paymentIngressEventId],
   });
 }
 
@@ -110,21 +110,8 @@ export async function insertPendingPaymentIfNew(
   return (result.rowsAffected ?? 0) > 0;
 }
 
-export async function listActivePendingPayments(
-  client: Client,
-  nowMs: number,
-): Promise<PendingPaymentRecord[]> {
-  const result = await client.execute({
-    sql: `
-      SELECT reference, metadata_json, issued_at, expires_at, status, signature
-      FROM pending_payments
-      WHERE status = 'pending' AND expires_at >= ?
-      ORDER BY expires_at ASC
-    `,
-    args: [nowMs],
-  });
-  const rows = (result.rows ?? []) as Record<string, unknown>[];
-  return rows.map((row) => ({
+function rowToPendingPayment(row: Record<string, unknown>): PendingPaymentRecord {
+  return {
     reference: String(row.reference ?? row.REFERENCE ?? ""),
     metadataJson: String(row.metadata_json ?? row.METADATA_JSON ?? ""),
     issuedAt: Number(row.issued_at ?? row.ISSUED_AT ?? 0),
@@ -134,7 +121,33 @@ export async function listActivePendingPayments(
       (row.signature ?? row.SIGNATURE) === null
         ? undefined
         : String(row.signature ?? row.SIGNATURE ?? ""),
-  }));
+  };
+}
+
+/** Returns pending_payment rows for any of the given reference pubkeys (order not preserved). */
+export async function getPendingPaymentsByReferences(
+  client: Client,
+  references: string[],
+): Promise<Map<string, PendingPaymentRecord>> {
+  const out = new Map<string, PendingPaymentRecord>();
+  const unique = [...new Set(references.filter((r) => typeof r === "string" && r.length > 0))];
+  if (unique.length === 0) return out;
+
+  const placeholders = unique.map(() => "?").join(", ");
+  const result = await client.execute({
+    sql: `
+      SELECT reference, metadata_json, issued_at, expires_at, status, signature
+      FROM pending_payments
+      WHERE reference IN (${placeholders})
+    `,
+    args: unique,
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  for (const row of rows) {
+    const rec = rowToPendingPayment(row);
+    out.set(rec.reference, rec);
+  }
+  return out;
 }
 
 export async function markPendingPaymentConfirmed(
@@ -146,21 +159,6 @@ export async function markPendingPaymentConfirmed(
     sql: `UPDATE pending_payments SET status = 'confirmed', signature = ? WHERE reference = ?`,
     args: [signature, reference],
   });
-}
-
-export async function markPendingPaymentExpired(client: Client, reference: string): Promise<void> {
-  await client.execute({
-    sql: `UPDATE pending_payments SET status = 'expired' WHERE reference = ?`,
-    args: [reference],
-  });
-}
-
-export async function expireStalePendingPayments(client: Client, nowMs: number): Promise<number> {
-  const result = await client.execute({
-    sql: `UPDATE pending_payments SET status = 'expired' WHERE status = 'pending' AND expires_at < ?`,
-    args: [nowMs],
-  });
-  return Number(result.rowsAffected ?? 0);
 }
 
 const decodeIndexCache = new Map<number, DecodeIndex>();

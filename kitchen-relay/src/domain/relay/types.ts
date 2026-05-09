@@ -1,6 +1,6 @@
 export type OrderPaidPayload = {
-  stripeEventId: string;
-  paymentIntentId: string;
+  paymentIngressEventId: string;
+  paymentReferenceId: string;
   amountCents: number;
   currency: string;
   lines: {

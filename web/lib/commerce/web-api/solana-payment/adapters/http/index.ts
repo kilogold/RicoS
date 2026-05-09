@@ -1,21 +1,116 @@
+import type { Client } from "@libsql/client";
 import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
+import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import {
-  getSolanaPaymentPollerStatus,
-  wakeSolanaPaymentPoller,
-} from "@/lib/commerce/web-api/solana-payment/use-cases/poller-runtime";
-import { insertPendingPaymentIfNew } from "@/lib/infrastructure/turso/webhook-db";
+  getPendingPaymentsByReferences,
+  insertPendingPaymentIfNew,
+  markPendingPaymentConfirmed,
+  type PendingPaymentRecord,
+} from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
-import {
-  getHeliusIngressConfig,
-  isHeliusWebhookDebugEnabled,
-  isHeliusWebhookEnabled,
-} from "../../config";
+import { getHeliusIngressConfig, isHeliusWebhookDebugEnabled } from "../../config";
 import { parseHeliusIngressPayload } from "../ingress/parse-helius-ingress-payload";
 
 const PENDING_TTL_SECONDS = 120; // Solana blockhash expiry + padding
+
+const HELIUS_INGRESS_EVENT_PREFIX = "evt_helius_";
+
+function heliusTransactionSignatureFromIngressEvent(event: NormalizedIngressEvent): string | null {
+  if (event.provider !== "helius") return null;
+  const id = event.paymentIngressEventId;
+  if (!id.startsWith(HELIUS_INGRESS_EVENT_PREFIX)) return null;
+  const sig = id.slice(HELIUS_INGRESS_EVENT_PREFIX.length);
+  return sig.length > 0 ? sig : null;
+}
+
+type PendingPaymentMetadataShape = {
+  amountCents?: unknown;
+  currency?: unknown;
+};
+
+type HeliusPendingResolution =
+  | { ok: true; reference: string; duplicateWebhook: boolean }
+  | {
+      ok: false;
+      code: "solana_pay_reference_unknown" | "solana_pay_pending_expired";
+      detail: string;
+    };
+
+function logHeliusSolanaPayPaymentRejected(params: {
+  code: "solana_pay_reference_unknown" | "solana_pay_pending_expired";
+  orderReference: string;
+  transactionSignature: string;
+  detail: string;
+}): void {
+  console.error(
+    JSON.stringify({
+      scope: "helius_solana_pay_payment_rejected",
+      ...params,
+    }),
+  );
+}
+
+function pendingRecordMatchesHeliusEvent(record: PendingPaymentRecord, event: NormalizedIngressEvent): boolean {
+  let meta: PendingPaymentMetadataShape;
+  try {
+    meta = JSON.parse(record.metadataJson) as PendingPaymentMetadataShape;
+  } catch {
+    return false;
+  }
+  if (typeof meta.amountCents !== "number" || !Number.isFinite(meta.amountCents)) return false;
+  if (typeof meta.currency !== "string" || !meta.currency.trim()) return false;
+  return (
+    Math.floor(meta.amountCents) === Math.floor(event.amountCents) &&
+    meta.currency.trim().toLowerCase() === event.currency.trim().toLowerCase()
+  );
+}
+
+async function resolveHeliusSolanaPayPending(
+  db: Client,
+  event: NormalizedIngressEvent,
+  transactionSignature: string,
+): Promise<HeliusPendingResolution> {
+  const orderReference = event.paymentReferenceId.trim();
+
+  if (!orderReference) {
+    return { ok: false, code: "solana_pay_reference_unknown", detail: "missing_order_reference" };
+  }
+  if (!transactionSignature) {
+    return { ok: false, code: "solana_pay_reference_unknown", detail: "missing_transaction_signature" };
+  }
+
+  const rows = await getPendingPaymentsByReferences(db, [orderReference]);
+  const row = rows.get(orderReference);
+  if (!row) {
+    return { ok: false, code: "solana_pay_reference_unknown", detail: "no_pending_payment_row" };
+  }
+
+  const now = Date.now();
+
+  if (row.status === "confirmed") {
+    if (row.signature === transactionSignature) {
+      return { ok: true, reference: row.reference, duplicateWebhook: true };
+    }
+    return {
+      ok: false,
+      code: "solana_pay_pending_expired",
+      detail: "reference_already_confirmed_different_tx",
+    };
+  }
+
+  if (
+    row.status === "pending" &&
+    row.expiresAt >= now &&
+    pendingRecordMatchesHeliusEvent(row, event)
+  ) {
+    return { ok: true, reference: row.reference, duplicateWebhook: false };
+  }
+
+  return { ok: false, code: "solana_pay_pending_expired", detail: "no_matching_active_pending" };
+}
 
 type ReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
@@ -28,7 +123,7 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
 
   const startedAt = Date.now();
   let db;
-  let heliusConfig = getHeliusIngressConfig();
+  const heliusConfig = getHeliusIngressConfig();
   try {
     db = await getWebhookDb();
   } catch (err) {
@@ -58,25 +153,51 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
   }
 
   for (const event of parsed.events) {
+    const transactionSignature = heliusTransactionSignatureFromIngressEvent(event) ?? "";
+
     if (heliusDebug) {
       console.info("Helius ingress normalized event:", {
-        ingressEventId: event.ingressEventId,
-        paymentReferenceId: event.paymentReferenceId,
+        paymentIngressEventId: event.paymentIngressEventId,
+        orderReference: event.paymentReferenceId,
+        transactionSignature,
         amountCents: event.amountCents,
         currency: event.currency,
       });
+    }
+
+    const resolved = await resolveHeliusSolanaPayPending(db, event, transactionSignature);
+    if (!resolved.ok) {
+      logHeliusSolanaPayPaymentRejected({
+        code: resolved.code,
+        orderReference: event.paymentReferenceId,
+        transactionSignature,
+        detail: resolved.detail,
+      });
+      continue;
+    }
+
+    if (resolved.duplicateWebhook) {
+      if (heliusDebug) {
+        console.info("Helius ingress duplicate webhook (pending_payment already confirmed):", {
+          reference: resolved.reference,
+          transactionSignature,
+        });
+      }
+      continue;
     }
 
     console.log("Executing ingress event:", event);
     const outcome = await executeIngressEvent(db, event);
     if (!outcome.ok) {
       console.error("Helius ingress processing failed:", {
-        ingressEventId: event.ingressEventId,
+        paymentIngressEventId: event.paymentIngressEventId,
         status: outcome.status,
         body: outcome.body,
       });
       return NextResponse.json(outcome.body, { status: outcome.status });
     }
+
+    await markPendingPaymentConfirmed(db, resolved.reference, transactionSignature);
   }
 
   if (heliusDebug) {
@@ -118,7 +239,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     const issuedAt = Date.now();
     const expiresAt = issuedAt + PENDING_TTL_SECONDS * 1000;
     const db = await getWebhookDb();
-    const inserted = await insertPendingPaymentIfNew(db, {
+    await insertPendingPaymentIfNew(db, {
       reference,
       metadataJson: JSON.stringify({
         metadata,
@@ -129,10 +250,6 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       expiresAt,
       status: "pending",
     });
-    if (inserted) {
-      wakeSolanaPaymentPoller();
-    }
-
     return NextResponse.json({ reference });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -142,23 +259,4 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       { status: 500 },
     );
   }
-}
-
-export async function handleSolanaPollerPokeRequest(): Promise<Response> {
-  const before = getSolanaPaymentPollerStatus();
-  wakeSolanaPaymentPoller();
-  const after = getSolanaPaymentPollerStatus();
-
-  return NextResponse.json({
-    ok: true,
-    before,
-    after,
-  });
-}
-
-export async function handleSolanaPollerStatusRequest(): Promise<Response> {
-  return NextResponse.json({
-    ok: true,
-    status: getSolanaPaymentPollerStatus(),
-  });
 }

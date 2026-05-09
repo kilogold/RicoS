@@ -3,8 +3,8 @@ import type { OrderPaidPayload } from "./types";
 
 function isValidOrderPaidPayload(data: OrderPaidPayload): boolean {
   return (
-    typeof data.stripeEventId === "string" &&
-    typeof data.paymentIntentId === "string" &&
+    typeof data.paymentIngressEventId === "string" &&
+    typeof data.paymentReferenceId === "string" &&
     typeof data.amountCents === "number" &&
     typeof data.currency === "string" &&
     Array.isArray(data.lines)

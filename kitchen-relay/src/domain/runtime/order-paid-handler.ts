@@ -18,7 +18,7 @@ export function createOrderPaidHandler(
   deadLetterPath: string | undefined,
 ): (data: OrderPaidPayload) => Promise<void> {
   return async (data: OrderPaidPayload): Promise<void> => {
-    const eventId = data.stripeEventId;
+    const eventId = data.paymentIngressEventId;
 
     const shouldProcess = await idempotency.tryCommit(eventId);
     if (!shouldProcess) {
@@ -26,7 +26,7 @@ export function createOrderPaidHandler(
         await postPrintAck({
           backendBase,
           printAckSecret,
-          stripeEventId: eventId,
+          paymentIngressEventId: eventId,
         });
       } catch (err) {
         console.error("print-ack retry after idempotent skip failed:", err);
@@ -35,7 +35,7 @@ export function createOrderPaidHandler(
     }
 
     const text = formatTicket({
-      paymentIntentId: data.paymentIntentId,
+      paymentReferenceId: data.paymentReferenceId,
       amountCents: data.amountCents,
       currency: data.currency,
       lines: data.lines,
@@ -50,7 +50,7 @@ export function createOrderPaidHandler(
       await postPrintAck({
         backendBase,
         printAckSecret,
-        stripeEventId: eventId,
+        paymentIngressEventId: eventId,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

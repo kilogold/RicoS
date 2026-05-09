@@ -1,7 +1,7 @@
 export async function postPrintAck(params: {
   backendBase: string;
   printAckSecret?: string;
-  stripeEventId: string;
+  paymentIngressEventId: string;
 }): Promise<void> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (params.printAckSecret?.trim()) {
@@ -10,7 +10,7 @@ export async function postPrintAck(params: {
   const res = await fetch(`${params.backendBase}/api/print/ack`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ stripeEventId: params.stripeEventId }),
+    body: JSON.stringify({ paymentIngressEventId: params.paymentIngressEventId }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

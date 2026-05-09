@@ -2,7 +2,12 @@ export type IngressProvider = "stripe" | "helius";
 
 export type NormalizedIngressEvent = {
   provider: IngressProvider;
-  ingressEventId: string;
+  /** Atomic ingress event id (e.g. Stripe event id, or `evt_helius_<transactionSignature>`). */
+  paymentIngressEventId: string;
+  /**
+   * Stable payment reference: Stripe PaymentIntent id, or Solana Pay order reference pubkey
+   * (indexes the on-chain order; each landed tx is a separate `paymentIngressEventId`).
+   */
   paymentReferenceId: string;
   amountCents: number;
   currency: string;
@@ -10,8 +15,8 @@ export type NormalizedIngressEvent = {
 };
 
 export type KitchenOrderPayload = {
-  stripeEventId: string;
-  paymentIntentId: string;
+  paymentIngressEventId: string;
+  paymentReferenceId: string;
   amountCents: number;
   currency: string;
   lines: {

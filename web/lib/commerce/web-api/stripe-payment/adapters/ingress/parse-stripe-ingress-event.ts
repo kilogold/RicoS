@@ -40,7 +40,7 @@ export async function parseStripeIngressEvent(params: {
     kind: "event",
     event: {
       provider: "stripe",
-      ingressEventId: event.id,
+      paymentIngressEventId: event.id,
       paymentReferenceId: pi.id,
       amountCents: Number(pi.amount),
       currency: pi.currency,

@@ -6,18 +6,18 @@ import {
 import type { CartLine } from "./types";
 
 export function formatTicket(params: {
-  paymentIntentId: string;
+  paymentReferenceId: string;
   amountCents: number;
   currency: string;
   lines: CartLine[];
   printedAt: Date;
 }): string {
-  const { paymentIntentId, amountCents, currency, lines, printedAt } = params;
+  const { paymentReferenceId, amountCents, currency, lines, printedAt } = params;
   const divider = "--------------------------------";
   const rows: string[] = [
     "RICOS — KITCHEN TICKET",
     divider,
-    `PI: ${paymentIntentId}`,
+    `Ref: ${paymentReferenceId}`,
     `Time: ${printedAt.toISOString()}`,
     divider,
   ];

@@ -8,7 +8,6 @@ import { createOrderPaidHandler } from "./domain/runtime/order-paid-handler";
 
 const backendBase = (
   process.env.KITCHEN_BACKEND_BASE_URL ||
-  process.env.KITCHEN_WEBHOOK_PROXY_URL ||
   "http://127.0.0.1:3000"
 ).replace(/\/$/, ""); // avoid double-slash in endpoint joins.
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
