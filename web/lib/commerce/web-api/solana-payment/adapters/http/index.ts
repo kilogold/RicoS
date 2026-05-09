@@ -37,6 +37,7 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
     return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
   }
 
+  console.log("Parsing Helius ingress payload...");
   const parsed = parseHeliusIngressPayload({
     body,
     headers,
@@ -65,6 +66,8 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
         currency: event.currency,
       });
     }
+
+    console.log("Executing ingress event:", event);
     const outcome = await executeIngressEvent(db, event);
     if (!outcome.ok) {
       console.error("Helius ingress processing failed:", {

@@ -30,6 +30,7 @@ export function parseHeliusIngressPayload(params: {
 
   const candidates = normalizeCandidates(body);
   if (candidates.length === 0) {
+    console.log("Invalid Helius payload: no events", body, headers, config);
     return { kind: "error", status: 400, message: "Invalid Helius payload: no events" };
   }
 
