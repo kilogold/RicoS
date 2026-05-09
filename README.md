@@ -148,15 +148,27 @@ The rest of the file is the catalog (`restaurant`, `menuName`, `categories`, …
 
 **After the table has any rows.** A **Vercel redeploy alone does not** insert or bump the menu in the database. The new `menu.json` in the build artifact is not applied to Turso until publish runs.
 
-**Publishing updates to the DB (normal path).**
+**Publishing updates to the DB (normal path, automated).**
 
-1. Merge changes to **`main`** so `[packages/shared/src/menu.json](packages/shared/src/menu.json)` reflects the desired catalog.
-2. Set **`catalogVersion`** to the next integer: it must equal **current `MAX(version)` in Turso + 1** (the server rejects skips, duplicates, or overwrites of existing versions except hash-consistent no-ops).
-3. Call **`POST /api/staff/menu/publish`** with header `Authorization: Bearer <STAFF_MENU_PUBLISH_SECRET>`.
+1. In a PR, edit `[packages/shared/src/menu.json](packages/shared/src/menu.json)` and set **`catalogVersion`** to the next integer: it must equal **current `MAX(version)` in Turso + 1** (the server rejects skips, duplicates, or overwrites of existing versions except hash-consistent no-ops).
+2. Merge to **`main`**. Vercel builds and promotes a new production deployment.
+3. After promotion, GitHub fires a `deployment_status: success` event for the production environment. The workflow `[.github/workflows/menu-publish.yml](.github/workflows/menu-publish.yml)` listens for that event and:
+   - Checks out the deployed commit and detects whether `[packages/shared/src/menu.json](packages/shared/src/menu.json)` changed vs. the parent commit — if not, exits 0.
+   - Asserts that `catalogVersion` is **strictly greater** than the parent commit's value, mirroring the server's monotonic publish rule. CI fails the run if the file changed without a version bump.
+   - Calls **`POST /api/staff/menu/publish`** with `Authorization: Bearer ${{ secrets.STAFF_MENU_PUBLISH_SECRET }}`.
 4. The handler **fetches** the file from **`MENU_PUBLISH_MENU_JSON_URL`** (required), which should be the **GitHub raw URL** for `main`, e.g.  
    `https://raw.githubusercontent.com/<org>/<repo>/main/packages/shared/src/menu.json`  
    so production publish tracks **what is on `main`**, not whatever happens to be in a particular deployment bundle. For private repositories, set **`GITHUB_TOKEN`** (read access to the file).
 5. The server validates the JSON, computes the **full-manifest** content hash (release fields + catalog), writes the row, refreshes decode caches, and revalidates the Next.js menu cache.
+
+**Why the workflow waits for `deployment_status` rather than running on `push`.** A push to `main` triggers the Vercel build in parallel; an immediate POST would land on the previous deployment for the few seconds before promotion completes, and any publish-handler change shipped in the same merge would not yet be running. Listening for `deployment_status: success` (state `success`, environment `Production`) ensures the just-promoted code is the one that handles the publish.
+
+**Required setup for the workflow.**
+
+- Edit the `PUBLISH_URL` env var in `[.github/workflows/menu-publish.yml](.github/workflows/menu-publish.yml)` to the production publish endpoint, e.g. `https://<your-prod-domain>/api/staff/menu/publish`.
+- Add a GitHub repo Actions secret named `STAFF_MENU_PUBLISH_SECRET` whose value matches the Vercel project's `STAFF_MENU_PUBLISH_SECRET` env var.
+
+**Manual fallback.** Outside the automated path (e.g. backfill, recovery, or running against a non-Vercel target), call `POST /api/staff/menu/publish` directly with header `Authorization: Bearer <STAFF_MENU_PUBLISH_SECRET>`; the server enforces the same validation.
 
 **Idempotent publish.** The DB column `catalog_json` holds **only** the menu document (`restaurant`, `menuName`, `categories`), not `catalogVersion` / `publishedAt`. Publish dedups on the **`categories` array only** — `restaurant` and `menuName` are fixed branding and are intentionally excluded from the idempotency decision. The handler `JSON.parse`s the active row's `catalog_json`, re-serializes its `categories` through **`canonicalJson`**, and compares to **`canonicalJson`** of `parsed.catalog.categories` from Git. Whitespace, key order, or non-canonical legacy/manual writes do not affect the result. If `categories` matches, the handler **does nothing** and responds with **`skipped: true`** and the current active `version`. Header-only edits (e.g. changing `restaurant`/`menuName` without touching items) are not supported and will be silently no-ops by design.
 
