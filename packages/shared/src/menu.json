@@ -1,6 +1,6 @@
 {
-  "catalogVersion": 2,
-  "publishedAt": "2026-04-22T00:00:00.000Z",
+  "catalogVersion": 3,
+  "publishedAt": "2026-05-09T21:58:40.000Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -721,7 +721,56 @@
             "en": "",
             "es": ""
           },
-          "priceCents": 399
+          "priceCents": 399,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": {
+                "en": "Base",
+                "es": "Base"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_milk", "label": { "en": "Milk", "es": "Leche" } },
+                { "id": "opt_base_almond_milk", "label": { "en": "Almond Milk", "es": "Leche de Almendras" }, "priceDeltaCents": 100 },
+                { "id": "opt_base_water", "label": { "en": "Water", "es": "Agua" } }
+              ]
+            },
+            {
+              "id": "mod_sugar_choice",
+              "title": {
+                  "en": "Sugar",
+                  "es": "Azucar"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                  { "id": "opt_sugar_none", "label": { "en": "None", "es": "Nada" } },
+                  { "id": "opt_sugar_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
+                  { "id": "opt_sugar_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } }
+              ]
+            },
+            {
+              "id": "mod_garnish_choice",
+              "title": {
+                  "en": "Garnish",
+                  "es": "Garnish"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                  { "id": "opt_garnish_cinamon", "label": { "en": "Cinamon", "es": "Canela" } },
+                  { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
+              ]
+            }
+          ]
         },
         {
           "id": "item_hot_cereal_cornmeal",
@@ -733,7 +782,56 @@
             "en": "",
             "es": ""
           },
-          "priceCents": 399
+          "priceCents": 399,
+          "modifierGroups": [
+            {
+              "id": "mod_base_choice",
+              "title": {
+                "en": "Base",
+                "es": "Base"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                { "id": "opt_base_milk", "label": { "en": "Milk", "es": "Leche" } },
+                { "id": "opt_base_almond_milk", "label": { "en": "Almond Milk", "es": "Leche de Almendras" }, "priceDeltaCents": 100 },
+                { "id": "opt_base_water", "label": { "en": "Water", "es": "Agua" } }
+              ]
+            },
+            {
+              "id": "mod_sugar_choice",
+              "title": {
+                  "en": "Sugar",
+                  "es": "Azucar"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                  { "id": "opt_sugar_none", "label": { "en": "None", "es": "Nada" } },
+                  { "id": "opt_sugar_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
+                  { "id": "opt_sugar_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } }
+              ]
+            },
+            {
+              "id": "mod_garnish_choice",
+              "title": {
+                  "en": "Garnish",
+                  "es": "Garnish"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                  { "id": "opt_garnish_cinamon", "label": { "en": "Cinamon", "es": "Canela" } },
+                  { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
+              ]
+            }
+          ]
         },
         {
           "id": "item_hot_cereal_farina",
