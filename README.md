@@ -158,6 +158,8 @@ The rest of the file is the catalog (`restaurant`, `menuName`, `categories`, …
    so production publish tracks **what is on `main`**, not whatever happens to be in a particular deployment bundle. For private repositories, set **`GITHUB_TOKEN`** (read access to the file).
 5. The server validates the JSON, computes the **full-manifest** content hash (release fields + catalog), writes the row, refreshes decode caches, and revalidates the Next.js menu cache.
 
+**Idempotent publish.** The DB column `catalog_json` holds **only** the menu document (`restaurant`, `menuName`, `categories`), not `catalogVersion` / `publishedAt`. Publish dedups on the **`categories` array only** — `restaurant` and `menuName` are fixed branding and are intentionally excluded from the idempotency decision. The handler `JSON.parse`s the active row's `catalog_json`, re-serializes its `categories` through **`canonicalJson`**, and compares to **`canonicalJson`** of `parsed.catalog.categories` from Git. Whitespace, key order, or non-canonical legacy/manual writes do not affect the result. If `categories` matches, the handler **does nothing** and responds with **`skipped: true`** and the current active `version`. Header-only edits (e.g. changing `restaurant`/`menuName` without touching items) are not supported and will be silently no-ops by design.
+
 **Checkout policy.** Clients send **`menuVersionSeen`** (the version they loaded with the menu). If it does not match the active version in the DB, payment routes respond with **409** so users refresh and rebuild the cart. Past orders still decode using **historical** `menu_versions` rows keyed by the `menuVersion` stored in payment metadata.
 
 **Operational standards.**

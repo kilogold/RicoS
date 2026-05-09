@@ -315,6 +315,25 @@ export async function fetchMenuRuntimeLatest(
   return { version, catalog, decodeIndex };
 }
 
+/**
+ * Active row’s `catalog_json` column verbatim: canonical `MenuDocument` only
+ * (`restaurant`, `menuName`, `categories`), never `catalogVersion` / `publishedAt`.
+ */
+export async function fetchMenuRuntimeLatestCatalogJson(
+  client: Client,
+): Promise<{ version: number; catalogJson: string } | null> {
+  const result = await client.execute(`
+    SELECT version, catalog_json
+    FROM menu_versions
+    WHERE version = (SELECT MAX(version) FROM menu_versions)
+  `);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  const version = Number(rows[0].version ?? rows[0].VERSION ?? 0);
+  const catalogJson = String(rows[0].catalog_json ?? rows[0].CATALOG_JSON ?? "");
+  return { version, catalogJson };
+}
+
 export async function fetchMenuCatalogAndDecodeIndexByVersion(
   client: Client,
   version: number,
