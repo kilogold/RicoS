@@ -223,15 +223,14 @@ export function getLineUnitPriceCents(
   return item.priceCents + getModifierSurchargeCents(itemId, selections);
 }
 
-/** Cart line shape used by kitchen ticket formatting (post-decode). */
+/** One line on the kitchen ticket after expanding the order data from a payment. */
 export type KitchenCartLineFromMetadata = HydratedCartLine;
 
 /**
- * Decode Stripe PaymentIntent metadata into hydrated kitchen ticket lines using
- * the in-process menu-version registry. Suitable for consumers that ship the
- * full registry in-code (e.g. the webhook proxy during startup seed).
+ * Turn the small order payload stored with a payment into full ticket lines for the kitchen.
+ * Uses the menu bundled with this package; card and crypto checkouts both use the same shape.
  */
-export function parseKitchenLinesFromStripeMetadata(
+export function parseKitchenLinesFromCartMetadataV1(
   metadata: Record<string, string | undefined>,
 ): KitchenCartLineFromMetadata[] {
   const { lines } = decodeCartFromMetadataV1(metadata, getDecodeIndex);
