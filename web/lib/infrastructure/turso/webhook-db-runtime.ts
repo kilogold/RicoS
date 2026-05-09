@@ -30,12 +30,12 @@ export async function getWebhookDb(): Promise<Client> {
   if (runtime.dbPromise) return runtime.dbPromise;
 
   runtime.dbPromise = (async () => {
-    const databaseUrl = requiredEnv("WEBHOOK_PROXY_DATABASE_URL");
-    const databaseAuthToken = requiredEnv("WEBHOOK_PROXY_DATABASE_AUTH_TOKEN");
+    const databaseUrl = requiredEnv("TURSO_DATABASE_URL");
+    const databaseAuthToken = requiredEnv("TURSO_DATABASE_AUTH_TOKEN");
 
     if (!databaseUrl.startsWith("libsql://") && !databaseUrl.startsWith("https://")) {
       throw new Error(
-        "WEBHOOK_PROXY_DATABASE_URL must be a Turso remote URL (libsql://... or https://...)",
+        "TURSO_DATABASE_URL must be a Turso remote URL (libsql://... or https://...)",
       );
     }
 
