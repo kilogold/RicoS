@@ -14,8 +14,11 @@ Monorepo for RicoS online ordering.
 
 ## Prerequisites
 
-- Bun `>= 1.2.0`
-- Stripe test account (for local checkout testing)
+- **Bun** `>= 1.2.0` (Bun-only installs)
+- **Turso** — DB + auth token (`TURSO_DATABASE_*`)
+- **Stripe** — API keys + `STRIPE_WEBHOOK_SECRET`
+- **Solana Pay** — `HELIUS_USDC_MINT`, `HELIUS_MERCHANT_RECIPIENT`, and `NEXT_PUBLIC_SOLANA_RPC_URL` on the same cluster
+- **Kitchen relay** — `console` only needs Bun; `lp` needs CUPS (see `.env.example`)
 
 ## Environment
 
