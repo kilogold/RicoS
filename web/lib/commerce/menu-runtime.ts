@@ -19,7 +19,9 @@ export type MenuRuntime = {
   surface: MenuCatalogSurface;
 };
 
-async function loadLatestMenuRuntimeUncached(): Promise<MenuRuntime> {
+type MenuRuntimeSerializable = Omit<MenuRuntime, "surface">;
+
+async function loadLatestMenuRuntimeSerializable(): Promise<MenuRuntimeSerializable> {
   const db = await getCommerceDb();
   const row = await fetchMenuRuntimeLatest(db);
   if (!row) {
@@ -29,18 +31,28 @@ async function loadLatestMenuRuntimeUncached(): Promise<MenuRuntime> {
     version: row.version,
     catalog: row.catalog,
     decodeIndex: row.decodeIndex,
-    surface: createMenuCatalogSurface(row.catalog),
   };
 }
 
-/**
- * Active catalog: row with `MAX(version)`. Used for storefront and new checkout after version gate.
- */
-export const getLatestMenuRuntime = unstable_cache(
-  loadLatestMenuRuntimeUncached,
+const getLatestMenuRuntimeCached = unstable_cache(
+  loadLatestMenuRuntimeSerializable,
   ["ricos-menu-runtime-latest-v1"],
   { tags: [MENU_RUNTIME_CACHE_TAG] },
 );
+
+/**
+ * Active catalog: row with `MAX(version)`. Used for storefront and new checkout after version gate.
+ *
+ * `surface` holds methods and must not be stored inside `unstable_cache` — cached payloads are
+ * serialized, which strips functions and breaks helpers like `getItemById`.
+ */
+export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
+  const data = await getLatestMenuRuntimeCached();
+  return {
+    ...data,
+    surface: createMenuCatalogSurface(data.catalog),
+  };
+}
 
 /**
  * Exact version row — decode, webhooks, kitchen enrichment only. Do not use for new checkout when stale.
