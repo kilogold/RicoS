@@ -1,6 +1,6 @@
 {
   "catalogVersion": 4,
-  "publishedAt": "2026-05-09T22:03:40.000Z",
+  "publishedAt": "2026-05-09T22:18:40.000Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -872,9 +872,9 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                  { "id": "opt_sugar_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
-                  { "id": "opt_sugar_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } },
-                  { "id": "opt_sugar_none", "label": { "en": "None", "es": "Nada" } }
+                  { "id": "opt_sugar_1_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
+                  { "id": "opt_sugar_2_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } },
+                  { "id": "opt_sugar_3_none", "label": { "en": "None", "es": "Nada" } }
               ]
             },
             {
