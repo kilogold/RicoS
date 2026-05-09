@@ -15,7 +15,7 @@ Monorepo for **RicoS** restaurant ordering: a **Next.js** storefront with **Stri
 | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `[web/](web/)`                         | Next.js App Router — menu, cart, checkout, confirmation                                         |
 | `[kitchen-relay/](kitchen-relay/)`     | Bun — SSE client + `GET /health`; prints tickets (console or CUPS) and POSTs ack to web backend |
-| `[packages/shared/](packages/shared/)` | Canonical `menu.json` and helpers (`getItemById`, Stripe kitchen metadata parsing, etc.)        |
+| `[packages/shared/](packages/shared/)` | Canonical `menu.json`, cart codec, `createMenuCatalogSurface`, parse/hash helpers for publish       |
 
 
 ## Prerequisites
@@ -46,6 +46,9 @@ Root Bun scripts load `.env` first, then `.env.local`, so local values override 
 - `STRIPE_WEBHOOK_SECRET` — signing secret from Stripe Dashboard webhook (`.env.local`)
 - `WEBHOOK_PROXY_DATABASE_URL` — required Turso URL (`libsql://...` or `https://...`) in `.env`
 - `WEBHOOK_PROXY_DATABASE_AUTH_TOKEN` — required Turso auth token in `.env.local`
+- `MENU_PUBLISH_MENU_JSON_URL` — GitHub raw URL to `menu.json` on `main` (required for staff publish); see **Menu versioning & workflow**
+- `STAFF_MENU_PUBLISH_SECRET` — Bearer secret for `POST /api/staff/menu/publish` (`.env.local`)
+- `GITHUB_TOKEN` — optional PAT for private repo raw fetch used by publish (`.env.local`)
 - `PRINT_ACK_SECRET` — optional shared secret; relay must send header `X-Print-Ack-Key` when set
 - `HELIUS_USDC_MINT` — expected USDC mint in Solana Pay transfer parsing (`.env.local`)
 - `HELIUS_MERCHANT_RECIPIENT` — expected merchant recipient wallet (`.env.local`)
@@ -94,6 +97,7 @@ Optional:
 - Connect the repo and set the **root directory** to `web` **or** deploy from the monorepo root with the appropriate app directory (your Vercel project settings).
 - Set **Install Command** to `bun install` (and ensure the project uses Bun) so Vercel does not default to npm.
 - Add `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the Vercel project **Environment Variables**.
+- Add Turso vars, `MENU_PUBLISH_MENU_JSON_URL`, and `STAFF_MENU_PUBLISH_SECRET` (and `GITHUB_TOKEN` if the menu repo is private) so staff publish works in production.
 - The **kitchen relay** remains on-prem; webhook handling now runs in the hosted `web` backend.
 
 ## Solana Pay (scalability)
@@ -127,9 +131,42 @@ Practical goal: maintain near-real-time confirmation for active checkouts while 
 
 ## Menu item IDs
 
-Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mod_...`, `opt_...` in `packages/shared/src/menu.json`). Keep IDs stable even if display copy changes.
+Cart and API payloads use human-readable generic IDs (`item_...`, `cat_...`, `mod_...`, `opt_...` in `[packages/shared/src/menu.json](packages/shared/src/menu.json)`). Keep IDs stable even if display copy changes.
 
-Menu snapshots are versioned in `[packages/shared/src/menu-versions/](packages/shared/src/menu-versions/)`; the web app stamps `CURRENT_MENU_VERSION` on every cart. Webhook handlers validate and decode against the same registry.
+## Menu versioning & workflow
+
+**Where the live menu lives.** The storefront and new checkouts use the **active** row in Turso table `menu_versions` (the row whose `version` equals `MAX(version)`). That database is the runtime source of truth for catalog text, prices, modifier layout, and cart encoding.
+
+**Canonical file in git.** `[packages/shared/src/menu.json](packages/shared/src/menu.json)` is the repo copy of the menu. It must include top-level release fields:
+
+- `catalogVersion` — integer, must follow the monotonic publish rules below.
+- `publishedAt` — ISO-8601 timestamp for that publish.
+
+The rest of the file is the catalog (`restaurant`, `menuName`, `categories`, …).
+
+**First-time database (empty `menu_versions`).** When the app first connects to an empty table, it **bootstraps** one row from the **bundled** `menu.json` shipped with that deployment (same path in `@ricos/shared`). No HTTP publish is required for that initial seed.
+
+**After the table has any rows.** A **Vercel redeploy alone does not** insert or bump the menu in the database. The new `menu.json` in the build artifact is not applied to Turso until publish runs.
+
+**Publishing updates to the DB (normal path).**
+
+1. Merge changes to **`main`** so `[packages/shared/src/menu.json](packages/shared/src/menu.json)` reflects the desired catalog.
+2. Set **`catalogVersion`** to the next integer: it must equal **current `MAX(version)` in Turso + 1** (the server rejects skips, duplicates, or overwrites of existing versions except hash-consistent no-ops).
+3. Call **`POST /api/staff/menu/publish`** with header `Authorization: Bearer <STAFF_MENU_PUBLISH_SECRET>`.
+4. The handler **fetches** the file from **`MENU_PUBLISH_MENU_JSON_URL`** (required), which should be the **GitHub raw URL** for `main`, e.g.  
+   `https://raw.githubusercontent.com/<org>/<repo>/main/packages/shared/src/menu.json`  
+   so production publish tracks **what is on `main`**, not whatever happens to be in a particular deployment bundle. For private repositories, set **`GITHUB_TOKEN`** (read access to the file).
+5. The server validates the JSON, computes the **full-manifest** content hash (release fields + catalog), writes the row, refreshes decode caches, and revalidates the Next.js menu cache.
+
+**Checkout policy.** Clients send **`menuVersionSeen`** (the version they loaded with the menu). If it does not match the active version in the DB, payment routes respond with **409** so users refresh and rebuild the cart. Past orders still decode using **historical** `menu_versions` rows keyed by the `menuVersion` stored in payment metadata.
+
+**Operational standards.**
+
+- Treat **`STAFF_MENU_PUBLISH_SECRET`** and **`GITHUB_TOKEN`** (if used) as production secrets; anyone with both the secret and a malicious `main` can push a bad catalog live.
+- Prefer **branch protection** and review on `main` so the raw URL used by publish cannot surprise you.
+- The **git history** of `menu.json` supports process review; **Turso `menu_versions`** (version, `published_at`, `content_hash`) is the audit trail for what was actually live for commerce.
+
+Environment variable details: `[.env.local.example](.env.local.example)` (`MENU_PUBLISH_MENU_JSON_URL`, `STAFF_MENU_PUBLISH_SECRET`, optional `GITHUB_TOKEN`).
 
 ## Predefined customizations (v1)
 
