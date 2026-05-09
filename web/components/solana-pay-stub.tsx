@@ -15,12 +15,12 @@ import {
   createSPLToken,
 } from "@solana-commerce/solana-pay";
 import {
+  buildDecodeIndex,
   CART_B64_KEY,
   CART_CODEC_ID_V1,
   CART_CODEC_KEY,
-  CURRENT_MENU_VERSION,
   encodeCartToMetadataV1,
-  getDecodeIndex,
+  type MenuDocument,
 } from "@ricos/shared";
 import type { Address } from "@solana/addresses";
 import { createSolanaClient } from "gill";
@@ -29,6 +29,8 @@ import { useCart } from "@/lib/cart-context";
 import type { CartLine } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { formatUsd, linesWithItems, totalCents } from "@/lib/pricing";
 
 // Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
@@ -63,6 +65,7 @@ async function fetchEphemeralReference(params: {
   metadata: Record<string, string | undefined>;
   amountCents: number;
   currency: string;
+  menuVersionSeen: number;
 }): Promise<Address> {
   const res = await fetch("/api/solana-pay/reference", {
     method: "POST",
@@ -71,7 +74,13 @@ async function fetchEphemeralReference(params: {
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      code?: string;
+    } | null;
+    if (res.status === 409 && body?.code === MENU_VERSION_CONFLICT_CODE) {
+      throw new Error(body.error ?? "Menu was updated. Return to the menu and rebuild your cart.");
+    }
     throw new Error(body?.error ?? "Failed to generate reference address");
   }
   const body = (await res.json()) as { reference?: string };
@@ -81,13 +90,10 @@ async function fetchEphemeralReference(params: {
   return body.reference as Address;
 }
 
-function encodeCartMemo(lines: CartLine[]): string {
-  const decodeIndex = getDecodeIndex(CURRENT_MENU_VERSION);
-  if (!decodeIndex) {
-    throw new Error(`Menu version ${CURRENT_MENU_VERSION} is not registered`);
-  }
+function encodeCartMemo(lines: CartLine[], menuVersion: number, catalog: MenuDocument): string {
+  const decodeIndex = buildDecodeIndex(menuVersion, catalog);
   const encoded = encodeCartToMetadataV1(
-    CURRENT_MENU_VERSION,
+    menuVersion,
     lines.map((line) => ({
       itemId: line.id,
       quantity: line.quantity,
@@ -106,14 +112,17 @@ export function SolanaPayStub() {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const { lines, clear } = useCart();
+  const { catalog, menuVersionSeen, surface } = useMenuRuntime();
 
   // Cart contract: items do NOT mutate while this component is mounted. Take a
   // one-shot snapshot so request construction / reference generation don't
   // re-fire on unrelated re-renders (e.g. language toggles, status pills).
   const [snapshot] = useState(() => {
-    const snapCents = totalCents(lines);
+    const snapCents = totalCents(lines, surface);
     return {
       cents: snapCents,
+      menuVersion: menuVersionSeen,
+      catalogSnapshot: catalog,
       amountMinor:
         snapCents > 0 ? toMinorUnits(snapCents / 100, USDC_DECIMALS) : BigInt(0),
       cartLines: lines.map((line) => ({
@@ -121,7 +130,7 @@ export function SolanaPayStub() {
         quantity: line.quantity,
         selections: line.selections,
       })),
-      products: linesWithItems(lines).map(({ line, item }) => ({
+      products: linesWithItems(lines, surface).map(({ line, item }) => ({
         id: item.id,
         name: item.name,
         quantity: line.quantity,
@@ -130,7 +139,7 @@ export function SolanaPayStub() {
       })),
     };
   });
-  const { cents, amountMinor, cartLines, products } = snapshot;
+  const { cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot } = snapshot;
 
   const rpc = useMemo(
     () => createSolanaClient({ urlOrMoniker: RPC_URL_OR_MONIKER }).rpc,
@@ -169,7 +178,7 @@ export function SolanaPayStub() {
 
       let memo: string;
       try {
-        memo = encodeCartMemo(cartLines);
+        memo = encodeCartMemo(cartLines, menuVersion, catalogSnapshot);
       } catch (err) {
         paymentRef.current.handleError(
           err instanceof Error ? err : "Failed to encode cart memo",
@@ -186,6 +195,7 @@ export function SolanaPayStub() {
           },
           amountCents: cents,
           currency: "usdc",
+          menuVersionSeen: menuVersion,
         });
       } catch (err) {
         paymentRef.current.handleError(
@@ -238,7 +248,7 @@ export function SolanaPayStub() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey, cents, amountMinor, cartLines, products]);
+  }, [retryKey, cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot]);
 
   // Poll the reference for a landed signature, then verify + confirm on-chain.
   useEffect(() => {

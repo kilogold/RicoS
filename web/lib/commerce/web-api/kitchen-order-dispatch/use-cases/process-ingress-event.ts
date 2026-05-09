@@ -1,7 +1,16 @@
-import { decodeCartFromMetadataV1, type HydratedCart, type HydratedCartLine } from "@ricos/shared";
+import {
+  createMenuCatalogSurface,
+  decodeCartFromMetadataV1,
+  type HydratedCart,
+  type HydratedCartLine,
+} from "@ricos/shared";
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
-import { getDecodeIndex, insertPendingIfNew } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  fetchMenuCatalogAndDecodeIndexByVersion,
+  getDecodeIndex,
+  insertPendingIfNew,
+} from "@/lib/infrastructure/turso/webhook-db";
 
 export class IngressProcessError extends Error {
   constructor(
@@ -37,12 +46,34 @@ export async function processIngressEvent(
     );
   }
 
+  const row = await fetchMenuCatalogAndDecodeIndexByVersion(db, decodedCart.menuVersion);
+  if (!row) {
+    throw new IngressProcessError(
+      "invalid_cart_metadata",
+      `Unknown menu version ${decodedCart.menuVersion} for kitchen payload`,
+    );
+  }
+  const surface = createMenuCatalogSurface(row.catalog);
+
+  const lines: KitchenOrderPayload["lines"] = decodedCart.lines.map((line) => {
+    const item = surface.getItemById(line.id);
+    const itemLabel = item
+      ? surface.resolveLocalizedText(item.name, "en")
+      : line.id;
+    const selectionLines = surface.getSelectionDisplayLines(line.id, line.selections, "en");
+    return {
+      ...line,
+      itemLabel,
+      selectionLines,
+    };
+  });
+
   const payload: KitchenOrderPayload = {
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
     amountCents: Number(event.amountCents),
     currency: event.currency,
-    lines: decodedCart.lines,
+    lines,
   };
 
   try {

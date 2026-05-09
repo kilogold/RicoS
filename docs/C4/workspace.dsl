@@ -24,9 +24,9 @@ workspace "RicoS" "Restaurant online ordering system" {
                 stripe_payment = component "Stripe Payment" "Accepts Stripe webhook confirmations, validates payloads, and records deduplicated paid-order facts." "Typescript and Node.js"
                 solana_payment = component "Solana Payment" "Issues checkout reference addresses, tracks pending references, polls on-chain settlement, and records pending/confirmed/expired outcomes." "Typescript and Node.js"
                 kitchen_order_dispatch = component "Kitchen Order Dispatch" "Dispatches only trusted paid-order facts to the kitchen relay and owns print acknowledgment tracking." "Typescript and Node.js"
-                staff_order_management = component "Staff Order Management" "Applies back-office lifecycle actions (finalize/refund) and cannot create or verify payment facts." "Typescript and Node.js"
+                staff_order_management = component "Staff Order Management" "Publishes packaged menu.json into menu_versions (Turso), finalize/refund orders; cannot create or verify payment facts." "Typescript and Node.js"
             }
-            db = container "Database" "Stores payment state, kitchen dispatch queue state, and staff order lifecycle state." "SQL" "Database"
+            db = container "Database" "Turso/libSQL: menu_versions (catalog + decode indexes), payment state, kitchen dispatch queue, staff lifecycle." "SQL" "Database"
         }
         
         stripe = softwareSystem "Stripe" "Stripe's payment processing system" "External System"
@@ -53,13 +53,14 @@ workspace "RicoS" "Restaurant online ordering system" {
         commerce.api -> kitchen.relay "Notify newly paid order"
         commerce.api.kitchen_order_dispatch -> commerce.db "Manage kitchen dispatch queue state"
         
-        commerce.api.staff_order_management -> commerce.db "Save finalized or refunded order state"
+        commerce.api.staff_order_management -> commerce.db "Publish menu versions; save finalized or refunded order state"
 
         // Person relationships
         c -> commerce.web_client "Orders from the web client"
         s -> commerce.admin "Finalize/Refund orders"
         commerce.web_client -> commerce.web_server "Load customer web content and server-rendered responses"
         commerce.admin -> commerce.web_server "Load staff web content and server-rendered responses"
+        commerce.web_server -> commerce.db "Read active menu (menu_versions MAX version)"
 
         // Higher-level relationship abstractions
         # commerce.api -> commerce.db "Track order lifecycle and menu versions"

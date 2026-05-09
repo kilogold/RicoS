@@ -3,24 +3,24 @@
 import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { formatUsd, lineTotalCents, totalCents } from "@/lib/pricing";
 import {
-  getModifierGroupsForItem,
-  getSelectionDisplayLines,
   normalizeSelections,
-  resolveLocalizedText,
   selectionSignature,
   type LineSelections,
+  type MenuCatalogSurface,
   type MenuCategory,
 } from "@ricos/shared";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 function mergeRequiredSelectionDefaults(
+  surface: MenuCatalogSurface,
   itemId: string,
   raw: LineSelections | undefined,
 ): LineSelections {
-  const groups = getModifierGroupsForItem(itemId);
+  const groups = surface.getModifierGroupsForItem(itemId);
   const base = normalizeSelections(raw ?? {});
   const next: LineSelections = { ...base };
   for (const group of groups) {
@@ -43,6 +43,7 @@ function mergeRequiredSelectionDefaults(
 export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   const { lines, addItem, removeItem, setQuantity } = useCart();
   const { language } = useLanguage();
+  const { surface } = useMenuRuntime();
   const copy = getAppStrings(language);
   const [draftSelections, setDraftSelections] = useState<
     Record<string, LineSelections>
@@ -59,7 +60,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   }, [lines]);
 
   const getDraft = (itemId: string): LineSelections =>
-    mergeRequiredSelectionDefaults(itemId, draftSelections[itemId]);
+    mergeRequiredSelectionDefaults(surface, itemId, draftSelections[itemId]);
 
   const updateDraft = (itemId: string, next: LineSelections) => {
     setDraftSelections((prev) => ({ ...prev, [itemId]: normalizeSelections(next) }));
@@ -74,21 +75,21 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
               id={`cat-${cat.id}`}
               className="inline-block rounded-md bg-[#c41e3a] px-4 py-1.5 text-lg font-bold uppercase tracking-wide text-white shadow-md"
             >
-              {resolveLocalizedText(cat.title, language)}
+              {surface.resolveLocalizedText(cat.title, language)}
             </h2>
           </div>
           {cat.notes.length > 0 ? (
             <ul className="mt-3 space-y-1 text-sm text-[#b8d4f0]">
               {cat.notes.map((n) => (
-                <li key={resolveLocalizedText(n, "en")}>
-                  {resolveLocalizedText(n, language)}
+                <li key={surface.resolveLocalizedText(n, "en")}>
+                  {surface.resolveLocalizedText(n, language)}
                 </li>
               ))}
             </ul>
           ) : null}
           <ul className="mt-6 space-y-6">
             {cat.items.map((item) => {
-              const modifierGroups = getModifierGroupsForItem(item.id);
+              const modifierGroups = surface.getModifierGroupsForItem(item.id);
               const hasModifiers = modifierGroups.length > 0;
               const itemLines = linesByItem.get(item.id) ?? [];
               const draft = getDraft(item.id);
@@ -105,14 +106,14 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                   <div className="max-w-2xl">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <h3 className="text-lg font-semibold text-white">
-                        {resolveLocalizedText(item.name, language)}
+                        {surface.resolveLocalizedText(item.name, language)}
                       </h3>
                       <span className="text-[#f4c430]">
                         {formatUsd(item.priceCents, language)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm leading-relaxed text-white/70">
-                      {resolveLocalizedText(item.description, language)}
+                      {surface.resolveLocalizedText(item.description, language)}
                     </p>
 
                     {modifierGroups.length > 0 ? (
@@ -122,7 +123,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                           return (
                             <div key={group.id}>
                               <p className="text-xs font-semibold uppercase tracking-wider text-[#b8d4f0]">
-                                {resolveLocalizedText(group.title, language)}
+                                {surface.resolveLocalizedText(group.title, language)}
                                 {group.required ? " *" : ""}
                               </p>
                               <div className="mt-2 flex flex-wrap gap-2">
@@ -153,7 +154,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                           : "border-white/20 text-white/70 hover:bg-white/10"
                                       }`}
                                     >
-                                      {resolveLocalizedText(option.label, language)}
+                                      {surface.resolveLocalizedText(option.label, language)}
                                       {hasSurcharge
                                         ? ` (+${formatUsd(option.priceDeltaCents ?? 0, language)})`
                                         : ""}
@@ -171,7 +172,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                       <ul className="mt-3 space-y-2 text-xs text-white/70">
                         {itemLines.map((line) => {
                           const signature = selectionSignature(line.selections);
-                          const selectionRows = getSelectionDisplayLines(
+                          const selectionRows = surface.getSelectionDisplayLines(
                             line.id,
                             line.selections,
                             language,
@@ -190,7 +191,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                               )}
                               <div className="flex items-center gap-2">
                                 <span className="mr-2 font-semibold text-white">
-                                  {formatUsd(lineTotalCents(line), language)}
+                                  {formatUsd(lineTotalCents(line, surface), language)}
                                 </span>
                                 <button
                                   type="button"
@@ -198,7 +199,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                     setQuantity(line.id, line.selections, line.quantity - 1)
                                   }
                                   className="h-7 w-7 rounded border border-white/20 text-sm text-white"
-                                  aria-label={`${copy.decreaseItemAria} ${resolveLocalizedText(item.name, language)}`}
+                                  aria-label={`${copy.decreaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                                 >
                                   −
                                 </button>
@@ -209,7 +210,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                     setQuantity(line.id, line.selections, line.quantity + 1)
                                   }
                                   className="h-7 w-7 rounded border border-white/20 text-sm text-white"
-                                  aria-label={`${copy.increaseItemAria} ${resolveLocalizedText(item.name, language)}`}
+                                  aria-label={`${copy.increaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                                 >
                                   +
                                 </button>
@@ -235,7 +236,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                             type="button"
                             onClick={() => setQuantity(item.id, {}, plainQty - 1)}
                             className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                            aria-label={`${copy.decreaseItemAria} ${resolveLocalizedText(item.name, language)}`}
+                            aria-label={`${copy.decreaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                           >
                             −
                           </button>
@@ -246,7 +247,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                             type="button"
                             onClick={() => setQuantity(item.id, {}, plainQty + 1)}
                             className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
-                            aria-label={`${copy.increaseItemAria} ${resolveLocalizedText(item.name, language)}`}
+                            aria-label={`${copy.increaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                           >
                             +
                           </button>
@@ -283,8 +284,9 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
 export function CartBar() {
   const { lines } = useCart();
   const { language } = useLanguage();
+  const { surface } = useMenuRuntime();
   const copy = getAppStrings(language);
-  const sum = totalCents(lines);
+  const sum = totalCents(lines, surface);
   const count = lines.reduce((a, l) => a + l.quantity, 0);
 
   if (count === 0) return null;

@@ -50,3 +50,6 @@ export type MenuDocument = {
   menuName: LocalizedText;
   categories: MenuCategory[];
 };
+
+/** Per line: modifier group id → selected option ids. */
+export type LineSelections = Record<string, string[]>;

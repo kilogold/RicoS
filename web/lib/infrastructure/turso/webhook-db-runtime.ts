@@ -1,7 +1,11 @@
 import type { Client } from "@libsql/client";
-import { MENU_VERSIONS } from "@ricos/shared";
 import { requiredEnv } from "@/lib/shared/config/server-env";
-import { migrate, openDb, seedMenuVersions } from "./webhook-db";
+import {
+  bootstrapMenuFromPackagedFileIfEmpty,
+  hydrateMenuCachesFromDb,
+  migrate,
+  openDb,
+} from "./webhook-db";
 
 type WebhookDbRuntimeState = {
   dbPromise: Promise<Client> | null;
@@ -16,6 +20,11 @@ if (!state.__ricosWebhookDbRuntime) {
 }
 
 const runtime = state.__ricosWebhookDbRuntime;
+
+/** Turso client for commerce + menu state (web + webhook). */
+export async function getCommerceDb(): Promise<Client> {
+  return getWebhookDb();
+}
 
 export async function getWebhookDb(): Promise<Client> {
   if (runtime.dbPromise) return runtime.dbPromise;
@@ -32,10 +41,10 @@ export async function getWebhookDb(): Promise<Client> {
 
     const db = openDb(databaseUrl, databaseAuthToken);
     await migrate(db);
-    await seedMenuVersions(db, MENU_VERSIONS);
+    await bootstrapMenuFromPackagedFileIfEmpty(db);
+    await hydrateMenuCachesFromDb(db);
     return db;
   })().catch((err) => {
-    // Avoid cache-poisoning: allow future calls to retry initialization.
     runtime.dbPromise = null;
     throw err;
   });

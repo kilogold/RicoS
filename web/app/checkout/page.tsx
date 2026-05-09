@@ -4,8 +4,10 @@ import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
 import { useCart } from "@/lib/cart-context";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { formatUsd, totalCents } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
 import { Elements } from "@stripe/react-stripe-js";
@@ -16,8 +18,9 @@ import { useCallback, useEffect, useState } from "react";
 type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
 export default function CheckoutPage() {
-  const { lines } = useCart();
+  const { lines, clear } = useCart();
   const { language } = useLanguage();
+  const { surface, menuVersionSeen } = useMenuRuntime();
   const copy = getAppStrings(language);
   const router = useRouter();
   const [selectedMethod, setSelectedMethod] = useState<SelectedPaymentMethod | null>(null);
@@ -25,7 +28,7 @@ export default function CheckoutPage() {
   const [amountCents, setAmountCents] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const cartTotalCents = totalCents(lines);
+  const cartTotalCents = totalCents(lines, surface);
   const displayTotalCents =
     selectedMethod === "stripe" && clientSecret && amountCents > 0
       ? amountCents
@@ -37,6 +40,27 @@ export default function CheckoutPage() {
     setAmountCents(0);
     setError(null);
   }, []);
+
+  useEffect(() => {
+    if (lines.length === 0) {
+      router.replace("/");
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/menu/active-version", { cache: "no-store" });
+      const data = (await res.json()) as { version?: number };
+      if (cancelled || !res.ok || typeof data.version !== "number") return;
+      if (data.version !== menuVersionSeen) {
+        clear();
+        router.replace("/?menuUpdated=1");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clear, lines.length, menuVersionSeen, router]);
 
   useEffect(() => {
     if (lines.length === 0) {
@@ -60,15 +84,22 @@ export default function CheckoutPage() {
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines }),
+        body: JSON.stringify({ lines, menuVersionSeen }),
       });
       const data = (await res.json()) as {
         error?: string;
+        code?: string;
         clientSecret?: string;
         amountCents?: number;
       };
       if (!res.ok) {
-        if (!cancelled) setError(data.error ?? copy.checkoutErrorTitle);
+        if (cancelled) return;
+        if (res.status === 409 && data.code === MENU_VERSION_CONFLICT_CODE) {
+          clear();
+          router.replace("/?menuUpdated=1");
+          return;
+        }
+        setError(data.error ?? copy.checkoutErrorTitle);
         return;
       }
       if (!cancelled && data.clientSecret && data.amountCents != null) {
@@ -80,7 +111,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [copy.checkoutErrorTitle, lines, router, selectedMethod]);
+  }, [clear, copy.checkoutErrorTitle, lines, menuVersionSeen, router, selectedMethod]);
 
   if (lines.length === 0) {
     return null;

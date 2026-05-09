@@ -27,5 +27,9 @@ export type KitchenOrderPayload = {
     selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
     lineUnitTotalCents: number;
     lineExtendedTotalCents: number;
+    /** English primary label for tickets / relay (server-filled on new ingress). */
+    itemLabel?: string;
+    /** English modifier summary lines for tickets. */
+    selectionLines?: string[];
   }[];
 };

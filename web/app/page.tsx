@@ -3,10 +3,11 @@
 import { CartBar, MenuBoard } from "@/components/menu-board";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { MENU, resolveLocalizedText } from "@ricos/shared";
+import { useMenuRuntime } from "@/lib/menu-runtime-context";
 
 export default function Home() {
   const { language, setLanguage } = useLanguage();
+  const { catalog, surface } = useMenuRuntime();
   const copy = getAppStrings(language);
 
   return (
@@ -44,7 +45,7 @@ export default function Home() {
             </div>
           </div>
           <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-            {resolveLocalizedText(MENU.menuName, language)}
+            {surface.resolveLocalizedText(catalog.menuName, language)}
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-white/75">
             {copy.homeSubtitle}
@@ -53,7 +54,7 @@ export default function Home() {
       </div>
 
       <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
-        <MenuBoard categories={MENU.categories} />
+        <MenuBoard categories={catalog.categories} />
       </div>
 
       <CartBar />

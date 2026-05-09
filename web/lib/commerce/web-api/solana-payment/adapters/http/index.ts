@@ -2,6 +2,8 @@ import type { Client } from "@libsql/client";
 import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
+import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import {
@@ -116,6 +118,7 @@ type ReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
   amountCents?: unknown;
   currency?: unknown;
+  menuVersionSeen?: unknown;
 };
 
 export async function handleHeliusWebhookRequest(headers: Record<string, string | string[] | undefined>, body: unknown): Promise<Response> {
@@ -221,6 +224,10 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     const metadata = body.metadata;
     const amountCents = body.amountCents;
     const currency = body.currency;
+    const menuVersionSeen = body.menuVersionSeen;
+    if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
+      return NextResponse.json({ error: "menuVersionSeen is required" }, { status: 400 });
+    }
     if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
@@ -232,6 +239,17 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     }
     if (typeof currency !== "string" || !currency.trim()) {
       return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
+    }
+
+    const active = await getLatestMenuRuntime();
+    if (menuVersionSeen !== active.version) {
+      return NextResponse.json(
+        {
+          error: "Menu was updated. Refresh the menu and rebuild your cart.",
+          code: MENU_VERSION_CONFLICT_CODE,
+        },
+        { status: 409 },
+      );
     }
 
     const signer = await generateKeyPairSigner();

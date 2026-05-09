@@ -1,27 +1,41 @@
 import {
-  CURRENT_MENU_VERSION,
   encodeCartToMetadataV1,
-  getDecodeIndex,
-  getItemById,
-  normalizeSelections,
-  validateSelectionsForItem,
   type CartLineInput,
 } from "@ricos/shared";
 import Stripe from "stripe";
+import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 
 type RawLine = { id: string; quantity: number; selections?: Record<string, string[]> };
 
 export type CreatePaymentIntentResult =
-  | { ok: false; status: number; error: string }
+  | { ok: false; status: number; error: string; code?: string }
   | { ok: true; clientSecret: string; amountCents: number };
 
 export async function createPaymentIntentFromCart(
   rawLines: unknown,
+  menuVersionSeen: number | undefined,
   stripe: Stripe,
 ): Promise<CreatePaymentIntentResult> {
+  if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
+    return { ok: false, status: 400, error: "menuVersionSeen is required" };
+  }
+
   if (!Array.isArray(rawLines) || rawLines.length === 0) {
     return { ok: false, status: 400, error: "Cart must include at least one line" };
   }
+
+  const runtime = await getLatestMenuRuntime();
+  if (menuVersionSeen !== runtime.version) {
+    return {
+      ok: false,
+      status: 409,
+      code: MENU_VERSION_CONFLICT_CODE,
+      error: "Menu was updated. Refresh the menu and rebuild your cart.",
+    };
+  }
+
+  const { surface, decodeIndex, version: activeVersion } = runtime;
 
   const codecLines: CartLineInput[] = [];
   for (const line of rawLines as RawLine[]) {
@@ -35,10 +49,10 @@ export async function createPaymentIntentFromCart(
     ) {
       return { ok: false, status: 400, error: "Invalid line item" };
     }
-    if (!getItemById(line.id)) {
+    if (!surface.getItemById(line.id)) {
       return { ok: false, status: 400, error: `Unknown menu item: ${line.id}` };
     }
-    const validation = validateSelectionsForItem(
+    const validation = surface.validateSelectionsForItem(
       line.id,
       (line.selections ?? {}) as Record<string, string[]>,
     );
@@ -52,22 +66,13 @@ export async function createPaymentIntentFromCart(
     codecLines.push({
       itemId: line.id,
       quantity: line.quantity,
-      selections: normalizeSelections(validation.normalized),
+      selections: surface.normalizeSelections(validation.normalized),
     });
-  }
-
-  const decodeIndex = getDecodeIndex(CURRENT_MENU_VERSION);
-  if (!decodeIndex) {
-    return {
-      ok: false,
-      status: 500,
-      error: `Menu version ${CURRENT_MENU_VERSION} not registered`,
-    };
   }
 
   let encoded;
   try {
-    encoded = encodeCartToMetadataV1(CURRENT_MENU_VERSION, codecLines, decodeIndex);
+    encoded = encodeCartToMetadataV1(activeVersion, codecLines, decodeIndex);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, status: 400, error: message };

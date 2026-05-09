@@ -11,5 +11,7 @@ export type OrderPaidPayload = {
     selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
     lineUnitTotalCents: number;
     lineExtendedTotalCents: number;
+    itemLabel?: string;
+    selectionLines?: string[];
   }[];
 };

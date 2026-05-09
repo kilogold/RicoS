@@ -1,4 +1,10 @@
-export type CartLine = { id: string; quantity: number; selections: Record<string, string[]> };
+export type CartLine = {
+  id: string;
+  quantity: number;
+  selections: Record<string, string[]>;
+  itemLabel?: string;
+  selectionLines?: string[];
+};
 
 export type PrinterAdapter = {
   /** Print ticket text (one logical ticket). */

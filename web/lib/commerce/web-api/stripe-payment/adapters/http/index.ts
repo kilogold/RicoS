@@ -60,15 +60,19 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const rawLines = (
-    body as {
-      lines?: { id: string; quantity: number; selections?: Record<string, string[]> }[];
-    }
-  )?.lines;
+  const parsedBody = body as {
+    lines?: { id: string; quantity: number; selections?: Record<string, string[]> }[];
+    menuVersionSeen?: unknown;
+  };
+  const rawLines = parsedBody?.lines;
+  const menuVersionSeen = parsedBody?.menuVersionSeen;
 
-  const result = await createPaymentIntentFromCart(rawLines, stripe);
+  const result = await createPaymentIntentFromCart(rawLines, menuVersionSeen as number | undefined, stripe);
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error, ...(result.code ? { code: result.code } : {}) },
+      { status: result.status },
+    );
   }
 
   return NextResponse.json({

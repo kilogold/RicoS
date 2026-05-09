@@ -1,9 +1,13 @@
 import { createClient, type Client } from "@libsql/client";
 import {
   buildDecodeIndex,
+  buildManifestForHash,
   canonicalJson,
+  computeMenuContentHash,
+  getPackagedMenuCatalogParsed,
   type DecodeIndex,
-  type MenuVersion,
+  type MenuDocument,
+  type ParsedMenuCatalogFile,
 } from "@ricos/shared";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 
@@ -53,6 +57,40 @@ export async function migrate(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_pending_payments_status_expires_at
     ON pending_payments(status, expires_at)
   `);
+
+  await backfillMenuVersionContentHashes(client);
+}
+
+/**
+ * Legacy seed used `sha256(canonicalJson(catalog))` only. Recompute full-manifest hashes in place
+ * so `upsertMenuVersionForPublish` immutability checks match deployed rows.
+ */
+async function backfillMenuVersionContentHashes(client: Client): Promise<void> {
+  const result = await client.execute(
+    `SELECT version, published_at, catalog_json, content_hash FROM menu_versions ORDER BY version ASC`,
+  );
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  for (const row of rows) {
+    const version = Number(row.version ?? row.VERSION ?? 0);
+    const publishedAtMs = Number(row.published_at ?? row.PUBLISHED_AT ?? 0);
+    const catalogRaw = row.catalog_json ?? row.CATALOG_JSON;
+    const storedHash = String(row.content_hash ?? row.CONTENT_HASH ?? "");
+    if (!Number.isInteger(version) || version < 1 || !Number.isFinite(publishedAtMs)) continue;
+    let catalog: MenuDocument;
+    try {
+      catalog = JSON.parse(String(catalogRaw)) as MenuDocument;
+    } catch {
+      continue;
+    }
+    const manifest = buildManifestForHash({ catalogVersion: version, publishedAtMs, catalog });
+    const nextHash = await computeMenuContentHash(manifest);
+    if (nextHash !== storedHash) {
+      await client.execute({
+        sql: `UPDATE menu_versions SET content_hash = ? WHERE version = ?`,
+        args: [nextHash, version],
+      });
+    }
+  }
 }
 
 export async function insertPendingIfNew(
@@ -163,56 +201,131 @@ export async function markPendingPaymentConfirmed(
 
 const decodeIndexCache = new Map<number, DecodeIndex>();
 
-async function sha256Hex(value: string): Promise<string> {
-  const input = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", input);
-  const bytes = new Uint8Array(digest);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+export function getDecodeIndex(version: number): DecodeIndex | undefined {
+  return decodeIndexCache.get(version);
 }
 
-export async function seedMenuVersions(
-  client: Client,
-  registry: Readonly<Record<number, MenuVersion>>,
-): Promise<void> {
+/**
+ * Load all `menu_versions` rows into the in-memory decode index map (webhook runtime).
+ */
+export async function hydrateMenuCachesFromDb(client: Client): Promise<void> {
   decodeIndexCache.clear();
-
-  const versions = Object.values(registry).sort((a, b) => a.version - b.version);
-  for (const entry of versions) {
-    const canonicalCatalog = canonicalJson(entry.catalog);
-    const decodeIndex = buildDecodeIndex(entry.version, entry.catalog);
-    const canonicalDecodeIndex = canonicalJson(decodeIndex);
-    const hash = await sha256Hex(canonicalCatalog);
-    const publishedAtMs = Date.parse(entry.publishedAt);
-    if (!Number.isFinite(publishedAtMs)) {
-      throw new Error(`menuVersion ${entry.version} has invalid publishedAt`);
-    }
-
-    const existing = await client.execute({
-      sql: `SELECT content_hash FROM menu_versions WHERE version = ?`,
-      args: [entry.version],
-    });
-    const rows = (existing.rows ?? []) as Record<string, unknown>[];
-
-    if (rows.length > 0) {
-      const storedHash = String(rows[0].content_hash ?? rows[0].CONTENT_HASH ?? "");
-      if (storedHash !== hash) {
-        throw new Error(
-          `menu_versions drift detected for version ${entry.version}: ` +
-            `stored hash ${storedHash} does not match registry hash ${hash}. ` +
-            `Published versions must be immutable; mint a new version instead of editing.`,
-        );
-      }
-    } else {
-      await client.execute({
-        sql: `INSERT INTO menu_versions (version, published_at, catalog_json, decode_index, content_hash) VALUES (?, ?, ?, ?, ?)`,
-        args: [entry.version, publishedAtMs, canonicalCatalog, canonicalDecodeIndex, hash],
-      });
-    }
-
-    decodeIndexCache.set(entry.version, decodeIndex);
+  const result = await client.execute(`SELECT version, decode_index FROM menu_versions ORDER BY version ASC`);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  for (const row of rows) {
+    const version = Number(row.version ?? row.VERSION ?? 0);
+    const raw = row.decode_index ?? row.DECODE_INDEX;
+    const decodeIndex = JSON.parse(String(raw)) as DecodeIndex;
+    decodeIndexCache.set(version, decodeIndex);
   }
 }
 
-export function getDecodeIndex(version: number): DecodeIndex | undefined {
-  return decodeIndexCache.get(version);
+async function selectMaxMenuVersion(client: Client): Promise<number | null> {
+  const result = await client.execute(`SELECT MAX(version) AS m FROM menu_versions`);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  const m = rows[0].m ?? rows[0].M;
+  if (m === null || m === undefined) return null;
+  const n = Number(m);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function menuVersionsRowCount(client: Client): Promise<number> {
+  const result = await client.execute(`SELECT COUNT(*) AS c FROM menu_versions`);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return Number(rows[0]?.c ?? rows[0]?.C ?? 0);
+}
+
+/**
+ * Insert or verify an immutable menu version row (staff publish).
+ * Enforces `catalogVersion === MAX(version)+1` when the table is non-empty.
+ */
+export async function upsertMenuVersionForPublish(
+  client: Client,
+  parsed: ParsedMenuCatalogFile,
+): Promise<void> {
+  const maxV = await selectMaxMenuVersion(client);
+  const publishedAtMs = Date.parse(parsed.publishedAtIso);
+  if (!Number.isFinite(publishedAtMs)) {
+    throw new Error(`menu publish: invalid publishedAt for version ${parsed.catalogVersion}`);
+  }
+
+  if (maxV !== null && parsed.catalogVersion !== maxV + 1) {
+    throw new Error(
+      `menu publish: catalogVersion ${parsed.catalogVersion} must be ${maxV + 1} (monotonic publish)`,
+    );
+  }
+
+  const manifest = buildManifestForHash({
+    catalogVersion: parsed.catalogVersion,
+    publishedAtMs,
+    catalog: parsed.catalog,
+  });
+  const contentHash = await computeMenuContentHash(manifest);
+  const catalogJson = canonicalJson(parsed.catalog);
+  const decodeIndex = buildDecodeIndex(parsed.catalogVersion, parsed.catalog);
+  const decodeIndexJson = canonicalJson(decodeIndex);
+
+  const existing = await client.execute({
+    sql: `SELECT content_hash FROM menu_versions WHERE version = ?`,
+    args: [parsed.catalogVersion],
+  });
+  const existingRows = (existing.rows ?? []) as Record<string, unknown>[];
+
+  if (existingRows.length > 0) {
+    const storedHash = String(existingRows[0].content_hash ?? existingRows[0].CONTENT_HASH ?? "");
+    if (storedHash !== contentHash) {
+      throw new Error(
+        `menu_versions immutability violation for version ${parsed.catalogVersion}: ` +
+          `stored hash ${storedHash} !== computed hash ${contentHash}`,
+      );
+    }
+    decodeIndexCache.set(parsed.catalogVersion, decodeIndex);
+    return;
+  }
+
+  await client.execute({
+    sql: `INSERT INTO menu_versions (version, published_at, catalog_json, decode_index, content_hash) VALUES (?, ?, ?, ?, ?)`,
+    args: [parsed.catalogVersion, publishedAtMs, catalogJson, decodeIndexJson, contentHash],
+  });
+  decodeIndexCache.set(parsed.catalogVersion, decodeIndex);
+}
+
+/** First-run: seed v1 from packaged `menu.json` when `menu_versions` is empty. */
+export async function bootstrapMenuFromPackagedFileIfEmpty(client: Client): Promise<void> {
+  const n = await menuVersionsRowCount(client);
+  if (n > 0) return;
+  const parsed = getPackagedMenuCatalogParsed();
+  await upsertMenuVersionForPublish(client, parsed);
+}
+
+export async function fetchMenuRuntimeLatest(
+  client: Client,
+): Promise<{ version: number; catalog: MenuDocument; decodeIndex: DecodeIndex } | null> {
+  const result = await client.execute(`
+    SELECT version, catalog_json, decode_index
+    FROM menu_versions
+    WHERE version = (SELECT MAX(version) FROM menu_versions)
+  `);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  const version = Number(rows[0].version ?? rows[0].VERSION ?? 0);
+  const catalog = JSON.parse(String(rows[0].catalog_json ?? rows[0].CATALOG_JSON)) as MenuDocument;
+  const decodeIndex = JSON.parse(String(rows[0].decode_index ?? rows[0].DECODE_INDEX)) as DecodeIndex;
+  return { version, catalog, decodeIndex };
+}
+
+export async function fetchMenuCatalogAndDecodeIndexByVersion(
+  client: Client,
+  version: number,
+): Promise<{ catalog: MenuDocument; decodeIndex: DecodeIndex } | null> {
+  const result = await client.execute({
+    sql: `SELECT catalog_json, decode_index FROM menu_versions WHERE version = ?`,
+    args: [version],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  const catalog = JSON.parse(String(rows[0].catalog_json ?? rows[0].CATALOG_JSON)) as MenuDocument;
+  const decodeIndex = JSON.parse(String(rows[0].decode_index ?? rows[0].DECODE_INDEX)) as DecodeIndex;
+  return { catalog, decodeIndex };
 }

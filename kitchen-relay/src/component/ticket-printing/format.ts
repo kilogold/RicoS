@@ -1,8 +1,3 @@
-import {
-  getItemById,
-  getSelectionDisplayLines,
-  resolveLocalizedText,
-} from "@ricos/shared";
 import type { CartLine } from "./types";
 
 export function formatTicket(params: {
@@ -23,10 +18,9 @@ export function formatTicket(params: {
   ];
 
   for (const line of lines) {
-    const item = getItemById(line.id);
-    const label = item ? resolveLocalizedText(item.name, "en") : line.id;
+    const label = line.itemLabel ?? line.id;
     rows.push(`${line.quantity}x ${label}`);
-    const selectionRows = getSelectionDisplayLines(line.id, line.selections, "en");
+    const selectionRows = line.selectionLines ?? [];
     for (const selection of selectionRows) {
       rows.push(`   ${selection}`);
     }
