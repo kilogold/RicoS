@@ -341,23 +341,24 @@ export default function AdminOrderTestPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 text-slate-100">
-      <h1 className="text-xl font-semibold tracking-tight">Admin order flow (dev)</h1>
-      <p className="mt-2 max-w-2xl text-sm text-slate-400">
+    <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
+      <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
+      <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
         Unauthenticated page for manual UX testing. Listing and actions still require the staff
         bearer token (<code className="rounded bg-slate-800 px-1 py-0.5 text-xs">STAFF_MENU_PUBLISH_SECRET</code>
         ). Orders shown use your browser&apos;s local calendar day ({dayLabel}).
       </p>
 
-      <div className="mt-6 flex flex-wrap items-end gap-4">
-        <label className="flex min-w-[280px] flex-1 flex-col gap-1 text-sm">
+      <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 text-sm">
           <span className="text-slate-400">Staff bearer token</span>
           <input
             type="password"
             autoComplete="off"
+            inputMode="text"
             value={token}
             onChange={(e) => persistToken(e.target.value)}
-            className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 font-mono text-sm outline-none focus:border-sky-500"
+            className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
             placeholder="Bearer token…"
           />
         </label>
@@ -365,7 +366,7 @@ export default function AdminOrderTestPage() {
           type="button"
           onClick={() => void fetchOrders()}
           disabled={loading}
-          className="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+          className="min-h-[44px] shrink-0 rounded-lg bg-sky-600 px-4 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-sky-500 active:bg-sky-700 disabled:opacity-50 sm:text-sm"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
@@ -384,7 +385,7 @@ export default function AdminOrderTestPage() {
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-3 sm:gap-3">
         <button
           type="button"
           disabled={!selected || actionBusy}
@@ -394,7 +395,7 @@ export default function AdminOrderTestPage() {
               orderReference: selected.orderReference,
             })
           }
-          className="rounded-md border border-emerald-700 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-800/50 disabled:opacity-40"
+          className="min-h-[48px] rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Fulfill selected
         </button>
@@ -402,7 +403,7 @@ export default function AdminOrderTestPage() {
           type="button"
           disabled={!selected || actionBusy}
           onClick={openRefundModal}
-          className="rounded-md border border-amber-700 bg-amber-900/40 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-800/50 disabled:opacity-40"
+          className="min-h-[48px] rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-3 text-base font-medium text-amber-100 touch-manipulation hover:bg-amber-800/50 active:bg-amber-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Refund selected…
         </button>
@@ -410,7 +411,7 @@ export default function AdminOrderTestPage() {
           type="button"
           disabled={!selected}
           onClick={() => selected && setDetailsOpen(true)}
-          className="rounded-md border border-slate-600 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700/60 disabled:opacity-40"
+          className="min-h-[48px] rounded-lg border border-slate-600 bg-slate-800/60 px-4 py-3 text-base font-medium text-slate-100 touch-manipulation hover:bg-slate-700/60 active:bg-slate-900/60 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Order details…
         </button>
@@ -422,7 +423,85 @@ export default function AdminOrderTestPage() {
         </pre>
       ) : null}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40">
+      {/* Mobile: stacked cards (no horizontal scroll) */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {orders.length === 0 && !loading ? (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-10 text-center text-sm text-slate-500">
+            No orders in the selected window.
+          </div>
+        ) : null}
+        {orders.map((o) => {
+          const sel = selectedRef === o.orderReference;
+          const refundBlocks =
+            isRefundOrderStatus(o.status) && o.refunds.length > 0
+              ? o.refunds.map((ref) => {
+                  const fullConfirmation = formatRefundConfirmation(ref);
+                  const displayConfirmation = shortenForTable(
+                    fullConfirmation,
+                    CONFIRMATION_DISPLAY_MAX_LEN,
+                  );
+                  return (
+                    <div
+                      key={`${o.orderReference}-refund-${ref.id}`}
+                      className="rounded-lg border border-amber-800/50 bg-amber-950/25 px-3 py-3 text-amber-100/90"
+                    >
+                      <p className="font-mono text-[11px] text-amber-200/80">Refund #{ref.id}</p>
+                      <p className="mt-1 font-mono text-xs text-amber-100/90">
+                        {formatMoney(ref.amountCents, o.currency)}
+                      </p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-500">{formatTime(ref.createdAt)}</p>
+                      <p className="mt-2 break-all font-mono text-[10px] leading-snug text-amber-100/80">
+                        {displayConfirmation}
+                      </p>
+                    </div>
+                  );
+                })
+              : null;
+
+          return (
+            <div key={o.orderReference} className="space-y-2">
+              <button
+                type="button"
+                aria-pressed={sel}
+                onClick={() => setSelectedRef(o.orderReference)}
+                className={`flex w-full touch-manipulation items-start gap-3 rounded-xl border px-4 py-4 text-left transition active:scale-[0.99] ${
+                  sel
+                    ? "border-sky-500 bg-sky-950/40 ring-2 ring-sky-500/40"
+                    : "border-slate-700 bg-slate-900/40 hover:bg-slate-800/50"
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <span className="text-2xl font-semibold tabular-nums text-white">
+                      {formatMoney(o.amountCents, o.currency)}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium capitalize text-slate-300">
+                      {o.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-mono text-[11px] leading-snug text-slate-500">{o.orderReference}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+                    <span>{formatTime(o.createdAt)}</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="uppercase">{o.paymentProvider}</span>
+                    <span className="text-slate-600">·</span>
+                    <span>{o.lineCount} lines</span>
+                  </div>
+                  {o.customerName || o.customerPhone ? (
+                    <p className="mt-2 truncate text-sm text-slate-300" title={o.customerName ?? o.customerPhone ?? ""}>
+                      {o.customerName ?? o.customerPhone ?? "—"}
+                    </p>
+                  ) : null}
+                </div>
+              </button>
+              {refundBlocks}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: full table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40 md:block">
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-slate-700 text-slate-400">
@@ -504,7 +583,7 @@ export default function AdminOrderTestPage() {
                   <td className="p-3">
                     <input
                       type="radio"
-                      name="orderPick"
+                      name="orderPickDesktop"
                       checked={sel}
                       onChange={() => setSelectedRef(o.orderReference)}
                       className="accent-sky-500"
@@ -539,7 +618,7 @@ export default function AdminOrderTestPage() {
 
       {detailsOpen && selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="order-details-modal-title"
@@ -547,14 +626,17 @@ export default function AdminOrderTestPage() {
             if (e.target === e.currentTarget) setDetailsOpen(false);
           }}
         >
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg border border-slate-600 bg-[#0d2137] shadow-xl">
-            <div className="border-b border-slate-600 px-6 py-4">
+          <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl border border-slate-600 border-b-0 bg-[#0d2137] shadow-xl sm:max-h-[85vh] sm:rounded-lg sm:border-b">
+            <div className="flex shrink-0 justify-center pt-3 pb-1 sm:hidden">
+              <span className="h-1 w-10 rounded-full bg-slate-600" aria-hidden />
+            </div>
+            <div className="border-b border-slate-600 px-4 py-4 sm:px-6">
               <h2 id="order-details-modal-title" className="text-lg font-semibold">
                 Cart from <code className="text-sm text-sky-300">payload_json</code>
               </h2>
-              <p className="mt-1 font-mono text-xs text-slate-400">{selected.orderReference}</p>
+              <p className="mt-1 break-all font-mono text-xs text-slate-400">{selected.orderReference}</p>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
               {selected.customerName || selected.customerPhone || selected.customerEmail ? (
                 <div className="mb-5 rounded-lg border border-slate-600/80 bg-slate-950/30 px-4 py-3 text-sm text-slate-300">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Pickup contact</p>
@@ -577,11 +659,11 @@ export default function AdminOrderTestPage() {
                 </pre>
               </details>
             </div>
-            <div className="flex justify-end border-t border-slate-600 px-6 py-4">
+            <div className="flex justify-end border-t border-slate-600 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:px-6">
               <button
                 type="button"
                 onClick={() => setDetailsOpen(false)}
-                className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-600"
+                className="min-h-[44px] min-w-[88px] rounded-lg bg-slate-700 px-5 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-slate-600 active:bg-slate-800 sm:text-sm"
               >
                 Close
               </button>
@@ -592,25 +674,32 @@ export default function AdminOrderTestPage() {
 
       {refundOpen && selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="refund-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRefundOpen(false);
+          }}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-600 bg-[#0d2137] p-6 shadow-xl">
+          <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-600 border-b-0 bg-[#0d2137] p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-xl sm:max-h-none sm:rounded-lg sm:border-b sm:p-6">
+            <div className="flex justify-center pb-2 sm:hidden">
+              <span className="h-1 w-10 rounded-full bg-slate-600" aria-hidden />
+            </div>
             <h2 id="refund-modal-title" className="text-lg font-semibold">
               Refund order
             </h2>
-            <p className="mt-1 font-mono text-xs text-slate-400">{selected.orderReference}</p>
+            <p className="mt-1 break-all font-mono text-xs text-slate-400">{selected.orderReference}</p>
 
             <label className="mt-4 flex flex-col gap-1 text-sm">
               <span className="text-slate-400">Amount (cents)</span>
               <input
                 type="number"
+                inputMode="numeric"
                 min={REFUND_MIN_AMOUNT_CENTS}
                 value={refundAmountCents}
                 onChange={(e) => setRefundAmountCents(e.target.value)}
-                className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 font-mono text-sm outline-none focus:border-sky-500"
+                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
               />
             </label>
 
@@ -621,7 +710,7 @@ export default function AdminOrderTestPage() {
                   type="text"
                   value={refundSolanaSig}
                   onChange={(e) => setRefundSolanaSig(e.target.value)}
-                  className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 font-mono text-xs outline-none focus:border-sky-500"
+                  className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                   placeholder="Required for Helius"
                 />
               </label>
@@ -632,16 +721,16 @@ export default function AdminOrderTestPage() {
                   type="text"
                   value={refundIdempotency}
                   onChange={(e) => setRefundIdempotency(e.target.value)}
-                  className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-2 font-mono text-xs outline-none focus:border-sky-500"
+                  className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                 />
               </label>
             )}
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setRefundOpen(false)}
-                className="rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="min-h-[48px] rounded-lg px-4 py-3 text-base text-slate-300 touch-manipulation hover:bg-slate-800 sm:min-h-0 sm:py-2 sm:text-sm"
               >
                 Cancel
               </button>
@@ -649,7 +738,7 @@ export default function AdminOrderTestPage() {
                 type="button"
                 disabled={actionBusy}
                 onClick={() => void submitRefund()}
-                className="rounded-md bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                className="min-h-[48px] rounded-lg bg-amber-700 px-4 py-3 text-base font-medium text-white touch-manipulation hover:bg-amber-600 active:bg-amber-800 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
               >
                 Submit refund
               </button>
