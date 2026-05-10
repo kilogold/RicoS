@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
+import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import { getStripeServerClient } from "@/lib/infrastructure/stripe/server-client";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { getStripeWebhookSecret } from "../../config";
@@ -37,7 +37,7 @@ export async function handleStripeWebhookRequest(req: Request): Promise<Response
     return NextResponse.json({ received: true, ignored: true });
   }
 
-  const outcome = await executeIngressEvent(db, parsed.event);
+  const outcome = await executeStripeIngressEvent(db, parsed.event);
   if (!outcome.ok) {
     return NextResponse.json(outcome.body, { status: outcome.status });
   }

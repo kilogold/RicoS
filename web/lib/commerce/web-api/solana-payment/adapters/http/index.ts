@@ -5,11 +5,10 @@ import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
-import { executeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
+import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import {
   getPendingPaymentsByReferences,
   insertPendingPaymentIfNew,
-  markPendingPaymentConfirmed,
   type PendingPaymentRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
@@ -34,7 +33,7 @@ type PendingPaymentMetadataShape = {
 };
 
 type HeliusPendingResolution =
-  | { ok: true; reference: string; duplicateWebhook: boolean }
+  | { ok: true; orderReference: string; duplicateWebhook: boolean }
   | {
       ok: false;
       code: "solana_pay_reference_unknown" | "solana_pay_pending_expired";
@@ -94,7 +93,7 @@ async function resolveHeliusSolanaPayPending(
 
   if (row.status === "confirmed") {
     if (row.signature === transactionSignature) {
-      return { ok: true, reference: row.reference, duplicateWebhook: true };
+      return { ok: true, orderReference: row.orderReference, duplicateWebhook: true };
     }
     return {
       ok: false,
@@ -108,7 +107,7 @@ async function resolveHeliusSolanaPayPending(
     row.expiresAt >= now &&
     pendingRecordMatchesHeliusEvent(row, event)
   ) {
-    return { ok: true, reference: row.reference, duplicateWebhook: false };
+    return { ok: true, orderReference: row.orderReference, duplicateWebhook: false };
   }
 
   return { ok: false, code: "solana_pay_pending_expired", detail: "no_matching_active_pending" };
@@ -182,7 +181,7 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
     if (resolved.duplicateWebhook) {
       if (heliusDebug) {
         console.info("Helius ingress duplicate webhook (pending_payment already confirmed):", {
-          reference: resolved.reference,
+          orderReference: resolved.orderReference,
           transactionSignature,
         });
       }
@@ -190,7 +189,10 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
     }
 
     console.log("Executing ingress event:", event);
-    const outcome = await executeIngressEvent(db, event);
+    const outcome = await executeSolanaIngressEvent(db, event, {
+      orderReference: resolved.orderReference,
+      transactionSignature,
+    });
     if (!outcome.ok) {
       console.error("Helius ingress processing failed:", {
         paymentIngressEventId: event.paymentIngressEventId,
@@ -199,8 +201,6 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
       });
       return NextResponse.json(outcome.body, { status: outcome.status });
     }
-
-    await markPendingPaymentConfirmed(db, resolved.reference, transactionSignature);
   }
 
   if (heliusDebug) {
@@ -253,12 +253,12 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     }
 
     const signer = await generateKeyPairSigner();
-    const reference = signer.address;
+    const orderReference = signer.address;
     const issuedAt = Date.now();
     const expiresAt = issuedAt + PENDING_TTL_SECONDS * 1000;
     const db = await getWebhookDb();
     await insertPendingPaymentIfNew(db, {
-      reference,
+      orderReference,
       metadataJson: JSON.stringify({
         metadata,
         amountCents: Math.floor(amountCents),
@@ -268,7 +268,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       expiresAt,
       status: "pending",
     });
-    return NextResponse.json({ reference });
+    return NextResponse.json({ reference: orderReference });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Failed to generate Solana reference address:", err);

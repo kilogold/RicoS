@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import { subscribeOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
-import { deletePending, listPending } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  listPaidPurchaseOrdersForKitchen,
+  markPurchaseOrderAcknowledged,
+} from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { getPrintAckSecret } from "../../config";
 
@@ -43,7 +46,7 @@ export async function handleKitchenOrderEventStream(req: Request): Promise<Respo
       };
 
       const replayPending = async (): Promise<void> => {
-        const pending = await listPending(db);
+        const pending = await listPaidPurchaseOrdersForKitchen(db);
         for (const row of pending) {
           pushOrderIfNew(row);
         }
@@ -131,6 +134,6 @@ export async function handlePrintAckRequest(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Invalid paymentIngressEventId" }, { status: 400 });
   }
 
-  await deletePending(db, paymentIngressEventId);
+  await markPurchaseOrderAcknowledged(db, paymentIngressEventId);
   return new NextResponse(null, { status: 204 });
 }

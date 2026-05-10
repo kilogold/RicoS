@@ -9,12 +9,16 @@ import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce
 import {
   fetchMenuCatalogAndDecodeIndexByVersion,
   getDecodeIndex,
-  insertPendingIfNew,
 } from "@/lib/infrastructure/turso/webhook-db";
 
 export class IngressProcessError extends Error {
   constructor(
-    readonly code: "invalid_cart_metadata" | "cart_total_mismatch" | "persist_failed",
+    readonly code:
+      | "invalid_cart_metadata"
+      | "cart_total_mismatch"
+      | "persist_failed"
+      | "missing_solana_pending"
+      | "missing_solana_signature",
     message: string,
   ) {
     super(message);
@@ -22,11 +26,14 @@ export class IngressProcessError extends Error {
   }
 }
 
-export async function processIngressEvent(
+/**
+ * Validate cart metadata against the persisted menu version and produce the
+ * ticket-ready `KitchenOrderPayload`. Pure builder — no DB writes, no broadcast.
+ */
+export async function buildKitchenOrderPayload(
   db: Client,
   event: NormalizedIngressEvent,
-  broadcastOrderPaid: (payload: KitchenOrderPayload) => void,
-): Promise<void> {
+): Promise<KitchenOrderPayload> {
   let decodedCart: HydratedCart;
   try {
     decodedCart = decodeCartFromMetadataV1(event.metadata, getDecodeIndex);
@@ -57,9 +64,7 @@ export async function processIngressEvent(
 
   const lines: KitchenOrderPayload["lines"] = decodedCart.lines.map((line) => {
     const item = surface.getItemById(line.id);
-    const itemLabel = item
-      ? surface.resolveLocalizedText(item.name, "en")
-      : line.id;
+    const itemLabel = item ? surface.resolveLocalizedText(item.name, "en") : line.id;
     const selectionLines = surface.getSelectionDisplayLines(line.id, line.selections, "en");
     return {
       ...line,
@@ -68,25 +73,11 @@ export async function processIngressEvent(
     };
   });
 
-  const payload: KitchenOrderPayload = {
+  return {
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
     amountCents: Number(event.amountCents),
     currency: event.currency,
     lines,
   };
-
-  try {
-    const inserted = await insertPendingIfNew(db, payload);
-    if (inserted) {
-      try {
-        broadcastOrderPaid(payload);
-      } catch (broadcastErr) {
-        console.error("SSE broadcast failed (order is persisted):", broadcastErr);
-      }
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new IngressProcessError("persist_failed", message);
-  }
 }
