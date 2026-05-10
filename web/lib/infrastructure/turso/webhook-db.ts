@@ -659,6 +659,36 @@ export async function listRefundsForOrder(
   return rows.map(rowToRefund);
 }
 
+/** Batched refund rows for many orders; each key is an `order_reference`. */
+export async function listRefundsForOrders(
+  client: Client,
+  orderReferences: string[],
+): Promise<Map<string, RefundRecord[]>> {
+  if (orderReferences.length === 0) {
+    return new Map();
+  }
+  const placeholders = orderReferences.map(() => "?").join(", ");
+  const result = await client.execute({
+    sql: `
+      SELECT id, order_reference, amount_cents, stripe_refund_confirmation,
+             solana_refund_transaction_signature, created_at, confirmed_at
+      FROM refunds
+      WHERE order_reference IN (${placeholders})
+      ORDER BY order_reference ASC, created_at ASC
+    `,
+    args: orderReferences,
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  const byOrder = new Map<string, RefundRecord[]>();
+  for (const row of rows) {
+    const rec = rowToRefund(row);
+    const list = byOrder.get(rec.orderReference) ?? [];
+    list.push(rec);
+    byOrder.set(rec.orderReference, list);
+  }
+  return byOrder;
+}
+
 const decodeIndexCache = new Map<number, DecodeIndex>();
 
 export function getDecodeIndex(version: number): DecodeIndex | undefined {

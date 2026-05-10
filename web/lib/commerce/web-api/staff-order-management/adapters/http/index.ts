@@ -4,7 +4,10 @@ import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-
 import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { listPurchaseOrdersCreatedBetween } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  listPurchaseOrdersCreatedBetween,
+  listRefundsForOrders,
+} from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 function verifyStaffPublishAuth(authorizationHeader: string | null): boolean {
@@ -86,19 +89,33 @@ export async function handleStaffListOrdersRequest(req: Request): Promise<Respon
 
   const db = await getWebhookDb();
   const rows = await listPurchaseOrdersCreatedBetween(db, fromMs, toMs);
-  const orders = rows.map((r) => ({
-    orderReference: r.orderReference,
-    paymentProvider: r.paymentProvider,
-    amountCents: r.amountCents,
-    currency: r.currency,
-    status: r.status,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-    lineCount: r.payload.lines.length,
-    summaryLabel:
-      r.payload.lines[0]?.itemLabel ??
-      (r.payload.lines[0] ? `Line ${r.payload.lines[0].id}` : "—"),
-  }));
+  const orderRefs = rows.map((r) => r.orderReference);
+  const refundsByOrder = await listRefundsForOrders(db, orderRefs);
+
+  const orders = rows.map((r) => {
+    const refunds = (refundsByOrder.get(r.orderReference) ?? []).map((ref) => ({
+      id: ref.id,
+      amountCents: ref.amountCents,
+      createdAt: ref.createdAt,
+      confirmedAt: ref.confirmedAt ?? null,
+      stripeRefundConfirmation: ref.stripeRefundConfirmation ?? null,
+      solanaRefundTransactionSignature: ref.solanaRefundTransactionSignature ?? null,
+    }));
+    return {
+      orderReference: r.orderReference,
+      paymentProvider: r.paymentProvider,
+      amountCents: r.amountCents,
+      currency: r.currency,
+      status: r.status,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      lineCount: r.payload.lines.length,
+      summaryLabel:
+        r.payload.lines[0]?.itemLabel ??
+        (r.payload.lines[0] ? `Line ${r.payload.lines[0].id}` : "—"),
+      refunds,
+    };
+  });
 
   return NextResponse.json({ orders, from: fromMs, to: toMs });
 }

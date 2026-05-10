@@ -21,6 +21,18 @@ const ORDER_TABLE_COLUMN_COUNT = 8;
 /** Minimum refund amount accepted by the staff refund API (integer cents). */
 const REFUND_MIN_AMOUNT_CENTS = 1;
 
+/** Confirmation text shown length before ellipsis (Solana signatures are long). */
+const CONFIRMATION_DISPLAY_MAX_LEN = 36;
+
+type RefundDetailRow = {
+  id: number;
+  amountCents: number;
+  createdAt: number;
+  confirmedAt: number | null;
+  stripeRefundConfirmation: string | null;
+  solanaRefundTransactionSignature: string | null;
+};
+
 type OrderRow = {
   orderReference: string;
   paymentProvider: "stripe" | "helius";
@@ -31,7 +43,24 @@ type OrderRow = {
   updatedAt: number;
   lineCount: number;
   summaryLabel: string;
+  refunds: RefundDetailRow[];
 };
+
+function isRefundOrderStatus(status: string): boolean {
+  return status === "refunding" || status === "refunded";
+}
+
+function formatRefundConfirmation(ref: RefundDetailRow): string {
+  if (ref.stripeRefundConfirmation) return ref.stripeRefundConfirmation;
+  if (ref.solanaRefundTransactionSignature) return ref.solanaRefundTransactionSignature;
+  return "Pending confirmation";
+}
+
+function shortenForTable(s: string, maxLen: number): string {
+  if (s.length <= maxLen) return s;
+  const keep = Math.floor((maxLen - 1) / 2);
+  return `${s.slice(0, keep)}…${s.slice(-keep)}`;
+}
 
 function localDayBoundsMs(): { from: number; to: number } {
   const now = new Date();
@@ -321,9 +350,51 @@ export default function AdminOrderTestPage() {
                 </td>
               </tr>
             ) : null}
-            {orders.map((o) => {
+            {orders.flatMap((o) => {
               const sel = selectedRef === o.orderReference;
-              return (
+              const refundExtras =
+                isRefundOrderStatus(o.status) && o.refunds.length > 0
+                  ? o.refunds.map((ref) => {
+                      const fullConfirmation = formatRefundConfirmation(ref);
+                      const displayConfirmation = shortenForTable(
+                        fullConfirmation,
+                        CONFIRMATION_DISPLAY_MAX_LEN,
+                      );
+                      return (
+                        <tr
+                          key={`${o.orderReference}-refund-${ref.id}`}
+                          className="border-b border-slate-800 bg-amber-950/25 text-amber-100/90 last:border-0"
+                        >
+                          <td className="p-3" />
+                          <td className="whitespace-nowrap p-3 font-mono text-xs">
+                            <div>{formatTime(ref.createdAt)}</div>
+                            {ref.confirmedAt !== null &&
+                            ref.confirmedAt !== undefined &&
+                            ref.confirmedAt !== ref.createdAt ? (
+                              <div className="text-[11px] text-amber-200/60">
+                                Confirmed {formatTime(ref.confirmedAt)}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="p-3 font-mono text-xs text-amber-200/80">
+                            ↳ refund #{ref.id}
+                          </td>
+                          <td className="p-3 text-slate-500">—</td>
+                          <td className="p-3">{formatMoney(ref.amountCents, o.currency)}</td>
+                          <td className="p-3 text-amber-200/90">refund</td>
+                          <td className="p-3 text-slate-500">—</td>
+                          <td
+                            className="max-w-[280px] truncate p-3 font-mono text-[11px] text-amber-100/95"
+                            title={fullConfirmation}
+                          >
+                            {displayConfirmation}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  : [];
+
+              return [
                 <tr
                   key={o.orderReference}
                   onClick={() => setSelectedRef(o.orderReference)}
@@ -353,8 +424,9 @@ export default function AdminOrderTestPage() {
                   <td className="max-w-[220px] truncate p-3 text-slate-300" title={o.summaryLabel}>
                     {o.summaryLabel}
                   </td>
-                </tr>
-              );
+                </tr>,
+                ...refundExtras,
+              ];
             })}
           </tbody>
         </table>
