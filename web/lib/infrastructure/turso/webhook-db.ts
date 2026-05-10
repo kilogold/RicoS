@@ -100,11 +100,14 @@ export async function migrate(client: Client): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_purchase_orders_status
     ON purchase_orders(status)
   `);
+  // Partial unique indexes are not valid ON CONFLICT targets in SQLite/libSQL
+  // (`INSERT ... ON CONFLICT(payment_ingress_event_id)`). Use a full-column UNIQUE index;
+  // SQLite still allows multiple NULLs in UNIQUE columns.
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_orders_ingress_event
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_orders_ingress_event_full
     ON purchase_orders(payment_ingress_event_id)
-    WHERE payment_ingress_event_id IS NOT NULL
   `);
+  await client.execute(`DROP INDEX IF EXISTS uq_purchase_orders_ingress_event`);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS refunds (
