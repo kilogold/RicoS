@@ -401,6 +401,25 @@ export async function markPurchaseOrderAcknowledged(
   return (result.rowsAffected ?? 0) > 0;
 }
 
+/**
+ * Staff fulfillment: `acknowledged` → `fulfilled` only (ticket printed first).
+ */
+export async function markPurchaseOrderFulfilled(
+  client: Client,
+  orderReference: string,
+): Promise<boolean> {
+  const result = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET status = 'fulfilled', updated_at = ?
+      WHERE order_reference = ?
+        AND status = 'acknowledged'
+    `,
+    args: [Date.now(), orderReference],
+  });
+  return (result.rowsAffected ?? 0) > 0;
+}
+
 export async function getPurchaseOrderByReference(
   client: Client,
   orderReference: string,

@@ -1,18 +1,9 @@
 import { publishMenuFromRepoFile } from "@/lib/commerce/web-api/staff-order-management/use-cases/publish-menu-from-repo-file";
+import { fulfillPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/fulfill-purchase-order";
+import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-management/use-cases/recover-solana-pending-payment";
+import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
-import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
-import { getStripeServerClient } from "@/lib/infrastructure/stripe/server-client";
-import {
-  deleteRefund,
-  getPendingPaymentsByReferences,
-  getPurchaseOrderByReference,
-  setPurchaseOrderStatus,
-  sumConfirmedRefundsForOrder,
-  tryInsertRefundIfWithinOrderTotal,
-  updateRefundConfirmation,
-} from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 function verifyStaffPublishAuth(authorizationHeader: string | null): boolean {
@@ -54,12 +45,38 @@ export async function handleStaffMenuPublishRequest(
   }
 }
 
-/**
- * Staff-initiated refund. Sole entry point for refunding a settled purchase.
- * Stripe path calls the Refund API; Solana path requires a pre-broadcast tx signature
- * (staff sends the on-chain payout out-of-band, then submits the signature here).
- * Status: → `refunding`, then → `refunded` once confirmed `SUM(amount_cents) >= order.amountCents`.
- */
+export async function handleStaffFulfillmentRequest(req: Request): Promise<Response> {
+  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  let body: { orderReference?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  const orderReference = body.orderReference;
+  if (typeof orderReference !== "string" || !orderReference.trim()) {
+    return NextResponse.json({ error: "invalid_orderReference" }, { status: 400 });
+  }
+
+  const db = await getWebhookDb();
+  const result = await fulfillPurchaseOrder(db, orderReference);
+  if (!result.ok) {
+    if (result.error === "not_found") {
+      return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+    }
+    return NextResponse.json(
+      { error: "cannot_fulfill", status: result.status },
+      { status: 409 },
+    );
+  }
+
+  return NextResponse.json({ orderReference: result.orderReference, status: "fulfilled" });
+}
+
 export async function handleStaffRefundRequest(req: Request): Promise<Response> {
   if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -79,9 +96,6 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
 
   const orderReference = body.orderReference;
   const amountCents = body.amountCents;
-  const solanaSig = body.solanaRefundTransactionSignature;
-  const idempotencyKey = body.idempotencyKey;
-
   if (typeof orderReference !== "string" || !orderReference.trim()) {
     return NextResponse.json({ error: "invalid_orderReference" }, { status: 400 });
   }
@@ -94,86 +108,41 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
   }
 
   const db = await getWebhookDb();
-  const order = await getPurchaseOrderByReference(db, orderReference);
-  if (!order) return NextResponse.json({ error: "order_not_found" }, { status: 404 });
-  if (order.status === "refunded") {
-    return NextResponse.json({ error: "already_refunded" }, { status: 409 });
+  const result = await staffRefundOrder(db, {
+    orderReference,
+    amountCents,
+    solanaRefundTransactionSignature:
+      typeof body.solanaRefundTransactionSignature === "string"
+        ? body.solanaRefundTransactionSignature
+        : undefined,
+    idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,
+  });
+
+  if (!result.ok) {
+    const statusByCode: Record<
+      NonNullable<(typeof result)["code"]>,
+      number
+    > = {
+      order_not_found: 404,
+      already_refunded: 409,
+      refund_exceeds_order_total: 409,
+      missing_solana_signature: 400,
+      server_misconfigured: 500,
+      stripe_refund_failed: 502,
+    };
+    const status = statusByCode[result.code];
+    const payload: Record<string, string> = { error: result.code };
+    if (result.detail) payload.detail = result.detail;
+    return NextResponse.json(payload, { status });
   }
-
-  if (order.paymentProvider === "stripe") {
-    let stripe;
-    try {
-      stripe = getStripeServerClient();
-    } catch {
-      return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
-    }
-
-    // Atomically reserve a proof-null refund row. If the reservation would push
-    // the order over its total, abort BEFORE calling Stripe — otherwise a
-    // concurrent racer could leave us with a real Stripe refund and no DB record.
-    const reserved = await tryInsertRefundIfWithinOrderTotal(db, {
-      orderReference,
-      amountCents,
-    });
-    if (!reserved) {
-      return NextResponse.json({ error: "refund_exceeds_order_total" }, { status: 409 });
-    }
-
-    let stripeRefundId: string;
-    try {
-      const re = await stripe.refunds.create(
-        { payment_intent: orderReference, amount: amountCents },
-        typeof idempotencyKey === "string" && idempotencyKey ? { idempotencyKey } : undefined,
-      );
-      stripeRefundId = re.id;
-    } catch (err) {
-      try {
-        await deleteRefund(db, reserved.id);
-      } catch (rollbackErr) {
-        const rollbackMessage =
-          rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
-        console.error("refund reservation rollback failed:", rollbackMessage);
-      }
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("stripe refund failed:", message);
-      return NextResponse.json({ error: "stripe_refund_failed", detail: message }, { status: 502 });
-    }
-
-    await updateRefundConfirmation(db, reserved.id, {
-      stripeRefundConfirmation: stripeRefundId,
-    });
-  } else {
-    if (typeof solanaSig !== "string" || !solanaSig.trim()) {
-      return NextResponse.json({ error: "missing_solana_signature" }, { status: 400 });
-    }
-    // Signature already exists on-chain; insert with proof in a single
-    // conditional statement — the same statement enforces overdraw atomically.
-    const inserted = await tryInsertRefundIfWithinOrderTotal(db, {
-      orderReference,
-      amountCents,
-      solanaRefundTransactionSignature: solanaSig.trim(),
-    });
-    if (!inserted) {
-      return NextResponse.json({ error: "refund_exceeds_order_total" }, { status: 409 });
-    }
-  }
-
-  const total = await sumConfirmedRefundsForOrder(db, orderReference);
-  const nextStatus = total >= order.amountCents ? "refunded" : "refunding";
-  await setPurchaseOrderStatus(db, orderReference, nextStatus);
 
   return NextResponse.json({
-    orderReference,
-    refundedTotalCents: total,
-    status: nextStatus,
+    orderReference: result.orderReference,
+    refundedTotalCents: result.refundedTotalCents,
+    status: result.status,
   });
 }
 
-/**
- * Solana manual recovery: re-runs the same atomic ingress writes as the happy-path
- * webhook for a `pending_payments` row whose on-chain payment landed but was missed
- * (TTL elapsed, webhook outage). Idempotent on `evt_helius_<signature>`.
- */
 export async function handleSolanaManualRecoverRequest(req: Request): Promise<Response> {
   if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -196,51 +165,18 @@ export async function handleSolanaManualRecoverRequest(req: Request): Promise<Re
   }
 
   const db = await getWebhookDb();
-  const pending = (await getPendingPaymentsByReferences(db, [orderReference])).get(orderReference);
-  if (!pending) {
-    return NextResponse.json({ error: "pending_payment_not_found" }, { status: 404 });
-  }
+  const result = await recoverSolanaPendingPayment(db, orderReference, transactionSignature);
 
-  let meta: { metadata?: Record<string, string | undefined>; amountCents?: number; currency?: string };
-  try {
-    meta = JSON.parse(pending.metadataJson);
-  } catch {
-    return NextResponse.json({ error: "invalid_pending_metadata" }, { status: 400 });
+  if (!result.ok) {
+    if ("error" in result) {
+      const status =
+        result.error === "pending_payment_not_found"
+          ? 404
+          : 400;
+      return NextResponse.json({ error: result.error }, { status });
+    }
+    return NextResponse.json(result.body, { status: result.status });
   }
-  if (
-    typeof meta.amountCents !== "number" ||
-    typeof meta.currency !== "string" ||
-    typeof meta.metadata !== "object" ||
-    meta.metadata === null
-  ) {
-    return NextResponse.json({ error: "invalid_pending_metadata" }, { status: 400 });
-  }
-
-  const event: NormalizedIngressEvent = {
-    provider: "helius",
-    paymentIngressEventId: `evt_helius_${transactionSignature}`,
-    paymentReferenceId: orderReference,
-    amountCents: meta.amountCents,
-    currency: meta.currency,
-    metadata: meta.metadata,
-  };
-
-  const outcome = await executeSolanaIngressEvent(db, event, {
-    orderReference,
-    transactionSignature,
-  });
-  if (!outcome.ok) {
-    return NextResponse.json(outcome.body, { status: outcome.status });
-  }
-
-  console.log(
-    JSON.stringify({
-      scope: "solana_recover_manual",
-      orderReference,
-      transactionSignature,
-      at: Date.now(),
-    }),
-  );
 
   return NextResponse.json({ recovered: true });
 }
