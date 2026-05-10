@@ -66,6 +66,9 @@ async function fetchEphemeralReference(params: {
   amountCents: number;
   currency: string;
   menuVersionSeen: number;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
 }): Promise<Address> {
   const res = await fetch("/api/solana-pay/reference", {
     method: "POST",
@@ -108,7 +111,13 @@ function encodeCartMemo(lines: CartLine[], menuVersion: number, catalog: MenuDoc
   return payload;
 }
 
-export function SolanaPayStub() {
+export type SolanaPayContactProps = {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+};
+
+export function SolanaPayStub({ customerName, customerPhone, customerEmail }: SolanaPayContactProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const { lines, clear } = useCart();
@@ -175,6 +184,7 @@ export function SolanaPayStub() {
       setReferenceAddress(null);
 
       if (cents <= 0) return;
+      if (!customerName.trim() || !customerPhone.trim()) return;
 
       let memo: string;
       try {
@@ -196,6 +206,9 @@ export function SolanaPayStub() {
           amountCents: cents,
           currency: "usdc",
           menuVersionSeen: menuVersion,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          ...(customerEmail.trim() ? { customerEmail: customerEmail.trim() } : {}),
         });
       } catch (err) {
         paymentRef.current.handleError(
@@ -248,7 +261,18 @@ export function SolanaPayStub() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey, cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot]);
+  }, [
+    retryKey,
+    cents,
+    amountMinor,
+    cartLines,
+    products,
+    menuVersion,
+    catalogSnapshot,
+    customerName,
+    customerPhone,
+    customerEmail,
+  ]);
 
   // Poll the reference for a landed signature, then verify + confirm on-chain.
   useEffect(() => {

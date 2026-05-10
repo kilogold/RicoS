@@ -60,14 +60,36 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  let db;
+  try {
+    db = await getWebhookDb();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("create-payment-intent DB misconfiguration:", message);
+    return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
+  }
+
   const parsedBody = body as {
     lines?: { id: string; quantity: number; selections?: Record<string, string[]> }[];
     menuVersionSeen?: unknown;
+    customerName?: unknown;
+    customerPhone?: unknown;
+    customerEmail?: unknown;
   };
   const rawLines = parsedBody?.lines;
   const menuVersionSeen = parsedBody?.menuVersionSeen;
 
-  const result = await createPaymentIntentFromCart(rawLines, menuVersionSeen as number | undefined, stripe);
+  const result = await createPaymentIntentFromCart(
+    rawLines,
+    menuVersionSeen as number | undefined,
+    {
+      customerName: parsedBody?.customerName,
+      customerPhone: parsedBody?.customerPhone,
+      customerEmail: parsedBody?.customerEmail,
+    },
+    stripe,
+    db,
+  );
   if (!result.ok) {
     return NextResponse.json(
       { error: result.error, ...(result.code ? { code: result.code } : {}) },

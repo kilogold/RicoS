@@ -39,6 +39,10 @@ export type PurchaseOrderRecord = {
   status: PurchaseOrderStatus;
   createdAt: number;
   updatedAt: number;
+  /** From `order_contact` via JOIN (same as `order_reference`). */
+  customerName: string | null;
+  customerPhone: string | null;
+  customerEmail: string | null;
 };
 
 export type RefundRecord = {
@@ -136,7 +140,48 @@ export async function migrate(client: Client): Promise<void> {
     WHERE solana_refund_transaction_signature IS NOT NULL
   `);
 
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS order_contact (
+      order_reference TEXT PRIMARY KEY,
+      customer_name   TEXT NOT NULL,
+      customer_phone  TEXT NOT NULL,
+      customer_email  TEXT,
+      created_at        INTEGER NOT NULL
+    )
+  `);
+
   await backfillMenuVersionContentHashes(client);
+}
+
+/** Shop-only PII keyed by the same `order_reference` as `purchase_orders` / pending refs (Stripe PI id or Solana ref). */
+export async function upsertOrderContact(
+  client: Client,
+  params: {
+    orderReference: string;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string | null;
+  },
+): Promise<void> {
+  await client.execute({
+    sql: `
+      INSERT OR REPLACE INTO order_contact (
+        order_reference,
+        customer_name,
+        customer_phone,
+        customer_email,
+        created_at
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `,
+    args: [
+      params.orderReference,
+      params.customerName,
+      params.customerPhone,
+      params.customerEmail,
+      Date.now(),
+    ],
+  });
 }
 
 /**
@@ -255,6 +300,9 @@ export async function markPendingPaymentConfirmed(
 function rowToPurchaseOrder(row: Record<string, unknown>): PurchaseOrderRecord {
   const payloadRaw = row.payload_json ?? row.PAYLOAD_JSON;
   const ingressEventId = row.payment_ingress_event_id ?? row.PAYMENT_INGRESS_EVENT_ID;
+  const cn = row.customer_name ?? row.CUSTOMER_NAME;
+  const cp = row.customer_phone ?? row.CUSTOMER_PHONE;
+  const ce = row.customer_email ?? row.CUSTOMER_EMAIL;
   return {
     orderReference: String(row.order_reference ?? row.ORDER_REFERENCE ?? ""),
     paymentProvider: String(row.payment_provider ?? row.PAYMENT_PROVIDER ?? "") as IngressProvider,
@@ -267,13 +315,16 @@ function rowToPurchaseOrder(row: Record<string, unknown>): PurchaseOrderRecord {
     status: String(row.status ?? row.STATUS ?? "paid") as PurchaseOrderStatus,
     createdAt: Number(row.created_at ?? row.CREATED_AT ?? 0),
     updatedAt: Number(row.updated_at ?? row.UPDATED_AT ?? 0),
+    customerName: cn === null || cn === undefined ? null : String(cn),
+    customerPhone: cp === null || cp === undefined ? null : String(cp),
+    customerEmail: ce === null || ce === undefined ? null : String(ce),
   };
 }
 
 /**
  * Insert a new `purchase_orders` row at status `paid`.
  * Idempotent on `payment_ingress_event_id` (partial unique index).
- * Returns true when a new row was inserted, false when the ingress event was already recorded.
+ * Customer PII lives in `order_contact` keyed by `order_reference`; join when reading.
  */
 export async function insertPurchaseOrderPaidIfNew(
   client: Client,
@@ -283,6 +334,9 @@ export async function insertPurchaseOrderPaidIfNew(
     payload: KitchenOrderPayload;
   },
 ): Promise<boolean> {
+  if (params.paymentProvider !== "stripe") {
+    throw new Error("insertPurchaseOrderPaidIfNew is Stripe-only; use persistSolanaPaidPurchaseOrderAtomic for Helius");
+  }
   const now = Date.now();
   const result = await client.execute({
     sql: `
@@ -426,10 +480,12 @@ export async function getPurchaseOrderByReference(
 ): Promise<PurchaseOrderRecord | null> {
   const result = await client.execute({
     sql: `
-      SELECT order_reference, payment_provider, payment_ingress_event_id, amount_cents,
-             currency, payload_json, status, created_at, updated_at
-      FROM purchase_orders
-      WHERE order_reference = ?
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id, po.amount_cents,
+             po.currency, po.payload_json, po.status, po.created_at, po.updated_at,
+             oc.customer_name, oc.customer_phone, oc.customer_email
+      FROM purchase_orders po
+      LEFT JOIN order_contact oc ON oc.order_reference = po.order_reference
+      WHERE po.order_reference = ?
     `,
     args: [orderReference],
   });
@@ -446,11 +502,13 @@ export async function listPurchaseOrdersCreatedBetween(
 ): Promise<PurchaseOrderRecord[]> {
   const result = await client.execute({
     sql: `
-      SELECT order_reference, payment_provider, payment_ingress_event_id, amount_cents,
-             currency, payload_json, status, created_at, updated_at
-      FROM purchase_orders
-      WHERE created_at >= ? AND created_at <= ?
-      ORDER BY created_at DESC
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id, po.amount_cents,
+             po.currency, po.payload_json, po.status, po.created_at, po.updated_at,
+             oc.customer_name, oc.customer_phone, oc.customer_email
+      FROM purchase_orders po
+      LEFT JOIN order_contact oc ON oc.order_reference = po.order_reference
+      WHERE po.created_at >= ? AND po.created_at <= ?
+      ORDER BY po.created_at DESC
     `,
     args: [fromMs, toMs],
   });

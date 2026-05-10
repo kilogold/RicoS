@@ -109,6 +109,11 @@ export async function handleStaffListOrdersRequest(req: Request): Promise<Respon
       status: r.status,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      customerName: r.customerName,
+      customerPhone: r.customerPhone,
+      customerEmail: r.customerEmail,
+      /** Parsed `payload_json` from `purchase_orders`. */
+      payload: r.payload,
       lineCount: r.payload.lines.length,
       summaryLabel:
         r.payload.lines[0]?.itemLabel ??

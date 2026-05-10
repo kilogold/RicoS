@@ -1,10 +1,13 @@
+import type { Client } from "@libsql/client";
 import {
   encodeCartToMetadataV1,
   type CartLineInput,
 } from "@ricos/shared";
 import Stripe from "stripe";
+import { validateCustomerContact, type CustomerContactInput } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+import { upsertOrderContact } from "@/lib/infrastructure/turso/webhook-db";
 
 type RawLine = { id: string; quantity: number; selections?: Record<string, string[]> };
 
@@ -15,8 +18,15 @@ export type CreatePaymentIntentResult =
 export async function createPaymentIntentFromCart(
   rawLines: unknown,
   menuVersionSeen: number | undefined,
+  rawContact: CustomerContactInput,
   stripe: Stripe,
+  db: Client,
 ): Promise<CreatePaymentIntentResult> {
+  const contactCheck = validateCustomerContact(rawContact);
+  if (!contactCheck.ok) {
+    return { ok: false, status: 400, error: contactCheck.error };
+  }
+  const contact = contactCheck.value;
   if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
     return { ok: false, status: 400, error: "menuVersionSeen is required" };
   }
@@ -92,6 +102,13 @@ export async function createPaymentIntentFromCart(
   if (!paymentIntent.client_secret) {
     return { ok: false, status: 500, error: "Could not create payment" };
   }
+
+  await upsertOrderContact(db, {
+    orderReference: paymentIntent.id,
+    customerName: contact.customerName,
+    customerPhone: contact.customerPhone,
+    customerEmail: contact.customerEmail,
+  });
 
   return {
     ok: true,

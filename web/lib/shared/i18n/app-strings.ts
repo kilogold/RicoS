@@ -42,6 +42,16 @@ export type AppStrings = {
   solanaPayStubBody: string;
   athMovilStubTitle: string;
   athMovilStubBody: string;
+  pickupContactHeading: string;
+  customerNameLabel: string;
+  customerPhoneLabel: string;
+  customerEmailLabel: string;
+  customerEmailOptionalHint: string;
+  checkoutContactIncomplete: string;
+  continueToPayment: string;
+  editContact: string;
+  checkoutPhaseContactIntro: string;
+  checkoutPhasePaymentIntro: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -89,6 +99,16 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     solanaPayStubBody: "Solana Pay checkout will be available here soon.",
     athMovilStubTitle: "ATH Móvil",
     athMovilStubBody: "ATH Móvil checkout will be available here soon.",
+    pickupContactHeading: "Pickup contact",
+    customerNameLabel: "Name",
+    customerPhoneLabel: "Phone",
+    customerEmailLabel: "Email",
+    customerEmailOptionalHint: "optional",
+    checkoutContactIncomplete: "Enter your name and phone to continue.",
+    continueToPayment: "Continue to payment",
+    editContact: "Edit contact",
+    checkoutPhaseContactIntro: "Step 1 of 2 — enter your pickup contact.",
+    checkoutPhasePaymentIntro: "Step 2 of 2 — pay securely. Confirmation appears after payment completes.",
   },
   es: {
     homeTagline: "RicoS",
@@ -135,6 +155,17 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     solanaPayStubBody: "El pago con Solana Pay estara disponible pronto.",
     athMovilStubTitle: "ATH Movil",
     athMovilStubBody: "El pago con ATH Movil estara disponible pronto.",
+    pickupContactHeading: "Contacto para recoger",
+    customerNameLabel: "Nombre",
+    customerPhoneLabel: "Telefono",
+    customerEmailLabel: "Correo",
+    customerEmailOptionalHint: "opcional",
+    checkoutContactIncomplete: "Ingresa nombre y telefono para continuar.",
+    continueToPayment: "Continuar al pago",
+    editContact: "Editar contacto",
+    checkoutPhaseContactIntro: "Paso 1 de 2 — ingresa tu contacto para recoger.",
+    checkoutPhasePaymentIntro:
+      "Paso 2 de 2 — paga con seguridad. Veras la confirmacion al completar el pago.",
   },
 };
 

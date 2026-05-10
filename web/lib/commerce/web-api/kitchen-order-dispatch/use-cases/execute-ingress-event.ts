@@ -1,10 +1,7 @@
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { publishOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
-import {
-  insertPurchaseOrderPaidIfNew,
-  persistSolanaPaidPurchaseOrderAtomic,
-} from "@/lib/infrastructure/turso/webhook-db";
+import { insertPurchaseOrderPaidIfNew, persistSolanaPaidPurchaseOrderAtomic } from "@/lib/infrastructure/turso/webhook-db";
 import { IngressProcessError, buildKitchenOrderPayload } from "./process-ingress-event";
 
 export type IngressOutcome =

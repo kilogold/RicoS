@@ -2,6 +2,7 @@ import type { Client } from "@libsql/client";
 import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
+import { validateCustomerContact } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
@@ -9,6 +10,7 @@ import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-
 import {
   getPendingPaymentsByReferences,
   insertPendingPaymentIfNew,
+  upsertOrderContact,
   type PendingPaymentRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
@@ -118,6 +120,9 @@ type ReferenceRegistrationRequest = {
   amountCents?: unknown;
   currency?: unknown;
   menuVersionSeen?: unknown;
+  customerName?: unknown;
+  customerPhone?: unknown;
+  customerEmail?: unknown;
 };
 
 export async function handleHeliusWebhookRequest(headers: Record<string, string | string[] | undefined>, body: unknown): Promise<Response> {
@@ -225,6 +230,15 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     const amountCents = body.amountCents;
     const currency = body.currency;
     const menuVersionSeen = body.menuVersionSeen;
+    const contactCheck = validateCustomerContact({
+      customerName: body.customerName,
+      customerPhone: body.customerPhone,
+      customerEmail: body.customerEmail,
+    });
+    if (!contactCheck.ok) {
+      return NextResponse.json({ error: contactCheck.error }, { status: 400 });
+    }
+    const contact = contactCheck.value;
     if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
       return NextResponse.json({ error: "menuVersionSeen is required" }, { status: 400 });
     }
@@ -267,6 +281,12 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       issuedAt,
       expiresAt,
       status: "pending",
+    });
+    await upsertOrderContact(db, {
+      orderReference,
+      customerName: contact.customerName,
+      customerPhone: contact.customerPhone,
+      customerEmail: contact.customerEmail,
     });
     return NextResponse.json({ reference: orderReference });
   } catch (err) {
