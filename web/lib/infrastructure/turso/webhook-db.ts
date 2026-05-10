@@ -438,6 +438,26 @@ export async function getPurchaseOrderByReference(
   return rowToPurchaseOrder(rows[0]);
 }
 
+/** Inclusive `created_at` range: `[fromMs, toMs]`. */
+export async function listPurchaseOrdersCreatedBetween(
+  client: Client,
+  fromMs: number,
+  toMs: number,
+): Promise<PurchaseOrderRecord[]> {
+  const result = await client.execute({
+    sql: `
+      SELECT order_reference, payment_provider, payment_ingress_event_id, amount_cents,
+             currency, payload_json, status, created_at, updated_at
+      FROM purchase_orders
+      WHERE created_at >= ? AND created_at <= ?
+      ORDER BY created_at DESC
+    `,
+    args: [fromMs, toMs],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return rows.map((row) => rowToPurchaseOrder(row));
+}
+
 export async function setPurchaseOrderStatus(
   client: Client,
   orderReference: string,

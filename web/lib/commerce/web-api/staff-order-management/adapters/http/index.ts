@@ -4,6 +4,7 @@ import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-
 import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { listPurchaseOrdersCreatedBetween } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 function verifyStaffPublishAuth(authorizationHeader: string | null): boolean {
@@ -43,6 +44,63 @@ export async function handleStaffMenuPublishRequest(
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 400 });
   }
+}
+
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const MS_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND;
+
+/** Wider ranges explode response size and DB work for a single request. */
+const MAX_ORDER_LIST_RANGE_DAYS = 8;
+const MAX_ORDER_LIST_RANGE_MS = MAX_ORDER_LIST_RANGE_DAYS * MS_PER_DAY;
+
+export async function handleStaffListOrdersRequest(req: Request): Promise<Response> {
+  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const fromRaw = url.searchParams.get("from");
+  const toRaw = url.searchParams.get("to");
+  let fromMs: number;
+  let toMs: number;
+  if (fromRaw !== null && toRaw !== null) {
+    fromMs = Number(fromRaw);
+    toMs = Number(toRaw);
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs) {
+      return NextResponse.json({ error: "invalid_range" }, { status: 400 });
+    }
+  } else {
+    const now = Date.now();
+    const d = new Date(now);
+    const startUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    fromMs = startUtc;
+    toMs = now;
+  }
+
+  if (toMs - fromMs > MAX_ORDER_LIST_RANGE_MS) {
+    return NextResponse.json({ error: "range_too_large" }, { status: 400 });
+  }
+
+  const db = await getWebhookDb();
+  const rows = await listPurchaseOrdersCreatedBetween(db, fromMs, toMs);
+  const orders = rows.map((r) => ({
+    orderReference: r.orderReference,
+    paymentProvider: r.paymentProvider,
+    amountCents: r.amountCents,
+    currency: r.currency,
+    status: r.status,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    lineCount: r.payload.lines.length,
+    summaryLabel:
+      r.payload.lines[0]?.itemLabel ??
+      (r.payload.lines[0] ? `Line ${r.payload.lines[0].id}` : "—"),
+  }));
+
+  return NextResponse.json({ orders, from: fromMs, to: toMs });
 }
 
 export async function handleStaffFulfillmentRequest(req: Request): Promise<Response> {
