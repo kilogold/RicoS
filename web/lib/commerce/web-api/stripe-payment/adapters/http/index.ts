@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertStoreOpenOr403 } from "@/lib/commerce/store-hours";
 import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import { getStripeServerClient } from "@/lib/infrastructure/stripe/server-client";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
@@ -52,6 +53,9 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
   } catch {
     return NextResponse.json({ error: "Server missing STRIPE_SECRET_KEY" }, { status: 500 });
   }
+
+  const closed = assertStoreOpenOr403();
+  if (closed) return closed;
 
   let body: unknown;
   try {

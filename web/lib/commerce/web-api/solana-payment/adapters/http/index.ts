@@ -1,6 +1,7 @@
 import type { Client } from "@libsql/client";
 import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
+import { assertStoreOpenOr403 } from "@/lib/commerce/store-hours";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import { validateCustomerContact } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
@@ -225,6 +226,9 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
 
 export async function handleSolanaReferenceRegistrationRequest(req: Request): Promise<Response> {
   try {
+    const closed = assertStoreOpenOr403();
+    if (closed) return closed;
+
     const body = (await req.json().catch(() => ({}))) as ReferenceRegistrationRequest;
     const metadata = body.metadata;
     const amountCents = body.amountCents;

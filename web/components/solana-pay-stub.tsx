@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   createCartRequest,
   createSolanaPayRequest,
@@ -27,6 +28,10 @@ import { createSolanaClient } from "gill";
 
 import { useCart } from "@/lib/cart-context";
 import type { CartLine } from "@/lib/cart-context";
+import {
+  STORE_CLOSED_CODE,
+  StoreClosedError,
+} from "@/lib/commerce/store-hours";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
@@ -81,6 +86,11 @@ async function fetchEphemeralReference(params: {
       error?: string;
       code?: string;
     } | null;
+    if (res.status === 403 && body?.code === STORE_CLOSED_CODE) {
+      throw new StoreClosedError(
+        typeof body.error === "string" ? body.error : undefined,
+      );
+    }
     if (res.status === 409 && body?.code === MENU_VERSION_CONFLICT_CODE) {
       throw new Error(body.error ?? "Menu was updated. Return to the menu and rebuild your cart.");
     }
@@ -120,6 +130,7 @@ export type SolanaPayContactProps = {
 export function SolanaPayStub({ customerName, customerPhone, customerEmail }: SolanaPayContactProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
+  const router = useRouter();
   const { lines, clear } = useCart();
   const { catalog, menuVersionSeen, surface } = useMenuRuntime();
 
@@ -211,6 +222,11 @@ export function SolanaPayStub({ customerName, customerPhone, customerEmail }: So
           ...(customerEmail.trim() ? { customerEmail: customerEmail.trim() } : {}),
         });
       } catch (err) {
+        if (err instanceof StoreClosedError) {
+          clear();
+          router.replace("/");
+          return;
+        }
         paymentRef.current.handleError(
           err instanceof Error ? err : "Failed to generate reference address",
         );
@@ -253,6 +269,11 @@ export function SolanaPayStub({ customerName, customerPhone, customerEmail }: So
     run()
       .catch((err) => {
         if (cancelled) return;
+        if (err instanceof StoreClosedError) {
+          clear();
+          router.replace("/");
+          return;
+        }
         paymentRef.current.handleError(
           err instanceof Error ? err : "Payment request failed",
         );
@@ -272,6 +293,8 @@ export function SolanaPayStub({ customerName, customerPhone, customerEmail }: So
     customerName,
     customerPhone,
     customerEmail,
+    clear,
+    router,
   ]);
 
   // Poll the reference for a landed signature, then verify + confirm on-chain.

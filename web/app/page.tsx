@@ -1,6 +1,7 @@
 "use client";
 
 import { CartBar, MenuBoard } from "@/components/menu-board";
+import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
@@ -12,6 +13,7 @@ export default function Home() {
 
   return (
     <main className="relative pb-32">
+      <StoreHoursBanners />
       <div className="border-b border-white/10 bg-linear-to-br from-[#0c2340] via-[#0a1f38] to-[#07182b] px-4 py-12 md:px-10">
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-wrap items-center justify-between gap-3">

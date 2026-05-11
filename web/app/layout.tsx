@@ -1,5 +1,6 @@
 import { Providers } from "@/components/providers";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
+import { getStoreSession, shoppingEnabled } from "@/lib/commerce/store-hours";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -28,13 +29,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const menu = await getLatestMenuRuntime();
+  const session = getStoreSession(new Date());
+  const storeSession = {
+    status: session.status,
+    shoppingEnabled: shoppingEnabled(session),
+    closesAtIso: session.closesAt.toISOString(),
+  };
   return (
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#07182b]">
-        <Providers menuCatalog={menu.catalog} menuVersion={menu.version}>
+        <Providers
+          menuCatalog={menu.catalog}
+          menuVersion={menu.version}
+          storeSession={storeSession}
+        >
           {children}
         </Providers>
       </body>

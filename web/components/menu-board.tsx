@@ -4,6 +4,7 @@ import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
+import { useStoreSession } from "@/app/_client/store-session-context";
 import { formatUsd, lineTotalCents, totalCents } from "@/lib/pricing";
 import {
   normalizeSelections,
@@ -44,6 +45,8 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
   const { lines, addItem, removeItem, setQuantity } = useCart();
   const { language } = useLanguage();
   const { surface } = useMenuRuntime();
+  const { shoppingEnabled } = useStoreSession();
+  const browseOnly = !shoppingEnabled;
   const copy = getAppStrings(language);
   const [draftSelections, setDraftSelections] = useState<
     Record<string, LineSelections>
@@ -134,6 +137,8 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                     <button
                                       key={option.id}
                                       type="button"
+                                      disabled={browseOnly}
+                                      aria-disabled={browseOnly}
                                       onClick={() => {
                                         const next = { ...draft };
                                         if (group.selectionType === "single") {
@@ -149,6 +154,8 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                         updateDraft(item.id, next);
                                       }}
                                       className={`rounded-md border px-2 py-1 text-xs ${
+                                        browseOnly ? "cursor-not-allowed opacity-45" : ""
+                                      } ${
                                         checked
                                           ? "border-[#f4c430] bg-[#f4c430]/20 text-[#f4c430]"
                                           : "border-white/20 text-white/70 hover:bg-white/10"
@@ -195,10 +202,12 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                 </span>
                                 <button
                                   type="button"
+                                  disabled={browseOnly}
+                                  aria-disabled={browseOnly}
                                   onClick={() =>
                                     setQuantity(line.id, line.selections, line.quantity - 1)
                                   }
-                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white"
+                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
                                   aria-label={`${copy.decreaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                                 >
                                   −
@@ -206,18 +215,22 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                                 <span className="font-mono text-white">{line.quantity}</span>
                                 <button
                                   type="button"
+                                  disabled={browseOnly}
+                                  aria-disabled={browseOnly}
                                   onClick={() =>
                                     setQuantity(line.id, line.selections, line.quantity + 1)
                                   }
-                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white"
+                                  className="h-7 w-7 rounded border border-white/20 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
                                   aria-label={`${copy.increaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                                 >
                                   +
                                 </button>
                                 <button
                                   type="button"
+                                  disabled={browseOnly}
+                                  aria-disabled={browseOnly}
                                   onClick={() => removeItem(line.id, line.selections)}
-                                  className="ml-2 text-red-300 hover:underline"
+                                  className="ml-2 text-red-300 hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                                 >
                                   {copy.remove}
                                 </button>
@@ -234,8 +247,10 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                         <>
                           <button
                             type="button"
+                            disabled={browseOnly}
+                            aria-disabled={browseOnly}
                             onClick={() => setQuantity(item.id, {}, plainQty - 1)}
-                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
+                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                             aria-label={`${copy.decreaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                           >
                             −
@@ -245,8 +260,10 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                           </span>
                           <button
                             type="button"
+                            disabled={browseOnly}
+                            aria-disabled={browseOnly}
                             onClick={() => setQuantity(item.id, {}, plainQty + 1)}
-                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10"
+                            className="h-10 w-10 rounded-lg border border-white/20 text-lg font-medium text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                             aria-label={`${copy.increaseItemAria} ${surface.resolveLocalizedText(item.name, language)}`}
                           >
                             +
@@ -255,8 +272,10 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                       ) : (
                         <button
                           type="button"
+                          disabled={browseOnly}
+                          aria-disabled={browseOnly}
                           onClick={() => addItem(item.id, {})}
-                          className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
+                          className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
                         >
                           {copy.add}
                         </button>
@@ -264,8 +283,10 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                     ) : (
                       <button
                         type="button"
+                        disabled={browseOnly}
+                        aria-disabled={browseOnly}
                         onClick={() => addItem(item.id, draft)}
-                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95"
+                        className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
                       >
                         {copy.addConfigured}
                       </button>
@@ -285,10 +306,12 @@ export function CartBar() {
   const { lines } = useCart();
   const { language } = useLanguage();
   const { surface } = useMenuRuntime();
+  const { shoppingEnabled } = useStoreSession();
   const copy = getAppStrings(language);
   const sum = totalCents(lines, surface);
   const count = lines.reduce((a, l) => a + l.quantity, 0);
 
+  if (!shoppingEnabled) return null;
   if (count === 0) return null;
 
   return (

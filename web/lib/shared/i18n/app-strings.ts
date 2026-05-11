@@ -52,6 +52,8 @@ export type AppStrings = {
   editContact: string;
   checkoutPhaseContactIntro: string;
   checkoutPhasePaymentIntro: string;
+  storeClosedBanner: string;
+  lastCallBannerPrefix: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -109,6 +111,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     editContact: "Edit contact",
     checkoutPhaseContactIntro: "Step 1 of 2 — enter your pickup contact.",
     checkoutPhasePaymentIntro: "Step 2 of 2 — pay securely. Confirmation appears after payment completes.",
+    storeClosedBanner:
+      "We're closed — you can browse the menu. Online ordering opens at 8:00 AM and closes at 9:00 PM (store time).",
+    lastCallBannerPrefix: "Last call — ordering closes in",
   },
   es: {
     homeTagline: "RicoS",
@@ -166,6 +171,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     checkoutPhaseContactIntro: "Paso 1 de 2 — ingresa tu contacto para recoger.",
     checkoutPhasePaymentIntro:
       "Paso 2 de 2 — paga con seguridad. Veras la confirmacion al completar el pago.",
+    storeClosedBanner:
+      "Estamos cerrados — puedes ver el menu. Las ordenes en linea abren a las 8:00 a. m. y cierran a las 9:00 p. m. (hora local).",
+    lastCallBannerPrefix: "Ultima hora — el pedido en linea cierra en",
   },
 };
 

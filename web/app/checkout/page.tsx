@@ -3,12 +3,14 @@
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
+import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { useCart } from "@/lib/cart-context";
 import {
   validateCustomerContact,
   type NormalizedCustomerContact,
 } from "@/lib/commerce/customer-contact";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+import { STORE_CLOSED_CODE } from "@/lib/commerce/store-hours";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
@@ -153,6 +155,11 @@ export default function CheckoutPage() {
           router.replace("/?menuUpdated=1");
           return;
         }
+        if (res.status === 403 && data.code === STORE_CLOSED_CODE) {
+          clear();
+          router.replace("/");
+          return;
+        }
         setError(data.error ?? copy.checkoutErrorTitle);
         return;
       }
@@ -182,6 +189,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
+      <StoreHoursBanners />
       <div className="mb-8">
         <Link href="/" className="text-sm text-[#f4c430] hover:underline">
           ← {copy.backToMenu}
