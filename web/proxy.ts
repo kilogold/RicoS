@@ -5,7 +5,7 @@ import {
   storeClosedResponse,
 } from "@/lib/commerce/store-hours";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const session = getStoreSession(new Date());
   if (shoppingEnabled(session)) return NextResponse.next();
 
