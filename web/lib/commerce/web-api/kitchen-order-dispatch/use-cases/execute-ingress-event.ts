@@ -28,12 +28,20 @@ async function loadPaidPayloadFromPending(
   }
   assertPaymentMatchesSavedOrder(order, event);
   const savedPayload = omitPersistedMetadata(order.payload as PersistedOrderPayload);
+  const customerName = order.customerName?.trim();
+  if (!customerName) {
+    throw new IngressProcessError(
+      "persist_failed",
+      `Missing customer name for pending order ${orderReference}`,
+    );
+  }
   return {
     ...savedPayload,
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
     amountCents: event.amountCents,
     currency: event.currency,
+    customerName,
   };
 }
 

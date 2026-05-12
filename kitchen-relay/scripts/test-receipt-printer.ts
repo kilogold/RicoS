@@ -27,6 +27,7 @@ const sampleReceipt = [
   "--------------------------------",
   "Ref: EvdsKxJhfQdX6b6DGMqy1pWqgdobESikgA8ENaMHMFrj",
   "Time: 2026-05-12T16:43:12.895Z",
+  "Name: Test Customer",
   "Service: DINE-IN",
   "--------------------------------",
   "1x Farina",

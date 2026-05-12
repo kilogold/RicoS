@@ -339,6 +339,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
         metadata: normalizedMetadata,
       },
       serviceMode,
+      contact.customerName,
     );
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference,

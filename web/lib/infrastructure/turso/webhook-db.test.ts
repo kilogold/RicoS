@@ -22,6 +22,7 @@ function payload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayl
     paymentIngressEventId: "evt_test_1",
     paymentReferenceId: "order_1",
     serviceMode: "takeout",
+    customerName: "Test Customer",
     amountCents: 1000,
     currency: "usd",
     lines: [
@@ -163,6 +164,7 @@ describe("webhook-db payment persistence", () => {
       "evt_helius_sig_1",
     ]);
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Grace");
     expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
     expect(await listPaidPurchaseOrdersForKitchen(db)).toEqual([]);
     expect(await markPurchaseOrderFulfilled(db, "solana_ref_2")).toBe(true);
@@ -208,7 +210,9 @@ describe("webhook-db payment persistence", () => {
     expect(paid?.status).toBe("paid");
     expect(paid?.payload.serviceMode).toBe("dine_in");
     expect(paid?.payload.paymentIngressEventId).toBe("evt_stripe_saved_payload");
+    expect(paid?.payload.customerName).toBe("Saved");
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Saved");
   });
 
   test("status ids restart at one for each order reference", async () => {

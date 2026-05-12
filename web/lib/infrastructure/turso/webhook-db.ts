@@ -136,40 +136,6 @@ export async function migrate(client: Client): Promise<void> {
     ON refunds(solana_refund_transaction_signature)
     WHERE solana_refund_transaction_signature IS NOT NULL
   `);
-
-  await backfillMenuVersionContentHashes(client);
-}
-
-/**
- * Legacy seed used `sha256(canonicalJson(catalog))` only. Recompute full-manifest hashes in place
- * so `upsertMenuVersionForPublish` immutability checks match deployed rows.
- */
-async function backfillMenuVersionContentHashes(client: Client): Promise<void> {
-  const result = await client.execute(
-    `SELECT version, published_at, catalog_json, content_hash FROM menu_versions ORDER BY version ASC`,
-  );
-  const rows = (result.rows ?? []) as Record<string, unknown>[];
-  for (const row of rows) {
-    const version = Number(row.version ?? row.VERSION ?? 0);
-    const publishedAtMs = Number(row.published_at ?? row.PUBLISHED_AT ?? 0);
-    const catalogRaw = row.catalog_json ?? row.CATALOG_JSON;
-    const storedHash = String(row.content_hash ?? row.CONTENT_HASH ?? "");
-    if (!Number.isInteger(version) || version < 1 || !Number.isFinite(publishedAtMs)) continue;
-    let catalog: MenuDocument;
-    try {
-      catalog = JSON.parse(String(catalogRaw)) as MenuDocument;
-    } catch {
-      continue;
-    }
-    const manifest = buildManifestForHash({ catalogVersion: version, publishedAtMs, catalog });
-    const nextHash = await computeMenuContentHash(manifest);
-    if (nextHash !== storedHash) {
-      await client.execute({
-        sql: `UPDATE menu_versions SET content_hash = ? WHERE version = ?`,
-        args: [nextHash, version],
-      });
-    }
-  }
 }
 
 async function appendOrderStatus(
@@ -466,7 +432,7 @@ export async function listPaidPurchaseOrdersForKitchen(
   client: Client,
 ): Promise<KitchenOrderPayload[]> {
   const result = await client.execute(`
-    SELECT po.payload_json
+    SELECT po.payload_json, po.customer_name
     FROM purchase_orders po
     JOIN status_history sh
       ON sh.order_reference = po.order_reference
@@ -477,7 +443,12 @@ export async function listPaidPurchaseOrdersForKitchen(
   const rows = (result.rows ?? []) as Record<string, unknown>[];
   return rows.map((row) => {
     const raw = row.payload_json ?? row.PAYLOAD_JSON;
-    return JSON.parse(String(raw)) as KitchenOrderPayload;
+    const parsed = JSON.parse(String(raw)) as KitchenOrderPayload;
+    const fromDb = String(row.customer_name ?? row.CUSTOMER_NAME ?? "").trim();
+    if (!fromDb) {
+      throw new Error("Missing customer_name for paid purchase order");
+    }
+    return { ...parsed, customerName: fromDb };
   });
 }
 

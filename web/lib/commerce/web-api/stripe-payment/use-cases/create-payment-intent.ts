@@ -141,6 +141,7 @@ export async function createPaymentIntentFromCart(
       metadata: encoded.metadata,
     },
     serviceMode,
+    contact.customerName,
   );
 
   await insertPendingPurchaseOrderIfNew(db, {

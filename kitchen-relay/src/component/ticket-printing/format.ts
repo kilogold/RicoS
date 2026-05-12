@@ -10,19 +10,22 @@ function serviceModeLabel(serviceMode: OrderServiceMode | undefined): string {
 
 export function formatTicket(params: {
   paymentReferenceId: string;
+  customerName: string;
   serviceMode?: OrderServiceMode;
   amountCents: number;
   currency: string;
   lines: CartLine[];
   printedAt: Date;
 }): string {
-  const { paymentReferenceId, serviceMode, amountCents, currency, lines, printedAt } = params;
+  const { paymentReferenceId, customerName, serviceMode, amountCents, currency, lines, printedAt } =
+    params;
   const divider = "--------------------------------";
   const rows: string[] = [
     "RICOS — KITCHEN TICKET",
     divider,
     `Ref: ${paymentReferenceId}`,
     `Time: ${printedAt.toISOString()}`,
+    `Name: ${customerName.trim()}`,
     `Service: ${serviceModeLabel(serviceMode)}`,
     divider,
   ];

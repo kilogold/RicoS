@@ -5,6 +5,7 @@ function isValidOrderPaidPayload(data: OrderPaidPayload): boolean {
   return (
     typeof data.paymentIngressEventId === "string" &&
     typeof data.paymentReferenceId === "string" &&
+    typeof data.customerName === "string" &&
     typeof data.amountCents === "number" &&
     typeof data.currency === "string" &&
     Array.isArray(data.lines)

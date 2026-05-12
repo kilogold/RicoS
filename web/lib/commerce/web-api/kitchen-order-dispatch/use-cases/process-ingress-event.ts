@@ -37,6 +37,7 @@ export async function buildKitchenOrderPayload(
   db: Client,
   event: NormalizedIngressEvent,
   serviceMode: OrderServiceMode,
+  customerName: string,
 ): Promise<KitchenOrderPayload> {
   let decodedCart: HydratedCart;
   try {
@@ -81,6 +82,7 @@ export async function buildKitchenOrderPayload(
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
     serviceMode,
+    customerName: customerName.trim(),
     amountCents: Number(event.amountCents),
     currency: event.currency,
     lines,

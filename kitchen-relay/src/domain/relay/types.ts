@@ -1,6 +1,7 @@
 export type OrderPaidPayload = {
   paymentIngressEventId: string;
   paymentReferenceId: string;
+  customerName: string;
   serviceMode: "takeout" | "dine_in";
   amountCents: number;
   currency: string;

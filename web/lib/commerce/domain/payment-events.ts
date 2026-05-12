@@ -20,6 +20,8 @@ export type KitchenOrderPayload = {
   paymentIngressEventId: string;
   paymentReferenceId: string;
   serviceMode: OrderServiceMode;
+  /** Customer display name for kitchen tickets. */
+  customerName: string;
   amountCents: number;
   currency: string;
   lines: {
