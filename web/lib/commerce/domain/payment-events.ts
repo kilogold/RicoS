@@ -1,3 +1,5 @@
+import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
+
 export type IngressProvider = "stripe" | "helius";
 
 export type NormalizedIngressEvent = {
@@ -17,6 +19,7 @@ export type NormalizedIngressEvent = {
 export type KitchenOrderPayload = {
   paymentIngressEventId: string;
   paymentReferenceId: string;
+  serviceMode: OrderServiceMode;
   amountCents: number;
   currency: string;
   lines: {

@@ -29,9 +29,11 @@ import { createSolanaClient } from "gill";
 import { useCart } from "@/lib/cart-context";
 import type { CartLine } from "@/lib/cart-context";
 import {
+  DINE_IN_UNAVAILABLE_CODE,
   STORE_CLOSED_CODE,
   StoreClosedError,
 } from "@/lib/commerce/store-hours";
+import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
@@ -74,6 +76,7 @@ async function fetchEphemeralReference(params: {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  serviceMode: OrderServiceMode;
 }): Promise<Address> {
   const res = await fetch("/api/solana-pay/reference", {
     method: "POST",
@@ -89,6 +92,11 @@ async function fetchEphemeralReference(params: {
     if (res.status === 403 && body?.code === STORE_CLOSED_CODE) {
       throw new StoreClosedError(
         typeof body.error === "string" ? body.error : undefined,
+      );
+    }
+    if (res.status === 403 && body?.code === DINE_IN_UNAVAILABLE_CODE) {
+      throw new Error(
+        typeof body.error === "string" ? body.error : "Dine-in is unavailable during last call.",
       );
     }
     if (res.status === 409 && body?.code === MENU_VERSION_CONFLICT_CODE) {
@@ -125,9 +133,15 @@ export type SolanaPayContactProps = {
   customerName: string;
   customerPhone: string;
   customerEmail: string;
+  serviceMode: OrderServiceMode;
 };
 
-export function SolanaPayStub({ customerName, customerPhone, customerEmail }: SolanaPayContactProps) {
+export function SolanaPayStub({
+  customerName,
+  customerPhone,
+  customerEmail,
+  serviceMode,
+}: SolanaPayContactProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const router = useRouter();
@@ -219,6 +233,7 @@ export function SolanaPayStub({ customerName, customerPhone, customerEmail }: So
           menuVersionSeen: menuVersion,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
+          serviceMode,
           ...(customerEmail.trim() ? { customerEmail: customerEmail.trim() } : {}),
         });
       } catch (err) {
@@ -293,6 +308,7 @@ export function SolanaPayStub({ customerName, customerPhone, customerEmail }: So
     customerName,
     customerPhone,
     customerEmail,
+    serviceMode,
     clear,
     router,
   ]);

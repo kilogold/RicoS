@@ -1,12 +1,21 @@
 import type { Client } from "@libsql/client";
 import { generateKeyPairSigner } from "@solana/signers";
 import { NextResponse } from "next/server";
-import { assertStoreOpenOr403 } from "@/lib/commerce/store-hours";
+import {
+  DINE_IN_UNAVAILABLE_CODE,
+  assertStoreOpenOr403,
+  dineInOrderingEnabled,
+  getStoreSession,
+} from "@/lib/commerce/store-hours";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import { validateCustomerContact } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
+import {
+  ORDER_SERVICE_MODE_DINE_IN,
+  validateOrderServiceMode,
+} from "@/lib/commerce/order-service-mode";
 import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
 import {
@@ -148,6 +157,7 @@ type ReferenceRegistrationRequest = {
   customerName?: unknown;
   customerPhone?: unknown;
   customerEmail?: unknown;
+  serviceMode?: unknown;
 };
 
 export async function handleHeliusWebhookRequest(headers: Record<string, string | string[] | undefined>, body: unknown): Promise<Response> {
@@ -267,6 +277,20 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       return NextResponse.json({ error: contactCheck.error }, { status: 400 });
     }
     const contact = contactCheck.value;
+    const serviceModeCheck = validateOrderServiceMode(body.serviceMode);
+    if (!serviceModeCheck.ok) {
+      return NextResponse.json({ error: serviceModeCheck.error }, { status: 400 });
+    }
+    const serviceMode = serviceModeCheck.value;
+    if (
+      serviceMode === ORDER_SERVICE_MODE_DINE_IN &&
+      !dineInOrderingEnabled(getStoreSession(new Date()))
+    ) {
+      return NextResponse.json(
+        { error: "Dine-in is unavailable during last call.", code: DINE_IN_UNAVAILABLE_CODE },
+        { status: 403 },
+      );
+    }
     if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
       return NextResponse.json({ error: "menuVersionSeen is required" }, { status: 400 });
     }
@@ -304,14 +328,18 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       [CART_CODEC_KEY]: cartCodec,
       [CART_B64_KEY]: cartB64,
     };
-    const pendingPayload = await buildKitchenOrderPayload(db, {
-      provider: "helius",
-      paymentIngressEventId: "",
-      paymentReferenceId: orderReference,
-      amountCents: Math.floor(amountCents),
-      currency: currency.trim().toLowerCase(),
-      metadata: normalizedMetadata,
-    });
+    const pendingPayload = await buildKitchenOrderPayload(
+      db,
+      {
+        provider: "helius",
+        paymentIngressEventId: "",
+        paymentReferenceId: orderReference,
+        amountCents: Math.floor(amountCents),
+        currency: currency.trim().toLowerCase(),
+        metadata: normalizedMetadata,
+      },
+      serviceMode,
+    );
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference,
       paymentProvider: "helius",

@@ -7,6 +7,15 @@ import Stripe from "stripe";
 import { validateCustomerContact, type CustomerContactInput } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+import {
+  ORDER_SERVICE_MODE_DINE_IN,
+  validateOrderServiceMode,
+} from "@/lib/commerce/order-service-mode";
+import {
+  DINE_IN_UNAVAILABLE_CODE,
+  dineInOrderingEnabled,
+  getStoreSession,
+} from "@/lib/commerce/store-hours";
 import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
 import { insertPendingPurchaseOrderIfNew } from "@/lib/infrastructure/turso/webhook-db";
 
@@ -20,6 +29,7 @@ export async function createPaymentIntentFromCart(
   rawLines: unknown,
   menuVersionSeen: number | undefined,
   rawContact: CustomerContactInput,
+  rawServiceMode: unknown,
   stripe: Stripe,
   db: Client,
 ): Promise<CreatePaymentIntentResult> {
@@ -28,6 +38,22 @@ export async function createPaymentIntentFromCart(
     return { ok: false, status: 400, error: contactCheck.error };
   }
   const contact = contactCheck.value;
+  const serviceModeCheck = validateOrderServiceMode(rawServiceMode);
+  if (!serviceModeCheck.ok) {
+    return { ok: false, status: 400, error: serviceModeCheck.error };
+  }
+  const serviceMode = serviceModeCheck.value;
+  if (
+    serviceMode === ORDER_SERVICE_MODE_DINE_IN &&
+    !dineInOrderingEnabled(getStoreSession(new Date()))
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      code: DINE_IN_UNAVAILABLE_CODE,
+      error: "Dine-in is unavailable during last call.",
+    };
+  }
   if (typeof menuVersionSeen !== "number" || !Number.isInteger(menuVersionSeen)) {
     return { ok: false, status: 400, error: "menuVersionSeen is required" };
   }
@@ -104,14 +130,18 @@ export async function createPaymentIntentFromCart(
     return { ok: false, status: 500, error: "Could not create payment" };
   }
 
-  const pendingPayload = await buildKitchenOrderPayload(db, {
-    provider: "stripe",
-    paymentIngressEventId: "",
-    paymentReferenceId: paymentIntent.id,
-    amountCents: encoded.amountCents,
-    currency: "usd",
-    metadata: encoded.metadata,
-  });
+  const pendingPayload = await buildKitchenOrderPayload(
+    db,
+    {
+      provider: "stripe",
+      paymentIngressEventId: "",
+      paymentReferenceId: paymentIntent.id,
+      amountCents: encoded.amountCents,
+      currency: "usd",
+      metadata: encoded.metadata,
+    },
+    serviceMode,
+  );
 
   await insertPendingPurchaseOrderIfNew(db, {
     orderReference: paymentIntent.id,

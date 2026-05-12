@@ -1,6 +1,10 @@
 "use client";
 
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
+import {
+  orderServiceModeLabel,
+  type OrderServiceMode,
+} from "@/lib/commerce/order-service-mode";
 import { useCallback, useEffect, useState } from "react";
 
 const MS_PER_SECOND = 1000;
@@ -17,7 +21,7 @@ const LOCAL_MIDNIGHT_HMS = [0, 0, 0, 0] as const;
 /** Local end of calendar day (inclusive upper bound for timestamps in `localDayBoundsMs`). */
 const LOCAL_END_OF_DAY_HMS = [23, 59, 59, 999] as const;
 
-const ORDER_TABLE_COLUMN_COUNT = 10;
+const ORDER_TABLE_COLUMN_COUNT = 11;
 
 /** Minimum refund amount accepted by the staff refund API (integer cents). */
 const REFUND_MIN_AMOUNT_CENTS = 1;
@@ -45,6 +49,7 @@ type OrderRow = {
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
+  serviceMode: OrderServiceMode | null;
   /** Parsed DB `payload_json`. */
   payload: KitchenOrderPayload;
   lineCount: number;
@@ -97,6 +102,10 @@ function formatMoney(amountCents: number, currency: string): string {
   } catch {
     return `${(amountCents / CENTS_PER_MAJOR_UNIT).toFixed(2)} ${currency}`;
   }
+}
+
+function formatServiceMode(serviceMode: OrderServiceMode | null | undefined): string {
+  return serviceMode ? orderServiceModeLabel(serviceMode) : "Unknown";
 }
 
 function formatTime(ms: number): string {
@@ -514,6 +523,8 @@ export default function AdminOrderTestPage() {
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
                     <span>{formatTime(order.createdAt)}</span>
                     <span className="text-slate-600">·</span>
+                    <span>{formatServiceMode(order.serviceMode)}</span>
+                    <span className="text-slate-600">·</span>
                     <span className="uppercase">{order.paymentProvider}</span>
                     <span className="text-slate-600">·</span>
                     <span>{order.lineCount} lines</span>
@@ -540,6 +551,7 @@ export default function AdminOrderTestPage() {
               <th className="p-3">Created</th>
               <th className="p-3">Reference</th>
               <th className="p-3">Provider</th>
+              <th className="p-3">Mode</th>
               <th className="p-3">Amount</th>
               <th className="p-3">Status</th>
               <th className="p-3">Lines</th>
@@ -592,6 +604,7 @@ export default function AdminOrderTestPage() {
                             </div>
                           </td>
                           <td className="p-3 text-slate-500">—</td>
+                          <td className="p-3 text-slate-500">—</td>
                           <td className="p-3">{formatMoney(refund.amountCents, order.currency)}</td>
                           <td className="p-3 text-amber-200/90">refund</td>
                           <td className="p-3 text-slate-500">—</td>
@@ -627,6 +640,7 @@ export default function AdminOrderTestPage() {
                     {order.orderReference}
                   </td>
                   <td className="p-3">{order.paymentProvider}</td>
+                  <td className="p-3">{formatServiceMode(order.serviceMode)}</td>
                   <td className="p-3">{formatMoney(order.amountCents, order.currency)}</td>
                   <td className="p-3">{order.status}</td>
                   <td className="p-3">{order.lineCount}</td>
@@ -668,6 +682,10 @@ export default function AdminOrderTestPage() {
               <p className="mt-1 break-all font-mono text-xs text-slate-400">{selectedOrder.orderReference}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+              <div className="mb-5 rounded-lg border border-slate-600/80 bg-slate-950/30 px-4 py-3 text-sm text-slate-300">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Order type</p>
+                <p className="mt-1.5">{formatServiceMode(selectedOrder.serviceMode)}</p>
+              </div>
               {selectedOrder.customerName || selectedOrder.customerPhone || selectedOrder.customerEmail ? (
                 <div className="mb-5 rounded-lg border border-slate-600/80 bg-slate-950/30 px-4 py-3 text-sm text-slate-300">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Pickup contact</p>

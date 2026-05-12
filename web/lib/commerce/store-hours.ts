@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  ORDER_SERVICE_MODE_DINE_IN,
+  type OrderServiceMode,
+} from "@/lib/commerce/order-service-mode";
 
 /** RicoS store wall clock (IANA). Used only for “what time is it at the store?”. */
 const STORE_ZONE = "America/Puerto_Rico";
@@ -9,6 +13,7 @@ const STORE_ZONE = "America/Puerto_Rico";
 const STORE_UTC_OFFSET = "-04:00";
 
 export const STORE_CLOSED_CODE = "STORE_CLOSED" as const;
+export const DINE_IN_UNAVAILABLE_CODE = "DINE_IN_UNAVAILABLE" as const;
 
 export class StoreClosedError extends Error {
   readonly code = STORE_CLOSED_CODE;
@@ -222,9 +227,20 @@ export function shoppingEnabled(session: StoreSession): boolean {
   return session.status === "open" || session.status === "last_call";
 }
 
+export function dineInOrderingEnabled(session: StoreSession): boolean {
+  return session.status === "open";
+}
+
 export function storeClosedResponse(): NextResponse {
   return NextResponse.json(
     { error: "Store is closed for orders.", code: STORE_CLOSED_CODE },
+    { status: 403 },
+  );
+}
+
+export function dineInUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Dine-in is unavailable during last call.", code: DINE_IN_UNAVAILABLE_CODE },
     { status: 403 },
   );
 }
@@ -233,4 +249,10 @@ export function assertStoreOpenOr403(): NextResponse | null {
   if (readHoursOverride() === "force-open") return null;
   if (shoppingEnabled(getStoreSession(new Date()))) return null;
   return storeClosedResponse();
+}
+
+export function assertServiceModeAvailableOr403(serviceMode: OrderServiceMode): NextResponse | null {
+  if (serviceMode !== ORDER_SERVICE_MODE_DINE_IN) return null;
+  if (dineInOrderingEnabled(getStoreSession(new Date()))) return null;
+  return dineInUnavailableResponse();
 }

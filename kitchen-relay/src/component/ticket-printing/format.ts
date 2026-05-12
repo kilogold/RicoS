@@ -1,18 +1,28 @@
 import type { CartLine } from "./types";
 
+type OrderServiceMode = "takeout" | "dine_in";
+
+function serviceModeLabel(serviceMode: OrderServiceMode | undefined): string {
+  if (serviceMode === "dine_in") return "DINE-IN";
+  if (serviceMode === "takeout") return "TAKEOUT";
+  return "UNKNOWN";
+}
+
 export function formatTicket(params: {
   paymentReferenceId: string;
+  serviceMode?: OrderServiceMode;
   amountCents: number;
   currency: string;
   lines: CartLine[];
   printedAt: Date;
 }): string {
-  const { paymentReferenceId, amountCents, currency, lines, printedAt } = params;
+  const { paymentReferenceId, serviceMode, amountCents, currency, lines, printedAt } = params;
   const divider = "--------------------------------";
   const rows: string[] = [
     "RICOS — KITCHEN TICKET",
     divider,
     `Ref: ${paymentReferenceId}`,
+    `Service: ${serviceModeLabel(serviceMode)}`,
     `Time: ${printedAt.toISOString()}`,
     divider,
   ];

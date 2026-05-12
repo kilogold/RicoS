@@ -36,6 +36,7 @@ export function createOrderPaidHandler(
 
     const text = formatTicket({
       paymentReferenceId: data.paymentReferenceId,
+      serviceMode: data.serviceMode,
       amountCents: data.amountCents,
       currency: data.currency,
       lines: data.lines,

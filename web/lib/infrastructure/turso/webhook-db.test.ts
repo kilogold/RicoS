@@ -1,6 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
+import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import {
   getPurchaseOrderByReference,
   insertPendingPurchaseOrderIfNew,
@@ -20,6 +21,7 @@ function payload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayl
   return {
     paymentIngressEventId: "evt_test_1",
     paymentReferenceId: "order_1",
+    serviceMode: "takeout",
     amountCents: 1000,
     currency: "usd",
     lines: [
@@ -115,6 +117,7 @@ describe("webhook-db payment persistence", () => {
     expect(pending?.status).toBe("pending");
     expect(pending?.paymentIntentExpiresAt).toBe(123);
     expect(pending?.customerName).toBe("Ada");
+    expect(pending?.payload.serviceMode).toBe("takeout");
 
     expect(await markPurchaseOrderExpired(db, "solana_ref_1")).toBe(true);
     expect((await getPurchaseOrderByReference(db, "solana_ref_1"))?.status).toBe("expired");
@@ -141,6 +144,7 @@ describe("webhook-db payment persistence", () => {
     const paidPayload = payload({
       paymentIngressEventId: "evt_helius_sig_1",
       paymentReferenceId: "solana_ref_2",
+      serviceMode: "dine_in",
     });
     expect(
       await markSolanaPurchaseOrderPaidIfNew(db, {
@@ -158,6 +162,7 @@ describe("webhook-db payment persistence", () => {
     expect((await listPaidPurchaseOrdersForKitchen(db)).map((row) => row.paymentIngressEventId)).toEqual([
       "evt_helius_sig_1",
     ]);
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
     expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
     expect(await listPaidPurchaseOrdersForKitchen(db)).toEqual([]);
     expect(await markPurchaseOrderFulfilled(db, "solana_ref_2")).toBe(true);
@@ -170,6 +175,40 @@ describe("webhook-db payment persistence", () => {
       "fulfilled",
     ]);
     expect(await statusIds(db, "solana_ref_2")).toEqual([1, 2, 3, 4]);
+  });
+
+  test("paid webhook reuses saved pending ticket payload", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pi_saved_payload",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      amountCents: 1000,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pi_saved_payload",
+        serviceMode: "dine_in",
+      }),
+      customerName: "Saved",
+      customerPhone: "555-0104",
+      customerEmail: null,
+    });
+
+    const outcome = await executeStripeIngressEvent(db, {
+      provider: "stripe",
+      paymentIngressEventId: "evt_stripe_saved_payload",
+      paymentReferenceId: "pi_saved_payload",
+      amountCents: 1000,
+      currency: "usd",
+      metadata: {},
+    });
+
+    expect(outcome).toEqual({ ok: true });
+    const paid = await getPurchaseOrderByReference(db, "pi_saved_payload");
+    expect(paid?.status).toBe("paid");
+    expect(paid?.payload.serviceMode).toBe("dine_in");
+    expect(paid?.payload.paymentIngressEventId).toBe("evt_stripe_saved_payload");
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
   });
 
   test("status ids restart at one for each order reference", async () => {

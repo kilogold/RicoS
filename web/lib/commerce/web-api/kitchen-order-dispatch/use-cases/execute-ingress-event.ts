@@ -2,14 +2,70 @@ import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { publishOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
 import {
+  getPurchaseOrderByReference,
   markSolanaPurchaseOrderPaidIfNew,
   markStripePurchaseOrderPaidIfNew,
+  type PurchaseOrderRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
-import { IngressProcessError, buildKitchenOrderPayload } from "./process-ingress-event";
+import { IngressProcessError } from "./process-ingress-event";
 
 export type IngressOutcome =
   | { ok: true }
   | { ok: false; status: number; body: Record<string, string> };
+
+type PersistedOrderPayload = KitchenOrderPayload & {
+  metadata?: Record<string, string | undefined>;
+};
+
+async function loadPaidPayloadFromPending(
+  db: Client,
+  orderReference: string,
+  event: NormalizedIngressEvent,
+): Promise<KitchenOrderPayload> {
+  const order = await getPurchaseOrderByReference(db, orderReference);
+  if (!order) {
+    throw new IngressProcessError("missing_pending_order", `Missing pending order ${orderReference}`);
+  }
+  assertPaymentMatchesSavedOrder(order, event);
+  const savedPayload = omitPersistedMetadata(order.payload as PersistedOrderPayload);
+  return {
+    ...savedPayload,
+    paymentIngressEventId: event.paymentIngressEventId,
+    paymentReferenceId: event.paymentReferenceId,
+    amountCents: event.amountCents,
+    currency: event.currency,
+  };
+}
+
+function omitPersistedMetadata(payload: PersistedOrderPayload): KitchenOrderPayload {
+  const payloadWithoutMetadata: PersistedOrderPayload = { ...payload };
+  delete payloadWithoutMetadata.metadata;
+  return payloadWithoutMetadata;
+}
+
+function assertPaymentMatchesSavedOrder(
+  order: PurchaseOrderRecord,
+  event: NormalizedIngressEvent,
+): void {
+  if (order.orderReference !== event.paymentReferenceId) {
+    throw new IngressProcessError(
+      "payment_mismatch",
+      `Payment reference mismatch: ${event.paymentReferenceId} !== ${order.orderReference}`,
+    );
+  }
+  if (Math.floor(order.amountCents) !== Math.floor(event.amountCents)) {
+    throw new IngressProcessError(
+      "payment_mismatch",
+      `Payment amount mismatch: ${event.amountCents} !== ${order.amountCents}`,
+    );
+  }
+  if (order.currency.trim().toLowerCase() !== event.currency.trim().toLowerCase()) {
+    throw new IngressProcessError(
+      "payment_mismatch",
+      `Payment currency mismatch: ${event.currency} !== ${order.currency}`,
+    );
+  }
+}
 
 /** Stripe ingress: mark the pending `purchase_orders` row paid, then broadcast on first transition. */
 export async function executeStripeIngressEvent(
@@ -18,7 +74,7 @@ export async function executeStripeIngressEvent(
 ): Promise<IngressOutcome> {
   let payload: KitchenOrderPayload;
   try {
-    payload = await buildKitchenOrderPayload(db, event);
+    payload = await loadPaidPayloadFromPending(db, event.paymentReferenceId, event);
   } catch (err) {
     return ingressErrorToOutcome(err, event);
   }
@@ -53,7 +109,7 @@ export async function executeSolanaIngressEvent(
 ): Promise<IngressOutcome> {
   let payload: KitchenOrderPayload;
   try {
-    payload = await buildKitchenOrderPayload(db, event);
+    payload = await loadPaidPayloadFromPending(db, context.orderReference, event);
   } catch (err) {
     return ingressErrorToOutcome(err, event);
   }

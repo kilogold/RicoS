@@ -6,6 +6,7 @@ import {
 } from "@ricos/shared";
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
+import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
 import {
   fetchMenuCatalogAndDecodeIndexByVersion,
   getDecodeIndex,
@@ -18,7 +19,9 @@ export class IngressProcessError extends Error {
       | "cart_total_mismatch"
       | "persist_failed"
       | "missing_solana_pending"
-      | "missing_solana_signature",
+      | "missing_solana_signature"
+      | "missing_pending_order"
+      | "payment_mismatch",
     message: string,
   ) {
     super(message);
@@ -33,6 +36,7 @@ export class IngressProcessError extends Error {
 export async function buildKitchenOrderPayload(
   db: Client,
   event: NormalizedIngressEvent,
+  serviceMode: OrderServiceMode,
 ): Promise<KitchenOrderPayload> {
   let decodedCart: HydratedCart;
   try {
@@ -76,6 +80,7 @@ export async function buildKitchenOrderPayload(
   return {
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
+    serviceMode,
     amountCents: Number(event.amountCents),
     currency: event.currency,
     lines,

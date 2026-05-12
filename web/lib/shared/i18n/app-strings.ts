@@ -38,6 +38,14 @@ export type AppStrings = {
   paymentMethodSolanaLabel: string;
   paymentMethodAthLabel: string;
   changePaymentMethod: string;
+  serviceModeHeading: string;
+  takeoutLabel: string;
+  takeoutDescription: string;
+  dineInLabel: string;
+  dineInDescription: string;
+  dineInUnavailableDuringLastCall: string;
+  continueToContact: string;
+  editServiceMode: string;
   solanaPayStubTitle: string;
   solanaPayStubBody: string;
   athMovilStubTitle: string;
@@ -50,6 +58,7 @@ export type AppStrings = {
   checkoutContactIncomplete: string;
   continueToPayment: string;
   editContact: string;
+  checkoutPhaseServiceIntro: string;
   checkoutPhaseContactIntro: string;
   checkoutPhasePaymentIntro: string;
   storeClosedBanner: string;
@@ -73,7 +82,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     backToMenu: "Back to menu",
     preparingSecureCheckout: "Preparing secure checkout…",
     totalLabel: "Total",
-    payForPickup: "Pay for pickup",
+    payForPickup: "Checkout",
     guestCheckoutMessage: "Guest checkout — no account required.",
     orderSummary: "Order summary",
     processing: "Processing…",
@@ -82,7 +91,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentUnexpectedError: "Something went wrong. Please try again.",
     orderConfirmed: "Order confirmed",
     orderConfirmedMessage:
-      "Thanks for your order. We'll prepare it for pickup. Bring this confirmation if helpful for the cashier.",
+      "Thanks for your order. We'll start preparing it. Bring this confirmation if helpful for the cashier.",
     paymentIntentLabel: "Payment intent",
     statusLabel: "Status",
     orderMore: "Order more",
@@ -97,11 +106,19 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentMethodSolanaLabel: "Solana Pay",
     paymentMethodAthLabel: "ATH Móvil",
     changePaymentMethod: "Change payment method",
+    serviceModeHeading: "How will you receive your order?",
+    takeoutLabel: "Takeout",
+    takeoutDescription: "Pick up your order at the counter.",
+    dineInLabel: "Dine-in",
+    dineInDescription: "Eat your order here.",
+    dineInUnavailableDuringLastCall: "Dine-in is unavailable during last call. Takeout is still available.",
+    continueToContact: "Continue to contact info",
+    editServiceMode: "Edit order type",
     solanaPayStubTitle: "Solana Pay",
     solanaPayStubBody: "Solana Pay checkout will be available here soon.",
     athMovilStubTitle: "ATH Móvil",
     athMovilStubBody: "ATH Móvil checkout will be available here soon.",
-    pickupContactHeading: "Pickup contact",
+    pickupContactHeading: "Contact info",
     customerNameLabel: "Name",
     customerPhoneLabel: "Phone",
     customerEmailLabel: "Email",
@@ -109,8 +126,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     checkoutContactIncomplete: "Enter your name and phone to continue.",
     continueToPayment: "Continue to payment",
     editContact: "Edit contact",
-    checkoutPhaseContactIntro: "Step 1 of 2 — enter your pickup contact.",
-    checkoutPhasePaymentIntro: "Step 2 of 2 — pay securely. Confirmation appears after payment completes.",
+    checkoutPhaseServiceIntro: "Step 1 of 4 - choose takeout or dine-in.",
+    checkoutPhaseContactIntro: "Step 2 of 4 - enter your contact info.",
+    checkoutPhasePaymentIntro: "Step 3 of 4 - pay securely. Confirmation appears after payment completes.",
     storeClosedBanner:
       "We're closed — you can browse the menu. Online ordering opens at 8:00 AM and closes at 9:00 PM (store time).",
     lastCallBannerPrefix: "Last call — ordering closes in",
@@ -132,7 +150,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     backToMenu: "Volver al menu",
     preparingSecureCheckout: "Preparando pago seguro…",
     totalLabel: "Total",
-    payForPickup: "Pagar para recoger",
+    payForPickup: "Pagar",
     guestCheckoutMessage: "Pago como invitado — no requiere cuenta.",
     orderSummary: "Resumen de orden",
     processing: "Procesando…",
@@ -141,7 +159,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentUnexpectedError: "Algo salio mal. Intentalo de nuevo.",
     orderConfirmed: "Orden confirmada",
     orderConfirmedMessage:
-      "Gracias por tu orden. La prepararemos para recoger. Puedes mostrar esta confirmacion en caja si hace falta.",
+      "Gracias por tu orden. Empezaremos a prepararla. Puedes mostrar esta confirmacion en caja si hace falta.",
     paymentIntentLabel: "Intento de pago",
     statusLabel: "Estado",
     orderMore: "Ordenar mas",
@@ -156,11 +174,19 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentMethodSolanaLabel: "Solana Pay",
     paymentMethodAthLabel: "ATH Movil",
     changePaymentMethod: "Cambiar metodo de pago",
+    serviceModeHeading: "Como recibiras tu orden?",
+    takeoutLabel: "Takeout",
+    takeoutDescription: "Recoge tu orden en el mostrador.",
+    dineInLabel: "Dine-in",
+    dineInDescription: "Come tu orden en el local.",
+    dineInUnavailableDuringLastCall: "Comer aqui no esta disponible durante ultima hora. Para llevar sigue disponible.",
+    continueToContact: "Continuar a contacto",
+    editServiceMode: "Editar tipo de orden",
     solanaPayStubTitle: "Solana Pay",
     solanaPayStubBody: "El pago con Solana Pay estara disponible pronto.",
     athMovilStubTitle: "ATH Movil",
     athMovilStubBody: "El pago con ATH Movil estara disponible pronto.",
-    pickupContactHeading: "Contacto para recoger",
+    pickupContactHeading: "Informacion de contacto",
     customerNameLabel: "Nombre",
     customerPhoneLabel: "Telefono",
     customerEmailLabel: "Correo",
@@ -168,9 +194,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     checkoutContactIncomplete: "Ingresa nombre y telefono para continuar.",
     continueToPayment: "Continuar al pago",
     editContact: "Editar contacto",
-    checkoutPhaseContactIntro: "Paso 1 de 2 — ingresa tu contacto para recoger.",
+    checkoutPhaseServiceIntro: "Paso 1 de 4 - elige para llevar o comer aqui.",
+    checkoutPhaseContactIntro: "Paso 2 de 4 - ingresa tu informacion de contacto.",
     checkoutPhasePaymentIntro:
-      "Paso 2 de 2 — paga con seguridad. Veras la confirmacion al completar el pago.",
+      "Paso 3 de 4 - paga con seguridad. Veras la confirmacion al completar el pago.",
     storeClosedBanner:
       "Estamos cerrados — puedes ver el menu. Las ordenes en linea abren a las 8:00 a. m. y cierran a las 9:00 p. m. (hora local).",
     lastCallBannerPrefix: "Ultima hora — el pedido en linea cierra en",

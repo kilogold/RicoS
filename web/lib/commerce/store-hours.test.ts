@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   __resetStoreHoursCacheForTests,
+  dineInOrderingEnabled,
   getStoreSession,
   shoppingEnabled,
 } from "./store-hours";
@@ -31,6 +32,7 @@ describe("getStoreSession", () => {
     const s = getStoreSession(now);
     expect(s.status).toBe("closed");
     expect(shoppingEnabled(s)).toBe(false);
+    expect(dineInOrderingEnabled(s)).toBe(false);
   });
 
   test("08:00 local is open", () => {
@@ -38,6 +40,7 @@ describe("getStoreSession", () => {
     const s = getStoreSession(now);
     expect(s.status).toBe("open");
     expect(shoppingEnabled(s)).toBe(true);
+    expect(dineInOrderingEnabled(s)).toBe(true);
   });
 
   test("19:59:59 local is still open", () => {
@@ -51,6 +54,7 @@ describe("getStoreSession", () => {
     const s = getStoreSession(now);
     expect(s.status).toBe("last_call");
     expect(shoppingEnabled(s)).toBe(true);
+    expect(dineInOrderingEnabled(s)).toBe(false);
   });
 
   test("20:30 local is last_call", () => {
@@ -64,6 +68,7 @@ describe("getStoreSession", () => {
     const s = getStoreSession(now);
     expect(s.status).toBe("closed");
     expect(shoppingEnabled(s)).toBe(false);
+    expect(dineInOrderingEnabled(s)).toBe(false);
   });
 
   test("STORE_HOURS_OVERRIDE=1 forces open when naturally closed", () => {

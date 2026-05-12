@@ -79,6 +79,7 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
     customerName?: unknown;
     customerPhone?: unknown;
     customerEmail?: unknown;
+    serviceMode?: unknown;
   };
   const rawLines = parsedBody?.lines;
   const menuVersionSeen = parsedBody?.menuVersionSeen;
@@ -91,6 +92,7 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
       customerPhone: parsedBody?.customerPhone,
       customerEmail: parsedBody?.customerEmail,
     },
+    parsedBody?.serviceMode,
     stripe,
     db,
   );

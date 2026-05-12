@@ -112,6 +112,7 @@ export async function handleStaffListOrdersRequest(req: Request): Promise<Respon
       customerName: r.customerName,
       customerPhone: r.customerPhone,
       customerEmail: r.customerEmail,
+      serviceMode: r.payload.serviceMode ?? null,
       /** Parsed `payload_json` from `purchase_orders`. */
       payload: r.payload,
       lineCount: r.payload.lines.length,
