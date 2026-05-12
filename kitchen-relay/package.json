@@ -7,6 +7,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
+    "print:test": "bun scripts/test-receipt-printer.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

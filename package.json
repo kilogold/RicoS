@@ -15,6 +15,7 @@
     "dev:bootstrap": "bun scripts/dev-bootstrap.mjs",
     "dev:web": "bun --env-file=../.env --env-file=../.env.local run --cwd web dev",
     "dev:kitchen": "bun --env-file=../.env --env-file=../.env.local run --cwd kitchen-relay dev",
+    "print:test": "bun --env-file=../.env --env-file=../.env.local run --cwd kitchen-relay print:test",
     "build": "bun --env-file=../.env --env-file=../.env.local run --cwd web build",
     "lint": "bun --env-file=../.env --env-file=../.env.local run --cwd web lint"
   },

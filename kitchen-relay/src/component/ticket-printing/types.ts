@@ -22,6 +22,15 @@ export type ConsolePrinterOptions = {
   logFilePath?: string;
 };
 
+export type PrintOptions = {
+  host?: string;
+  port?: number;
+  encoding?: BufferEncoding;
+  feedLines?: number;
+  cut?: boolean;
+  timeoutMs?: number;
+};
+
 export type PrintRetryOptions = {
   maxAttempts: number;
   initialDelayMs: number;
