@@ -22,8 +22,8 @@ export function formatTicket(params: {
     "RICOS — KITCHEN TICKET",
     divider,
     `Ref: ${paymentReferenceId}`,
-    `Service: ${serviceModeLabel(serviceMode)}`,
     `Time: ${printedAt.toISOString()}`,
+    `Service: ${serviceModeLabel(serviceMode)}`,
     divider,
   ];
 
