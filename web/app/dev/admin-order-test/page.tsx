@@ -51,20 +51,24 @@ type OrderRow = {
   refunds: RefundDetailRow[];
 };
 
+type OrdersFetchResult =
+  | { ok: true; orders: OrderRow[]; from: number; fetchedAt: number }
+  | { ok: false; error: string; from: number };
+
 function isRefundOrderStatus(status: string): boolean {
   return status === "refunding" || status === "refunded";
 }
 
-function formatRefundConfirmation(ref: RefundDetailRow): string {
-  if (ref.stripeRefundConfirmation) return ref.stripeRefundConfirmation;
-  if (ref.solanaRefundTransactionSignature) return ref.solanaRefundTransactionSignature;
+function formatRefundConfirmation(refund: RefundDetailRow): string {
+  if (refund.stripeRefundConfirmation) return refund.stripeRefundConfirmation;
+  if (refund.solanaRefundTransactionSignature) return refund.solanaRefundTransactionSignature;
   return "Pending confirmation";
 }
 
-function shortenForTable(s: string, maxLen: number): string {
-  if (s.length <= maxLen) return s;
-  const keep = Math.floor((maxLen - 1) / 2);
-  return `${s.slice(0, keep)}…${s.slice(-keep)}`;
+function abbreviateForTable(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  const keptCharactersPerSide = Math.floor((maxLength - 1) / 2);
+  return `${value.slice(0, keptCharactersPerSide)}…${value.slice(-keptCharactersPerSide)}`;
 }
 
 function localDayBoundsMs(): { from: number; to: number } {
@@ -84,14 +88,14 @@ function localDayBoundsMs(): { from: number; to: number } {
   return { from: start.getTime(), to: end.getTime() };
 }
 
-function formatMoney(cents: number, currency: string): string {
+function formatMoney(amountCents: number, currency: string): string {
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
       currency: currency || "USD",
-    }).format(cents / CENTS_PER_MAJOR_UNIT);
+    }).format(amountCents / CENTS_PER_MAJOR_UNIT);
   } catch {
-    return `${(cents / CENTS_PER_MAJOR_UNIT).toFixed(2)} ${currency}`;
+    return `${(amountCents / CENTS_PER_MAJOR_UNIT).toFixed(2)} ${currency}`;
   }
 }
 
@@ -99,14 +103,38 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
+async function requestOrders(trimmedToken: string): Promise<OrdersFetchResult> {
+  const { from, to } = localDayBoundsMs();
+  try {
+    const searchParams = new URLSearchParams({
+      from: String(from),
+      to: String(to),
+    });
+    const response = await fetch(`/api/staff/admin/orders?${searchParams}`, {
+      headers: { Authorization: `Bearer ${trimmedToken}` },
+    });
+    const responseBody = (await response.json()) as { orders?: OrderRow[]; error?: string };
+    if (!response.ok) {
+      return { ok: false, error: responseBody.error ?? `HTTP ${response.status}`, from };
+    }
+    return { ok: true, orders: responseBody.orders ?? [], from, fetchedAt: Date.now() };
+  } catch (requestError) {
+    return {
+      ok: false,
+      error: requestError instanceof Error ? requestError.message : String(requestError),
+      from,
+    };
+  }
+}
+
 function OrderPayloadCartView({
   payload,
   formatMoney,
 }: {
   payload: KitchenOrderPayload;
-  formatMoney: (cents: number, currency: string) => string;
+  formatMoney: (amountCents: number, currency: string) => string;
 }) {
-  const cc = payload.currency || "USD";
+  const currencyCode = payload.currency || "USD";
 
   if (!payload.lines.length) {
     return (
@@ -119,7 +147,7 @@ function OrderPayloadCartView({
   return (
     <div className="space-y-1">
       <ul className="divide-y divide-slate-700/90">
-        {payload.lines.map((line, idx) => {
+        {payload.lines.map((line, lineIndex) => {
           const title = line.itemLabel?.trim() || line.id;
           const detailLines =
             line.selectionLines && line.selectionLines.length > 0
@@ -129,7 +157,7 @@ function OrderPayloadCartView({
                 );
 
           return (
-            <li key={`${line.id}-${idx}`} className="flex gap-4 py-4 first:pt-1">
+            <li key={`${line.id}-${lineIndex}`} className="flex gap-4 py-4 first:pt-1">
               <div className="min-w-9 shrink-0 pt-0.5 text-center">
                 <span className="inline-flex min-w-7 justify-center rounded-md bg-slate-800/90 px-2 py-0.5 text-sm font-semibold tabular-nums text-sky-200">
                   {line.quantity}
@@ -139,18 +167,18 @@ function OrderPayloadCartView({
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <p className="text-[15px] font-medium leading-snug text-slate-100">{title}</p>
                   <p className="shrink-0 text-sm font-semibold tabular-nums tracking-tight text-emerald-200/95">
-                    {formatMoney(line.lineExtendedTotalCents, cc)}
+                    {formatMoney(line.lineExtendedTotalCents, currencyCode)}
                   </p>
                 </div>
                 {line.quantity > 1 ? (
                   <p className="mt-1 text-xs text-slate-500">
-                    {formatMoney(line.lineUnitTotalCents, cc)} each × {line.quantity}
+                    {formatMoney(line.lineUnitTotalCents, currencyCode)} each × {line.quantity}
                   </p>
                 ) : null}
                 {detailLines.length > 0 ? (
                   <ul className="mt-2 space-y-1 border-l border-emerald-900/50 pl-3 text-[13px] leading-relaxed text-slate-400">
-                    {detailLines.map((row, i) => (
-                      <li key={i}>{row}</li>
+                    {detailLines.map((detailLine, detailLineIndex) => (
+                      <li key={detailLineIndex}>{detailLine}</li>
                     ))}
                   </ul>
                 ) : null}
@@ -163,7 +191,7 @@ function OrderPayloadCartView({
       <div className="mt-4 flex items-center justify-between border-t border-slate-600 pt-4">
         <span className="text-sm font-medium uppercase tracking-wide text-slate-400">Order total</span>
         <span className="text-lg font-semibold tabular-nums text-white">
-          {formatMoney(payload.amountCents, cc)}
+          {formatMoney(payload.amountCents, currencyCode)}
         </span>
       </div>
 
@@ -185,12 +213,19 @@ export default function AdminOrderTestPage() {
   const [dayLabel, setDayLabel] = useState(() =>
     new Date(localDayBoundsMs().from).toDateString(),
   );
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return sessionStorage.getItem(TOKEN_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
-  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [selectedOrderReference, setSelectedOrderReference] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -200,143 +235,139 @@ export default function AdminOrderTestPage() {
   const [refundSolanaSig, setRefundSolanaSig] = useState("");
   const [refundIdempotency, setRefundIdempotency] = useState("");
 
-  useEffect(() => {
-    try {
-      const t = sessionStorage.getItem(TOKEN_KEY);
-      if (t) setToken(t);
-    } catch {
-      /* ignore */
+  const persistToken = (nextToken: string) => {
+    setToken(nextToken);
+    if (!nextToken.trim()) {
+      setError("Set staff bearer token (same as STAFF_MENU_PUBLISH_SECRET).");
     }
-  }, []);
-
-  const persistToken = (t: string) => {
-    setToken(t);
     try {
-      sessionStorage.setItem(TOKEN_KEY, t);
+      sessionStorage.setItem(TOKEN_KEY, nextToken);
     } catch {
       /* ignore */
     }
   };
 
   const fetchOrders = useCallback(async () => {
-    const trimmed = token.trim();
-    if (!trimmed) {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
       setError("Set staff bearer token (same as STAFF_MENU_PUBLISH_SECRET).");
       return;
     }
-    const { from, to } = localDayBoundsMs();
-    setDayLabel(new Date(from).toDateString());
     setLoading(true);
     setError(null);
     try {
-      const sp = new URLSearchParams({
-        from: String(from),
-        to: String(to),
-      });
-      const res = await fetch(`/api/staff/admin/orders?${sp}`, {
-        headers: { Authorization: `Bearer ${trimmed}` },
-      });
-      const data = (await res.json()) as { orders?: OrderRow[]; error?: string };
-      if (!res.ok) {
-        setError(data.error ?? `HTTP ${res.status}`);
+      const result = await requestOrders(trimmedToken);
+      setDayLabel(new Date(result.from).toDateString());
+      if (!result.ok) {
+        setError(result.error);
         setOrders([]);
         return;
       }
-      setOrders(data.orders ?? []);
-      setLastFetchedAt(Date.now());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setOrders([]);
+      setOrders(result.orders);
+      setLastFetchedAt(result.fetchedAt);
     } finally {
       setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
-    void fetchOrders();
-  }, [fetchOrders]);
+    const trimmedToken = token.trim();
+    if (!trimmedToken) return;
+
+    let cancelled = false;
+    async function loadInitialOrders() {
+      const result = await requestOrders(trimmedToken);
+      if (cancelled) return;
+      setDayLabel(new Date(result.from).toDateString());
+      if (!result.ok) {
+        setError(result.error);
+        setOrders([]);
+        return;
+      }
+      setError(null);
+      setOrders(result.orders);
+      setLastFetchedAt(result.fetchedAt);
+    }
+
+    void loadInitialOrders();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const intervalId = window.setInterval(() => {
       void fetchOrders();
     }, ORDERS_POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
+    return () => window.clearInterval(intervalId);
   }, [fetchOrders]);
 
-  const selected = orders.find((o) => o.orderReference === selectedRef) ?? null;
+  const selectedOrder = orders.find((order) => order.orderReference === selectedOrderReference) ?? null;
 
-  useEffect(() => {
-    if (selected) {
-      setRefundAmountCents(String(selected.amountCents));
-      setRefundSolanaSig("");
-      setRefundIdempotency("");
-    }
-  }, [selected]);
-
-  async function postJson(path: string, body: Record<string, unknown>): Promise<void> {
-    const trimmed = token.trim();
-    if (!trimmed) {
+  async function postJson(requestPath: string, requestBody: Record<string, unknown>): Promise<void> {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) {
       setActionMessage("Missing bearer token.");
       return;
     }
     setActionBusy(true);
     setActionMessage(null);
     try {
-      const res = await fetch(path, {
+      const response = await fetch(requestPath, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${trimmed}`,
+          Authorization: `Bearer ${trimmedToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const responseBody = await response.json().catch(() => ({}));
+      if (!response.ok) {
         setActionMessage(
-          typeof data.error === "string" ? data.error : `HTTP ${res.status}`,
+          typeof responseBody.error === "string" ? responseBody.error : `HTTP ${response.status}`,
         );
         return;
       }
-      setActionMessage(JSON.stringify(data));
+      setActionMessage(JSON.stringify(responseBody));
       await fetchOrders();
-    } catch (e) {
-      setActionMessage(e instanceof Error ? e.message : String(e));
+    } catch (postError) {
+      setActionMessage(postError instanceof Error ? postError.message : String(postError));
     } finally {
       setActionBusy(false);
     }
   }
 
   function openRefundModal(): void {
-    if (!selected) return;
-    setRefundAmountCents(String(selected.amountCents));
+    if (!selectedOrder) return;
+    setRefundAmountCents(String(selectedOrder.amountCents));
     setRefundSolanaSig("");
     setRefundIdempotency("");
     setRefundOpen(true);
   }
 
   async function submitRefund(): Promise<void> {
-    if (!selected) return;
-    const cents = Number.parseInt(refundAmountCents.trim(), DECIMAL_RADIX);
-    if (!Number.isFinite(cents) || cents < REFUND_MIN_AMOUNT_CENTS) {
+    if (!selectedOrder) return;
+    const refundAmount = Number.parseInt(refundAmountCents.trim(), DECIMAL_RADIX);
+    if (!Number.isFinite(refundAmount) || refundAmount < REFUND_MIN_AMOUNT_CENTS) {
       setActionMessage("Refund amount (cents) must be a positive integer.");
       return;
     }
-    const body: Record<string, unknown> = {
-      orderReference: selected.orderReference,
-      amountCents: cents,
+    const requestBody: Record<string, unknown> = {
+      orderReference: selectedOrder.orderReference,
+      amountCents: refundAmount,
     };
-    if (selected.paymentProvider === "helius") {
-      const sig = refundSolanaSig.trim();
-      if (!sig) {
+    if (selectedOrder.paymentProvider === "helius") {
+      const solanaRefundTransactionSignature = refundSolanaSig.trim();
+      if (!solanaRefundTransactionSignature) {
         setActionMessage("Solana refund transaction signature is required for Helius orders.");
         return;
       }
-      body.solanaRefundTransactionSignature = sig;
+      requestBody.solanaRefundTransactionSignature = solanaRefundTransactionSignature;
     }
-    const idem = refundIdempotency.trim();
-    if (idem) body.idempotencyKey = idem;
+    const idempotencyKey = refundIdempotency.trim();
+    if (idempotencyKey) requestBody.idempotencyKey = idempotencyKey;
 
-    await postJson("/api/staff/admin/refund", body);
+    await postJson("/api/staff/admin/refund", requestBody);
     setRefundOpen(false);
   }
 
@@ -357,7 +388,7 @@ export default function AdminOrderTestPage() {
             autoComplete="off"
             inputMode="text"
             value={token}
-            onChange={(e) => persistToken(e.target.value)}
+            onChange={(changeEvent) => persistToken(changeEvent.target.value)}
             className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
             placeholder="Bearer token…"
           />
@@ -388,11 +419,11 @@ export default function AdminOrderTestPage() {
       <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-3 sm:gap-3">
         <button
           type="button"
-          disabled={!selected || actionBusy}
+          disabled={!selectedOrder || actionBusy}
           onClick={() =>
-            selected &&
+            selectedOrder &&
             void postJson("/api/staff/admin/fulfillment", {
-              orderReference: selected.orderReference,
+              orderReference: selectedOrder.orderReference,
             })
           }
           className="min-h-[48px] rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
@@ -401,7 +432,7 @@ export default function AdminOrderTestPage() {
         </button>
         <button
           type="button"
-          disabled={!selected || actionBusy}
+          disabled={!selectedOrder || actionBusy}
           onClick={openRefundModal}
           className="min-h-[48px] rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-3 text-base font-medium text-amber-100 touch-manipulation hover:bg-amber-800/50 active:bg-amber-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
@@ -409,8 +440,8 @@ export default function AdminOrderTestPage() {
         </button>
         <button
           type="button"
-          disabled={!selected}
-          onClick={() => selected && setDetailsOpen(true)}
+          disabled={!selectedOrder}
+          onClick={() => selectedOrder && setDetailsOpen(true)}
           className="min-h-[48px] rounded-lg border border-slate-600 bg-slate-800/60 px-4 py-3 text-base font-medium text-slate-100 touch-manipulation hover:bg-slate-700/60 active:bg-slate-900/60 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Order details…
@@ -430,26 +461,26 @@ export default function AdminOrderTestPage() {
             No orders in the selected window.
           </div>
         ) : null}
-        {orders.map((o) => {
-          const sel = selectedRef === o.orderReference;
+        {orders.map((order) => {
+          const isSelected = selectedOrderReference === order.orderReference;
           const refundBlocks =
-            isRefundOrderStatus(o.status) && o.refunds.length > 0
-              ? o.refunds.map((ref) => {
-                  const fullConfirmation = formatRefundConfirmation(ref);
-                  const displayConfirmation = shortenForTable(
+            isRefundOrderStatus(order.status) && order.refunds.length > 0
+              ? order.refunds.map((refund) => {
+                  const fullConfirmation = formatRefundConfirmation(refund);
+                  const displayConfirmation = abbreviateForTable(
                     fullConfirmation,
                     CONFIRMATION_DISPLAY_MAX_LEN,
                   );
                   return (
                     <div
-                      key={`${o.orderReference}-refund-${ref.id}`}
+                      key={`${order.orderReference}-refund-${refund.id}`}
                       className="rounded-lg border border-amber-800/50 bg-amber-950/25 px-3 py-3 text-amber-100/90"
                     >
-                      <p className="font-mono text-[11px] text-amber-200/80">Refund #{ref.id}</p>
+                      <p className="font-mono text-[11px] text-amber-200/80">Refund #{refund.id}</p>
                       <p className="mt-1 font-mono text-xs text-amber-100/90">
-                        {formatMoney(ref.amountCents, o.currency)}
+                        {formatMoney(refund.amountCents, order.currency)}
                       </p>
-                      <p className="mt-1 font-mono text-[11px] text-slate-500">{formatTime(ref.createdAt)}</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-500">{formatTime(refund.createdAt)}</p>
                       <p className="mt-2 break-all font-mono text-[10px] leading-snug text-amber-100/80">
                         {displayConfirmation}
                       </p>
@@ -459,13 +490,13 @@ export default function AdminOrderTestPage() {
               : null;
 
           return (
-            <div key={o.orderReference} className="space-y-2">
+            <div key={order.orderReference} className="space-y-2">
               <button
                 type="button"
-                aria-pressed={sel}
-                onClick={() => setSelectedRef(o.orderReference)}
+                aria-pressed={isSelected}
+                onClick={() => setSelectedOrderReference(order.orderReference)}
                 className={`flex w-full touch-manipulation items-start gap-3 rounded-xl border px-4 py-4 text-left transition active:scale-[0.99] ${
-                  sel
+                  isSelected
                     ? "border-sky-500 bg-sky-950/40 ring-2 ring-sky-500/40"
                     : "border-slate-700 bg-slate-900/40 hover:bg-slate-800/50"
                 }`}
@@ -473,23 +504,23 @@ export default function AdminOrderTestPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <span className="text-2xl font-semibold tabular-nums text-white">
-                      {formatMoney(o.amountCents, o.currency)}
+                      {formatMoney(order.amountCents, order.currency)}
                     </span>
                     <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium capitalize text-slate-300">
-                      {o.status}
+                      {order.status}
                     </span>
                   </div>
-                  <p className="mt-2 font-mono text-[11px] leading-snug text-slate-500">{o.orderReference}</p>
+                  <p className="mt-2 font-mono text-[11px] leading-snug text-slate-500">{order.orderReference}</p>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
-                    <span>{formatTime(o.createdAt)}</span>
+                    <span>{formatTime(order.createdAt)}</span>
                     <span className="text-slate-600">·</span>
-                    <span className="uppercase">{o.paymentProvider}</span>
+                    <span className="uppercase">{order.paymentProvider}</span>
                     <span className="text-slate-600">·</span>
-                    <span>{o.lineCount} lines</span>
+                    <span>{order.lineCount} lines</span>
                   </div>
-                  {o.customerName || o.customerPhone ? (
-                    <p className="mt-2 truncate text-sm text-slate-300" title={o.customerName ?? o.customerPhone ?? ""}>
-                      {o.customerName ?? o.customerPhone ?? "—"}
+                  {order.customerName || order.customerPhone ? (
+                    <p className="mt-2 truncate text-sm text-slate-300" title={order.customerName ?? order.customerPhone ?? ""}>
+                      {order.customerName ?? order.customerPhone ?? "—"}
                     </p>
                   ) : null}
                 </div>
@@ -525,34 +556,34 @@ export default function AdminOrderTestPage() {
                 </td>
               </tr>
             ) : null}
-            {orders.flatMap((o) => {
-              const sel = selectedRef === o.orderReference;
+            {orders.flatMap((order) => {
+              const isSelected = selectedOrderReference === order.orderReference;
               const refundExtras =
-                isRefundOrderStatus(o.status) && o.refunds.length > 0
-                  ? o.refunds.map((ref) => {
-                      const fullConfirmation = formatRefundConfirmation(ref);
-                      const displayConfirmation = shortenForTable(
+                isRefundOrderStatus(order.status) && order.refunds.length > 0
+                  ? order.refunds.map((refund) => {
+                      const fullConfirmation = formatRefundConfirmation(refund);
+                      const displayConfirmation = abbreviateForTable(
                         fullConfirmation,
                         CONFIRMATION_DISPLAY_MAX_LEN,
                       );
                       return (
                         <tr
-                          key={`${o.orderReference}-refund-${ref.id}`}
+                          key={`${order.orderReference}-refund-${refund.id}`}
                           className="border-b border-slate-800 bg-amber-950/25 text-amber-100/90 last:border-0"
                         >
                           <td className="p-3" />
                           <td className="whitespace-nowrap p-3 font-mono text-xs">
-                            <div>{formatTime(ref.createdAt)}</div>
-                            {ref.confirmedAt !== null &&
-                            ref.confirmedAt !== undefined &&
-                            ref.confirmedAt !== ref.createdAt ? (
+                            <div>{formatTime(refund.createdAt)}</div>
+                            {refund.confirmedAt !== null &&
+                            refund.confirmedAt !== undefined &&
+                            refund.confirmedAt !== refund.createdAt ? (
                               <div className="text-[11px] text-amber-200/60">
-                                Confirmed {formatTime(ref.confirmedAt)}
+                                Confirmed {formatTime(refund.confirmedAt)}
                               </div>
                             ) : null}
                           </td>
                           <td className="max-w-[280px] p-3 font-mono text-xs text-amber-200/80">
-                            <div>↳ Refund ID {ref.id}</div>
+                            <div>↳ Refund ID {refund.id}</div>
                             <div
                               className="mt-1 truncate font-mono text-[11px] text-amber-100/95"
                               title={fullConfirmation}
@@ -561,7 +592,7 @@ export default function AdminOrderTestPage() {
                             </div>
                           </td>
                           <td className="p-3 text-slate-500">—</td>
-                          <td className="p-3">{formatMoney(ref.amountCents, o.currency)}</td>
+                          <td className="p-3">{formatMoney(refund.amountCents, order.currency)}</td>
                           <td className="p-3 text-amber-200/90">refund</td>
                           <td className="p-3 text-slate-500">—</td>
                           <td className="p-3 text-slate-500">—</td>
@@ -574,39 +605,39 @@ export default function AdminOrderTestPage() {
 
               return [
                 <tr
-                  key={o.orderReference}
-                  onClick={() => setSelectedRef(o.orderReference)}
+                  key={order.orderReference}
+                  onClick={() => setSelectedOrderReference(order.orderReference)}
                   className={`cursor-pointer border-b border-slate-800 last:border-0 ${
-                    sel ? "bg-sky-950/50" : "hover:bg-slate-800/40"
+                    isSelected ? "bg-sky-950/50" : "hover:bg-slate-800/40"
                   }`}
                 >
                   <td className="p-3">
                     <input
                       type="radio"
                       name="orderPickDesktop"
-                      checked={sel}
-                      onChange={() => setSelectedRef(o.orderReference)}
+                      checked={isSelected}
+                      onChange={() => setSelectedOrderReference(order.orderReference)}
                       className="accent-sky-500"
                     />
                   </td>
                   <td className="whitespace-nowrap p-3 font-mono text-xs text-slate-300">
-                    {formatTime(o.createdAt)}
+                    {formatTime(order.createdAt)}
                   </td>
-                  <td className="max-w-[200px] truncate p-3 font-mono text-xs" title={o.orderReference}>
-                    {o.orderReference}
+                  <td className="max-w-[200px] truncate p-3 font-mono text-xs" title={order.orderReference}>
+                    {order.orderReference}
                   </td>
-                  <td className="p-3">{o.paymentProvider}</td>
-                  <td className="p-3">{formatMoney(o.amountCents, o.currency)}</td>
-                  <td className="p-3">{o.status}</td>
-                  <td className="p-3">{o.lineCount}</td>
-                  <td className="max-w-[140px] truncate p-3 text-slate-300" title={o.customerName ?? ""}>
-                    {o.customerName ?? "—"}
+                  <td className="p-3">{order.paymentProvider}</td>
+                  <td className="p-3">{formatMoney(order.amountCents, order.currency)}</td>
+                  <td className="p-3">{order.status}</td>
+                  <td className="p-3">{order.lineCount}</td>
+                  <td className="max-w-[140px] truncate p-3 text-slate-300" title={order.customerName ?? ""}>
+                    {order.customerName ?? "—"}
                   </td>
-                  <td className="max-w-[120px] truncate p-3 font-mono text-xs text-slate-300" title={o.customerPhone ?? ""}>
-                    {o.customerPhone ?? "—"}
+                  <td className="max-w-[120px] truncate p-3 font-mono text-xs text-slate-300" title={order.customerPhone ?? ""}>
+                    {order.customerPhone ?? "—"}
                   </td>
-                  <td className="max-w-[160px] truncate p-3 text-slate-400" title={o.customerEmail ?? ""}>
-                    {o.customerEmail ?? "—"}
+                  <td className="max-w-[160px] truncate p-3 text-slate-400" title={order.customerEmail ?? ""}>
+                    {order.customerEmail ?? "—"}
                   </td>
                 </tr>,
                 ...refundExtras,
@@ -616,14 +647,14 @@ export default function AdminOrderTestPage() {
         </table>
       </div>
 
-      {detailsOpen && selected ? (
+      {detailsOpen && selectedOrder ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="order-details-modal-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDetailsOpen(false);
+          onClick={(clickEvent) => {
+            if (clickEvent.target === clickEvent.currentTarget) setDetailsOpen(false);
           }}
         >
           <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl border border-slate-600 border-b-0 bg-[#0d2137] shadow-xl sm:max-h-[85vh] sm:rounded-lg sm:border-b">
@@ -634,28 +665,28 @@ export default function AdminOrderTestPage() {
               <h2 id="order-details-modal-title" className="text-lg font-semibold">
                 Cart from <code className="text-sm text-sky-300">payload_json</code>
               </h2>
-              <p className="mt-1 break-all font-mono text-xs text-slate-400">{selected.orderReference}</p>
+              <p className="mt-1 break-all font-mono text-xs text-slate-400">{selectedOrder.orderReference}</p>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
-              {selected.customerName || selected.customerPhone || selected.customerEmail ? (
+              {selectedOrder.customerName || selectedOrder.customerPhone || selectedOrder.customerEmail ? (
                 <div className="mb-5 rounded-lg border border-slate-600/80 bg-slate-950/30 px-4 py-3 text-sm text-slate-300">
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Pickup contact</p>
-                  {selected.customerName ? <p className="mt-1.5">{selected.customerName}</p> : null}
-                  {selected.customerPhone ? (
-                    <p className="font-mono text-xs text-slate-400">{selected.customerPhone}</p>
+                  {selectedOrder.customerName ? <p className="mt-1.5">{selectedOrder.customerName}</p> : null}
+                  {selectedOrder.customerPhone ? (
+                    <p className="font-mono text-xs text-slate-400">{selectedOrder.customerPhone}</p>
                   ) : null}
-                  {selected.customerEmail ? (
-                    <p className="text-xs text-slate-500">{selected.customerEmail}</p>
+                  {selectedOrder.customerEmail ? (
+                    <p className="text-xs text-slate-500">{selectedOrder.customerEmail}</p>
                   ) : null}
                 </div>
               ) : null}
-              <OrderPayloadCartView payload={selected.payload} formatMoney={formatMoney} />
+              <OrderPayloadCartView payload={selectedOrder.payload} formatMoney={formatMoney} />
               <details className="mt-6 rounded-lg border border-slate-700/90 bg-slate-950/35">
                 <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-400">
                   Raw JSON
                 </summary>
                 <pre className="max-h-48 overflow-auto border-t border-slate-700/90 p-3 font-mono text-[11px] leading-relaxed text-slate-400">
-                  {JSON.stringify(selected.payload, null, 2)}
+                  {JSON.stringify(selectedOrder.payload, null, 2)}
                 </pre>
               </details>
             </div>
@@ -672,14 +703,14 @@ export default function AdminOrderTestPage() {
         </div>
       ) : null}
 
-      {refundOpen && selected ? (
+      {refundOpen && selectedOrder ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="refund-modal-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setRefundOpen(false);
+          onClick={(clickEvent) => {
+            if (clickEvent.target === clickEvent.currentTarget) setRefundOpen(false);
           }}
         >
           <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-600 border-b-0 bg-[#0d2137] p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] shadow-xl sm:max-h-none sm:rounded-lg sm:border-b sm:p-6">
@@ -689,7 +720,7 @@ export default function AdminOrderTestPage() {
             <h2 id="refund-modal-title" className="text-lg font-semibold">
               Refund order
             </h2>
-            <p className="mt-1 break-all font-mono text-xs text-slate-400">{selected.orderReference}</p>
+            <p className="mt-1 break-all font-mono text-xs text-slate-400">{selectedOrder.orderReference}</p>
 
             <label className="mt-4 flex flex-col gap-1 text-sm">
               <span className="text-slate-400">Amount (cents)</span>
@@ -698,18 +729,18 @@ export default function AdminOrderTestPage() {
                 inputMode="numeric"
                 min={REFUND_MIN_AMOUNT_CENTS}
                 value={refundAmountCents}
-                onChange={(e) => setRefundAmountCents(e.target.value)}
+                onChange={(changeEvent) => setRefundAmountCents(changeEvent.target.value)}
                 className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
               />
             </label>
 
-            {selected.paymentProvider === "helius" ? (
+            {selectedOrder.paymentProvider === "helius" ? (
               <label className="mt-3 flex flex-col gap-1 text-sm">
                 <span className="text-slate-400">Solana refund tx signature</span>
                 <input
                   type="text"
                   value={refundSolanaSig}
-                  onChange={(e) => setRefundSolanaSig(e.target.value)}
+                  onChange={(changeEvent) => setRefundSolanaSig(changeEvent.target.value)}
                   className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                   placeholder="Required for Helius"
                 />
@@ -720,7 +751,7 @@ export default function AdminOrderTestPage() {
                 <input
                   type="text"
                   value={refundIdempotency}
-                  onChange={(e) => setRefundIdempotency(e.target.value)}
+                  onChange={(changeEvent) => setRefundIdempotency(changeEvent.target.value)}
                   className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                 />
               </label>
