@@ -7,7 +7,8 @@ import Stripe from "stripe";
 import { validateCustomerContact, type CustomerContactInput } from "@/lib/commerce/customer-contact";
 import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
-import { upsertOrderContact } from "@/lib/infrastructure/turso/webhook-db";
+import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
+import { insertPendingPurchaseOrderIfNew } from "@/lib/infrastructure/turso/webhook-db";
 
 type RawLine = { id: string; quantity: number; selections?: Record<string, string[]> };
 
@@ -103,8 +104,23 @@ export async function createPaymentIntentFromCart(
     return { ok: false, status: 500, error: "Could not create payment" };
   }
 
-  await upsertOrderContact(db, {
+  const pendingPayload = await buildKitchenOrderPayload(db, {
+    provider: "stripe",
+    paymentIngressEventId: "",
+    paymentReferenceId: paymentIntent.id,
+    amountCents: encoded.amountCents,
+    currency: "usd",
+    metadata: encoded.metadata,
+  });
+
+  await insertPendingPurchaseOrderIfNew(db, {
     orderReference: paymentIntent.id,
+    paymentProvider: "stripe",
+    paymentIntentExpiresAt: null,
+    amountCents: encoded.amountCents,
+    currency: "usd",
+    payload: pendingPayload,
+    metadata: encoded.metadata,
     customerName: contact.customerName,
     customerPhone: contact.customerPhone,
     customerEmail: contact.customerEmail,

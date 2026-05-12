@@ -11,35 +11,31 @@ import {
 } from "@ricos/shared";
 import type { KitchenOrderPayload, IngressProvider } from "@/lib/commerce/domain";
 
-export type PendingPaymentStatus = "pending" | "confirmed" | "expired";
-
-export type PendingPaymentRecord = {
-  orderReference: string;
-  metadataJson: string;
-  issuedAt: number;
-  expiresAt: number;
-  status: PendingPaymentStatus;
-  signature?: string;
-};
-
 export type PurchaseOrderStatus =
+  | "pending"
+  | "expired"
   | "paid"
   | "acknowledged"
   | "fulfilled"
   | "refunding"
   | "refunded";
 
+type PersistedOrderPayload = KitchenOrderPayload & {
+  metadata?: Record<string, string | undefined>;
+};
+
 export type PurchaseOrderRecord = {
   orderReference: string;
   paymentProvider: IngressProvider;
-  paymentIngressEventId: string;
+  paymentIngressEventId: string | null;
+  paymentIntentExpiresAt: number | null;
   amountCents: number;
   currency: string;
   payload: KitchenOrderPayload;
   status: PurchaseOrderStatus;
+  statusId: number | null;
   createdAt: number;
   updatedAt: number;
-  /** From `order_contact` via JOIN (same as `order_reference`). */
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -69,49 +65,50 @@ export async function migrate(client: Client): Promise<void> {
       content_hash  TEXT    NOT NULL UNIQUE
     )
   `);
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS pending_payments (
-      order_reference TEXT PRIMARY KEY,
-      metadata_json   TEXT NOT NULL,
-      issued_at       INTEGER NOT NULL,
-      expires_at      INTEGER NOT NULL,
-      status          TEXT NOT NULL DEFAULT 'pending'
-                      CHECK (status IN ('pending','confirmed','expired')),
-      signature       TEXT
-    )
-  `);
-  await client.execute(`
-    CREATE INDEX IF NOT EXISTS idx_pending_payments_status_expires_at
-    ON pending_payments(status, expires_at)
-  `);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS purchase_orders (
-      order_reference          TEXT NOT NULL UNIQUE,
+      order_reference          TEXT PRIMARY KEY,
       payment_provider         TEXT NOT NULL
                                CHECK (payment_provider IN ('stripe','helius')),
-      payment_ingress_event_id TEXT,
+      payment_ingress_event_id TEXT UNIQUE,
+      payment_intent_expires_at INTEGER,
       amount_cents             INTEGER NOT NULL,
       currency                 TEXT NOT NULL,
       payload_json             TEXT NOT NULL,
-      status                   TEXT NOT NULL DEFAULT 'paid'
-                               CHECK (status IN ('paid','acknowledged','fulfilled','refunding','refunded')),
+      status_id                INTEGER,
       created_at               INTEGER NOT NULL,
-      updated_at               INTEGER NOT NULL
+      customer_name            TEXT NOT NULL,
+      customer_phone           TEXT NOT NULL,
+      customer_email           TEXT,
+      FOREIGN KEY (order_reference, status_id)
+        REFERENCES status_history(order_reference, status_id)
     )
   `);
   await client.execute(`
-    CREATE INDEX IF NOT EXISTS idx_purchase_orders_status
-    ON purchase_orders(status)
+    CREATE INDEX IF NOT EXISTS idx_purchase_orders_current_status
+    ON purchase_orders(status_id)
   `);
-  // Partial unique indexes are not valid ON CONFLICT targets in SQLite/libSQL
-  // (`INSERT ... ON CONFLICT(payment_ingress_event_id)`). Use a full-column UNIQUE index;
-  // SQLite still allows multiple NULLs in UNIQUE columns.
+
   await client.execute(`
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_orders_ingress_event_full
-    ON purchase_orders(payment_ingress_event_id)
+    CREATE TABLE IF NOT EXISTS status_history (
+      status_id       INTEGER NOT NULL,
+      order_reference TEXT NOT NULL
+                      REFERENCES purchase_orders(order_reference),
+      status          TEXT NOT NULL
+                      CHECK (status IN ('pending','expired','paid','acknowledged','fulfilled','refunding','refunded')),
+      updated_at      INTEGER NOT NULL,
+      PRIMARY KEY (order_reference, status_id)
+    )
   `);
-  await client.execute(`DROP INDEX IF EXISTS uq_purchase_orders_ingress_event`);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_status_history_order_reference_updated_at
+    ON status_history(order_reference, updated_at)
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_status_history_status_updated_at
+    ON status_history(status, updated_at)
+  `);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS refunds (
@@ -140,48 +137,7 @@ export async function migrate(client: Client): Promise<void> {
     WHERE solana_refund_transaction_signature IS NOT NULL
   `);
 
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS order_contact (
-      order_reference TEXT PRIMARY KEY,
-      customer_name   TEXT NOT NULL,
-      customer_phone  TEXT NOT NULL,
-      customer_email  TEXT,
-      created_at        INTEGER NOT NULL
-    )
-  `);
-
   await backfillMenuVersionContentHashes(client);
-}
-
-/** Shop-only PII keyed by the same `order_reference` as `purchase_orders` / pending refs (Stripe PI id or Solana ref). */
-export async function upsertOrderContact(
-  client: Client,
-  params: {
-    orderReference: string;
-    customerName: string;
-    customerPhone: string;
-    customerEmail: string | null;
-  },
-): Promise<void> {
-  await client.execute({
-    sql: `
-      INSERT OR REPLACE INTO order_contact (
-        order_reference,
-        customer_name,
-        customer_phone,
-        customer_email,
-        created_at
-      )
-      VALUES (?, ?, ?, ?, ?)
-    `,
-    args: [
-      params.orderReference,
-      params.customerName,
-      params.customerPhone,
-      params.customerEmail,
-      Date.now(),
-    ],
-  });
 }
 
 /**
@@ -216,83 +172,142 @@ async function backfillMenuVersionContentHashes(client: Client): Promise<void> {
   }
 }
 
-export async function insertPendingPaymentIfNew(
+async function appendOrderStatus(
   client: Client,
-  record: PendingPaymentRecord,
-): Promise<boolean> {
+  orderReference: string,
+  status: PurchaseOrderStatus,
+  updatedAt = Date.now(),
+): Promise<number> {
   const result = await client.execute({
     sql: `
-      INSERT OR IGNORE INTO pending_payments (
+      INSERT INTO status_history (order_reference, status_id, status, updated_at)
+      SELECT ?, COALESCE(MAX(status_id), 0) + 1, ?, ?
+      FROM status_history
+      WHERE order_reference = ?
+      RETURNING status_id
+    `,
+    args: [orderReference, status, updatedAt, orderReference],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return Number(rows[0]?.status_id ?? rows[0]?.STATUS_ID ?? 0);
+}
+
+async function pointOrderAtStatus(
+  client: Client,
+  orderReference: string,
+  statusId: number,
+): Promise<void> {
+  await client.execute({
+    sql: `UPDATE purchase_orders SET status_id = ? WHERE order_reference = ?`,
+    args: [statusId, orderReference],
+  });
+}
+
+async function transitionOrderStatus(
+  client: Client,
+  orderReference: string,
+  status: PurchaseOrderStatus,
+  updatedAt = Date.now(),
+): Promise<number> {
+  const statusId = await appendOrderStatus(client, orderReference, status, updatedAt);
+  await pointOrderAtStatus(client, orderReference, statusId);
+  return statusId;
+}
+
+export async function insertPendingPurchaseOrderIfNew(
+  client: Client,
+  params: {
+    orderReference: string;
+    paymentProvider: IngressProvider;
+    paymentIntentExpiresAt?: number | null;
+    amountCents: number;
+    currency: string;
+    payload: KitchenOrderPayload;
+    metadata?: Record<string, string | undefined>;
+    customerName: string;
+    customerPhone: string;
+    customerEmail: string | null;
+  },
+): Promise<boolean> {
+  const now = Date.now();
+  const payload: PersistedOrderPayload = {
+    ...params.payload,
+    ...(params.metadata ? { metadata: params.metadata } : {}),
+  };
+  const result = await client.execute({
+    sql: `
+      INSERT OR IGNORE INTO purchase_orders (
         order_reference,
-        metadata_json,
-        issued_at,
-        expires_at,
-        status,
-        signature
+        payment_provider,
+        payment_ingress_event_id,
+        payment_intent_expires_at,
+        amount_cents,
+        currency,
+        payload_json,
+        status_id,
+        created_at,
+        customer_name,
+        customer_phone,
+        customer_email
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, NULL, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
     `,
     args: [
-      record.orderReference,
-      record.metadataJson,
-      record.issuedAt,
-      record.expiresAt,
-      record.status,
-      record.signature ?? null,
+      params.orderReference,
+      params.paymentProvider,
+      params.paymentIntentExpiresAt ?? null,
+      params.amountCents,
+      params.currency,
+      JSON.stringify(payload),
+      now,
+      params.customerName,
+      params.customerPhone,
+      params.customerEmail,
     ],
   });
-  return (result.rowsAffected ?? 0) > 0;
+  const inserted = (result.rowsAffected ?? 0) > 0;
+  if (inserted) {
+    await transitionOrderStatus(client, params.orderReference, "pending", now);
+  }
+  return inserted;
 }
 
-function rowToPendingPayment(row: Record<string, unknown>): PendingPaymentRecord {
-  return {
-    orderReference: String(row.order_reference ?? row.ORDER_REFERENCE ?? ""),
-    metadataJson: String(row.metadata_json ?? row.METADATA_JSON ?? ""),
-    issuedAt: Number(row.issued_at ?? row.ISSUED_AT ?? 0),
-    expiresAt: Number(row.expires_at ?? row.EXPIRES_AT ?? 0),
-    status: String(row.status ?? row.STATUS ?? "pending") as PendingPaymentStatus,
-    signature:
-      (row.signature ?? row.SIGNATURE) === null
-        ? undefined
-        : String(row.signature ?? row.SIGNATURE ?? ""),
-  };
-}
-
-/** Returns pending_payment rows for any of the given order_reference pubkeys (order not preserved). */
-export async function getPendingPaymentsByReferences(
+export async function getPurchaseOrdersByReferences(
   client: Client,
   orderReferences: string[],
-): Promise<Map<string, PendingPaymentRecord>> {
-  const out = new Map<string, PendingPaymentRecord>();
+): Promise<Map<string, PurchaseOrderRecord>> {
+  const out = new Map<string, PurchaseOrderRecord>();
   const unique = [...new Set(orderReferences.filter((r) => typeof r === "string" && r.length > 0))];
   if (unique.length === 0) return out;
 
   const placeholders = unique.map(() => "?").join(", ");
   const result = await client.execute({
     sql: `
-      SELECT order_reference, metadata_json, issued_at, expires_at, status, signature
-      FROM pending_payments
-      WHERE order_reference IN (${placeholders})
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id,
+             po.payment_intent_expires_at, po.amount_cents, po.currency, po.payload_json,
+             po.status_id, sh.status, po.created_at, sh.updated_at,
+             po.customer_name, po.customer_phone, po.customer_email
+      FROM purchase_orders po
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.order_reference IN (${placeholders})
     `,
     args: unique,
   });
   const rows = (result.rows ?? []) as Record<string, unknown>[];
   for (const row of rows) {
-    const rec = rowToPendingPayment(row);
+    const rec = rowToPurchaseOrder(row);
     out.set(rec.orderReference, rec);
   }
   return out;
 }
 
-export async function markPendingPaymentConfirmed(
-  client: Client,
-  orderReference: string,
-  signature: string,
-): Promise<void> {
-  await client.execute({
-    sql: `UPDATE pending_payments SET status = 'confirmed', signature = ? WHERE order_reference = ?`,
-    args: [signature, orderReference],
-  });
+export function getPendingPurchaseOrderMetadata(
+  order: PurchaseOrderRecord,
+): Record<string, string | undefined> | null {
+  const payload = order.payload as PersistedOrderPayload;
+  return payload.metadata && typeof payload.metadata === "object" ? payload.metadata : null;
 }
 
 // ---------- purchase_orders -------------------------------------------------
@@ -300,123 +315,150 @@ export async function markPendingPaymentConfirmed(
 function rowToPurchaseOrder(row: Record<string, unknown>): PurchaseOrderRecord {
   const payloadRaw = row.payload_json ?? row.PAYLOAD_JSON;
   const ingressEventId = row.payment_ingress_event_id ?? row.PAYMENT_INGRESS_EVENT_ID;
-  const cn = row.customer_name ?? row.CUSTOMER_NAME;
-  const cp = row.customer_phone ?? row.CUSTOMER_PHONE;
-  const ce = row.customer_email ?? row.CUSTOMER_EMAIL;
+  const expiresAt = row.payment_intent_expires_at ?? row.PAYMENT_INTENT_EXPIRES_AT;
+  const statusId = row.status_id ?? row.STATUS_ID;
+  const updatedAt = row.updated_at ?? row.UPDATED_AT;
+  const customerEmail = row.customer_email ?? row.CUSTOMER_EMAIL;
   return {
     orderReference: String(row.order_reference ?? row.ORDER_REFERENCE ?? ""),
     paymentProvider: String(row.payment_provider ?? row.PAYMENT_PROVIDER ?? "") as IngressProvider,
     paymentIngressEventId: ingressEventId === null || ingressEventId === undefined
-      ? ""
+      ? null
       : String(ingressEventId),
+    paymentIntentExpiresAt:
+      expiresAt === null || expiresAt === undefined ? null : Number(expiresAt),
     amountCents: Number(row.amount_cents ?? row.AMOUNT_CENTS ?? 0),
     currency: String(row.currency ?? row.CURRENCY ?? ""),
     payload: JSON.parse(String(payloadRaw)) as KitchenOrderPayload,
-    status: String(row.status ?? row.STATUS ?? "paid") as PurchaseOrderStatus,
+    status: String(row.status ?? row.STATUS ?? "pending") as PurchaseOrderStatus,
+    statusId: statusId === null || statusId === undefined ? null : Number(statusId),
     createdAt: Number(row.created_at ?? row.CREATED_AT ?? 0),
-    updatedAt: Number(row.updated_at ?? row.UPDATED_AT ?? 0),
-    customerName: cn === null || cn === undefined ? null : String(cn),
-    customerPhone: cp === null || cp === undefined ? null : String(cp),
-    customerEmail: ce === null || ce === undefined ? null : String(ce),
+    updatedAt: updatedAt === null || updatedAt === undefined ? 0 : Number(updatedAt),
+    customerName: String(row.customer_name ?? row.CUSTOMER_NAME ?? ""),
+    customerPhone: String(row.customer_phone ?? row.CUSTOMER_PHONE ?? ""),
+    customerEmail: customerEmail === null || customerEmail === undefined ? null : String(customerEmail),
   };
 }
 
 /**
- * Insert a new `purchase_orders` row at status `paid`.
- * Idempotent on `payment_ingress_event_id` (partial unique index).
- * Customer PII lives in `order_contact` keyed by `order_reference`; join when reading.
+ * Mark a pending Stripe order as paid. Idempotent on `payment_ingress_event_id`.
  */
-export async function insertPurchaseOrderPaidIfNew(
+export async function markStripePurchaseOrderPaidIfNew(
   client: Client,
   params: {
     orderReference: string;
-    paymentProvider: IngressProvider;
     payload: KitchenOrderPayload;
   },
 ): Promise<boolean> {
-  if (params.paymentProvider !== "stripe") {
-    throw new Error("insertPurchaseOrderPaidIfNew is Stripe-only; use persistSolanaPaidPurchaseOrderAtomic for Helius");
-  }
-  const now = Date.now();
-  const result = await client.execute({
+  const existing = await client.execute({
     sql: `
-      INSERT INTO purchase_orders (
-        order_reference,
-        payment_provider,
-        payment_ingress_event_id,
-        amount_cents,
-        currency,
-        payload_json,
-        status,
-        created_at,
-        updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, 'paid', ?, ?)
-      ON CONFLICT(payment_ingress_event_id) DO NOTHING
+      SELECT po.order_reference, po.payment_ingress_event_id, sh.status
+      FROM purchase_orders po
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.order_reference = ?
+    `,
+    args: [params.orderReference],
+  });
+  const rows = (existing.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) {
+    throw new Error(`missing pending Stripe purchase order ${params.orderReference}`);
+  }
+  const currentIngress = rows[0].payment_ingress_event_id ?? rows[0].PAYMENT_INGRESS_EVENT_ID;
+  if (currentIngress === params.payload.paymentIngressEventId) {
+    return false;
+  }
+  const currentStatus = String(rows[0].status ?? rows[0].STATUS ?? "pending");
+  if (currentStatus !== "pending") {
+    return false;
+  }
+
+  const update = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET payment_ingress_event_id = ?,
+          amount_cents = ?,
+          currency = ?,
+          payload_json = ?
+      WHERE order_reference = ?
+        AND payment_provider = 'stripe'
+        AND payment_ingress_event_id IS NULL
     `,
     args: [
-      params.orderReference,
-      params.paymentProvider,
       params.payload.paymentIngressEventId,
       params.payload.amountCents,
       params.payload.currency,
       JSON.stringify(params.payload),
-      now,
-      now,
+      params.orderReference,
     ],
   });
-  return (result.rowsAffected ?? 0) > 0;
+  if ((update.rowsAffected ?? 0) === 0) {
+    return false;
+  }
+  await transitionOrderStatus(client, params.orderReference, "paid");
+  return true;
 }
 
 /**
- * Atomic Solana ingress: insert `purchase_orders (paid)` and confirm `pending_payments`
- * in a single transaction. Returns true when the purchase row was newly inserted.
+ * Solana ingress: move a pending purchase order to paid and attach the landed tx event id.
+ * Returns true when this webhook moved the row to paid.
  */
-export async function persistSolanaPaidPurchaseOrderAtomic(
+export async function markSolanaPurchaseOrderPaidIfNew(
   client: Client,
   params: {
     orderReference: string;
-    transactionSignature: string;
     payload: KitchenOrderPayload;
   },
 ): Promise<boolean> {
-  const now = Date.now();
-  const results = await client.batch(
-    [
-      {
-        sql: `
-          INSERT INTO purchase_orders (
-            order_reference,
-            payment_provider,
-            payment_ingress_event_id,
-            amount_cents,
-            currency,
-            payload_json,
-            status,
-            created_at,
-            updated_at
-          )
-          VALUES (?, 'helius', ?, ?, ?, ?, 'paid', ?, ?)
-          ON CONFLICT(payment_ingress_event_id) DO NOTHING
-        `,
-        args: [
-          params.orderReference,
-          params.payload.paymentIngressEventId,
-          params.payload.amountCents,
-          params.payload.currency,
-          JSON.stringify(params.payload),
-          now,
-          now,
-        ],
-      },
-      {
-        sql: `UPDATE pending_payments SET status = 'confirmed', signature = ? WHERE order_reference = ?`,
-        args: [params.transactionSignature, params.orderReference],
-      },
+  const existing = await client.execute({
+    sql: `
+      SELECT po.payment_ingress_event_id, sh.status
+      FROM purchase_orders po
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.order_reference = ?
+    `,
+    args: [params.orderReference],
+  });
+  const rows = (existing.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) {
+    throw new Error(`missing pending Solana purchase order ${params.orderReference}`);
+  }
+  const currentIngress = rows[0].payment_ingress_event_id ?? rows[0].PAYMENT_INGRESS_EVENT_ID;
+  if (currentIngress === params.payload.paymentIngressEventId) {
+    return false;
+  }
+  const currentStatus = String(rows[0].status ?? rows[0].STATUS ?? "pending");
+  if (currentStatus !== "pending") {
+    return false;
+  }
+
+  const update = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET payment_ingress_event_id = ?,
+          amount_cents = ?,
+          currency = ?,
+          payload_json = ?
+      WHERE order_reference = ?
+        AND payment_provider = 'helius'
+        AND payment_ingress_event_id IS NULL
+    `,
+    args: [
+      params.payload.paymentIngressEventId,
+      params.payload.amountCents,
+      params.payload.currency,
+      JSON.stringify(params.payload),
+      params.orderReference,
     ],
-    "write",
-  );
-  return (results[0]?.rowsAffected ?? 0) > 0;
+  });
+  if ((update.rowsAffected ?? 0) === 0) {
+    return false;
+  }
+  await transitionOrderStatus(client, params.orderReference, "paid");
+  return true;
 }
 
 /** Kitchen queue: every `purchase_orders` row still in `paid` (not yet acknowledged). */
@@ -424,10 +466,13 @@ export async function listPaidPurchaseOrdersForKitchen(
   client: Client,
 ): Promise<KitchenOrderPayload[]> {
   const result = await client.execute(`
-    SELECT payload_json
-    FROM purchase_orders
-    WHERE status = 'paid'
-    ORDER BY created_at ASC
+    SELECT po.payload_json
+    FROM purchase_orders po
+    JOIN status_history sh
+      ON sh.order_reference = po.order_reference
+     AND sh.status_id = po.status_id
+    WHERE sh.status = 'paid'
+    ORDER BY po.created_at ASC
   `);
   const rows = (result.rows ?? []) as Record<string, unknown>[];
   return rows.map((row) => {
@@ -444,15 +489,25 @@ export async function markPurchaseOrderAcknowledged(
   client: Client,
   paymentIngressEventId: string,
 ): Promise<boolean> {
-  const result = await client.execute({
+  const current = await client.execute({
     sql: `
-      UPDATE purchase_orders
-      SET status = 'acknowledged', updated_at = ?
-      WHERE payment_ingress_event_id = ? AND status = 'paid'
+      SELECT po.order_reference
+      FROM purchase_orders po
+      JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.payment_ingress_event_id = ?
+        AND sh.status = 'paid'
     `,
-    args: [Date.now(), paymentIngressEventId],
+    args: [paymentIngressEventId],
   });
-  return (result.rowsAffected ?? 0) > 0;
+  const rows = (current.rows ?? []) as Record<string, unknown>[];
+  const orderReference = rows[0]?.order_reference ?? rows[0]?.ORDER_REFERENCE;
+  if (!orderReference) {
+    return false;
+  }
+  await transitionOrderStatus(client, String(orderReference), "acknowledged");
+  return true;
 }
 
 /**
@@ -462,16 +517,47 @@ export async function markPurchaseOrderFulfilled(
   client: Client,
   orderReference: string,
 ): Promise<boolean> {
+  const current = await getPurchaseOrderByReference(client, orderReference);
+  if (!current || current.status !== "acknowledged") {
+    return false;
+  }
+  await transitionOrderStatus(client, orderReference, "fulfilled");
+  return true;
+}
+
+export async function markPurchaseOrderExpired(
+  client: Client,
+  orderReference: string,
+): Promise<boolean> {
+  const current = await getPurchaseOrderByReference(client, orderReference);
+  if (!current || current.status !== "pending") {
+    return false;
+  }
+  await transitionOrderStatus(client, orderReference, "expired");
+  return true;
+}
+
+export async function getPurchaseOrderByIngressEventId(
+  client: Client,
+  paymentIngressEventId: string,
+): Promise<PurchaseOrderRecord | null> {
   const result = await client.execute({
     sql: `
-      UPDATE purchase_orders
-      SET status = 'fulfilled', updated_at = ?
-      WHERE order_reference = ?
-        AND status = 'acknowledged'
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id,
+             po.payment_intent_expires_at, po.amount_cents, po.currency, po.payload_json,
+             po.status_id, sh.status, po.created_at, sh.updated_at,
+             po.customer_name, po.customer_phone, po.customer_email
+      FROM purchase_orders po
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.payment_ingress_event_id = ?
     `,
-    args: [Date.now(), orderReference],
+    args: [paymentIngressEventId],
   });
-  return (result.rowsAffected ?? 0) > 0;
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  return rowToPurchaseOrder(rows[0]);
 }
 
 export async function getPurchaseOrderByReference(
@@ -480,11 +566,14 @@ export async function getPurchaseOrderByReference(
 ): Promise<PurchaseOrderRecord | null> {
   const result = await client.execute({
     sql: `
-      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id, po.amount_cents,
-             po.currency, po.payload_json, po.status, po.created_at, po.updated_at,
-             oc.customer_name, oc.customer_phone, oc.customer_email
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id,
+             po.payment_intent_expires_at, po.amount_cents, po.currency, po.payload_json,
+             po.status_id, sh.status, po.created_at, sh.updated_at,
+             po.customer_name, po.customer_phone, po.customer_email
       FROM purchase_orders po
-      LEFT JOIN order_contact oc ON oc.order_reference = po.order_reference
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
       WHERE po.order_reference = ?
     `,
     args: [orderReference],
@@ -502,11 +591,14 @@ export async function listPurchaseOrdersCreatedBetween(
 ): Promise<PurchaseOrderRecord[]> {
   const result = await client.execute({
     sql: `
-      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id, po.amount_cents,
-             po.currency, po.payload_json, po.status, po.created_at, po.updated_at,
-             oc.customer_name, oc.customer_phone, oc.customer_email
+      SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id,
+             po.payment_intent_expires_at, po.amount_cents, po.currency, po.payload_json,
+             po.status_id, sh.status, po.created_at, sh.updated_at,
+             po.customer_name, po.customer_phone, po.customer_email
       FROM purchase_orders po
-      LEFT JOIN order_contact oc ON oc.order_reference = po.order_reference
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
       WHERE po.created_at >= ? AND po.created_at <= ?
       ORDER BY po.created_at DESC
     `,
@@ -521,10 +613,7 @@ export async function setPurchaseOrderStatus(
   orderReference: string,
   status: PurchaseOrderStatus,
 ): Promise<void> {
-  await client.execute({
-    sql: `UPDATE purchase_orders SET status = ?, updated_at = ? WHERE order_reference = ?`,
-    args: [status, Date.now(), orderReference],
-  });
+  await transitionOrderStatus(client, orderReference, status);
 }
 
 // ---------- refunds ---------------------------------------------------------

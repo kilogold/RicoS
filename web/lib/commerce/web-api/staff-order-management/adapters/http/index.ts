@@ -205,6 +205,7 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
     > = {
       order_not_found: 404,
       already_refunded: 409,
+      cannot_refund_order_status: 409,
       refund_exceeds_order_total: 409,
       missing_solana_signature: 400,
       server_misconfigured: 500,

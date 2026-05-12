@@ -1,7 +1,10 @@
 import type { Client } from "@libsql/client";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
-import { getPendingPaymentsByReferences } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  getPendingPurchaseOrderMetadata,
+  getPurchaseOrdersByReferences,
+} from "@/lib/infrastructure/turso/webhook-db";
 
 export type RecoverSolanaPendingPaymentResult =
   | { ok: true }
@@ -10,7 +13,7 @@ export type RecoverSolanaPendingPaymentResult =
 
 /**
  * Manual recovery: same atomic persist as the Helius webhook for a valid
- * `pending_payments` row + tx signature.
+ * pending `purchase_orders` row + tx signature.
  */
 export async function recoverSolanaPendingPayment(
   db: Client,
@@ -20,21 +23,11 @@ export async function recoverSolanaPendingPayment(
   const ref = orderReference.trim();
   const sig = transactionSignature.trim();
 
-  const pending = (await getPendingPaymentsByReferences(db, [ref])).get(ref);
+  const pending = (await getPurchaseOrdersByReferences(db, [ref])).get(ref);
   if (!pending) return { ok: false, error: "pending_payment_not_found" };
 
-  let meta: { metadata?: Record<string, string | undefined>; amountCents?: number; currency?: string };
-  try {
-    meta = JSON.parse(pending.metadataJson);
-  } catch {
-    return { ok: false, error: "invalid_pending_metadata" };
-  }
-  if (
-    typeof meta.amountCents !== "number" ||
-    typeof meta.currency !== "string" ||
-    typeof meta.metadata !== "object" ||
-    meta.metadata === null
-  ) {
+  const metadata = getPendingPurchaseOrderMetadata(pending);
+  if (!metadata) {
     return { ok: false, error: "invalid_pending_metadata" };
   }
 
@@ -42,9 +35,9 @@ export async function recoverSolanaPendingPayment(
     provider: "helius",
     paymentIngressEventId: `evt_helius_${sig}`,
     paymentReferenceId: ref,
-    amountCents: meta.amountCents,
-    currency: meta.currency,
-    metadata: meta.metadata,
+    amountCents: pending.amountCents,
+    currency: pending.currency,
+    metadata,
   };
 
   const ingress = await executeSolanaIngressEvent(db, event, {

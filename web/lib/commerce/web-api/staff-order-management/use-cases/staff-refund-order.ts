@@ -29,6 +29,7 @@ export type StaffRefundOrderResult =
       code:
         | "order_not_found"
         | "already_refunded"
+        | "cannot_refund_order_status"
         | "refund_exceeds_order_total"
         | "missing_solana_signature"
         | "server_misconfigured"
@@ -49,6 +50,9 @@ export async function staffRefundOrder(
   const order = await getPurchaseOrderByReference(db, orderReference);
   if (!order) return { ok: false, code: "order_not_found" };
   if (order.status === "refunded") return { ok: false, code: "already_refunded" };
+  if (order.status === "pending" || order.status === "expired") {
+    return { ok: false, code: "cannot_refund_order_status", detail: order.status };
+  }
 
   if (order.paymentProvider === "stripe") {
     let stripe;

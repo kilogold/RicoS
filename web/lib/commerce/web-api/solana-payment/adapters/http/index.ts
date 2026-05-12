@@ -8,11 +8,12 @@ import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { executeSolanaIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
+import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
 import {
-  getPendingPaymentsByReferences,
-  insertPendingPaymentIfNew,
-  upsertOrderContact,
-  type PendingPaymentRecord,
+  getPurchaseOrdersByReferences,
+  insertPendingPurchaseOrderIfNew,
+  markPurchaseOrderExpired,
+  type PurchaseOrderRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { getHeliusIngressConfig, isHeliusWebhookDebugEnabled } from "../../config";
@@ -30,21 +31,22 @@ function heliusTransactionSignatureFromIngressEvent(event: NormalizedIngressEven
   return sig.length > 0 ? sig : null;
 }
 
-type PendingPaymentMetadataShape = {
-  amountCents?: unknown;
-  currency?: unknown;
-};
-
 type HeliusPendingResolution =
   | { ok: true; orderReference: string; duplicateWebhook: boolean }
   | {
       ok: false;
-      code: "solana_pay_reference_unknown" | "solana_pay_pending_expired";
+      code:
+        | "solana_pay_reference_unknown"
+        | "solana_pay_pending_expired"
+        | "solana_pay_duplicate_payment";
       detail: string;
     };
 
 function logHeliusSolanaPayPaymentRejected(params: {
-  code: "solana_pay_reference_unknown" | "solana_pay_pending_expired";
+  code:
+    | "solana_pay_reference_unknown"
+    | "solana_pay_pending_expired"
+    | "solana_pay_duplicate_payment";
   orderReference: string;
   transactionSignature: string;
   detail: string;
@@ -57,18 +59,28 @@ function logHeliusSolanaPayPaymentRejected(params: {
   );
 }
 
-function pendingRecordMatchesHeliusEvent(record: PendingPaymentRecord, event: NormalizedIngressEvent): boolean {
-  let meta: PendingPaymentMetadataShape;
-  try {
-    meta = JSON.parse(record.metadataJson) as PendingPaymentMetadataShape;
-  } catch {
-    return false;
-  }
-  if (typeof meta.amountCents !== "number" || !Number.isFinite(meta.amountCents)) return false;
-  if (typeof meta.currency !== "string" || !meta.currency.trim()) return false;
+function logHeliusSolanaPayDuplicatePayment(params: {
+  orderReference: string;
+  originalPaymentIngressEventId: string | null;
+  duplicatePaymentIngressEventId: string;
+  duplicateTransactionSignature: string;
+  amountCents: number;
+  currency: string;
+}): void {
+  console.error(
+    JSON.stringify({
+      scope: "helius_solana_pay_duplicate_payment",
+      severity: "error",
+      detail: "same_order_reference_paid_by_different_transaction",
+      ...params,
+    }),
+  );
+}
+
+function pendingOrderMatchesHeliusEventPayment(order: PurchaseOrderRecord, event: NormalizedIngressEvent): boolean {
   return (
-    Math.floor(meta.amountCents) === Math.floor(event.amountCents) &&
-    meta.currency.trim().toLowerCase() === event.currency.trim().toLowerCase()
+    Math.floor(order.amountCents) === Math.floor(event.amountCents) &&
+    order.currency.trim().toLowerCase() === event.currency.trim().toLowerCase()
   );
 }
 
@@ -86,31 +98,43 @@ async function resolveHeliusSolanaPayPending(
     return { ok: false, code: "solana_pay_reference_unknown", detail: "missing_transaction_signature" };
   }
 
-  const rows = await getPendingPaymentsByReferences(db, [orderReference]);
+  const rows = await getPurchaseOrdersByReferences(db, [orderReference]);
   const row = rows.get(orderReference);
   if (!row) {
-    return { ok: false, code: "solana_pay_reference_unknown", detail: "no_pending_payment_row" };
+    return { ok: false, code: "solana_pay_reference_unknown", detail: "no_pending_order_row" };
   }
 
   const now = Date.now();
 
-  if (row.status === "confirmed") {
-    if (row.signature === transactionSignature) {
+  if (row.status === "paid") {
+    if (row.paymentIngressEventId === event.paymentIngressEventId) {
       return { ok: true, orderReference: row.orderReference, duplicateWebhook: true };
     }
+    logHeliusSolanaPayDuplicatePayment({
+      orderReference: row.orderReference,
+      originalPaymentIngressEventId: row.paymentIngressEventId,
+      duplicatePaymentIngressEventId: event.paymentIngressEventId,
+      duplicateTransactionSignature: transactionSignature,
+      amountCents: event.amountCents,
+      currency: event.currency,
+    });
     return {
       ok: false,
-      code: "solana_pay_pending_expired",
-      detail: "reference_already_confirmed_different_tx",
+      code: "solana_pay_duplicate_payment",
+      detail: "reference_already_paid_different_tx",
     };
   }
 
   if (
     row.status === "pending" &&
-    row.expiresAt >= now &&
-    pendingRecordMatchesHeliusEvent(row, event)
+    (row.paymentIntentExpiresAt === null || row.paymentIntentExpiresAt >= now) &&
+    pendingOrderMatchesHeliusEventPayment(row, event)
   ) {
     return { ok: true, orderReference: row.orderReference, duplicateWebhook: false };
+  }
+
+  if (row.status === "pending" && row.paymentIntentExpiresAt !== null && row.paymentIntentExpiresAt < now) {
+    await markPurchaseOrderExpired(db, row.orderReference);
   }
 
   return { ok: false, code: "solana_pay_pending_expired", detail: "no_matching_active_pending" };
@@ -186,7 +210,7 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
 
     if (resolved.duplicateWebhook) {
       if (heliusDebug) {
-        console.info("Helius ingress duplicate webhook (pending_payment already confirmed):", {
+        console.info("Helius ingress duplicate webhook (purchase order already paid):", {
           orderReference: resolved.orderReference,
           transactionSignature,
         });
@@ -249,7 +273,9 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
-    if (typeof metadata[CART_CODEC_KEY] !== "string" || typeof metadata[CART_B64_KEY] !== "string") {
+    const cartCodec = metadata[CART_CODEC_KEY];
+    const cartB64 = metadata[CART_B64_KEY];
+    if (typeof cartCodec !== "string" || typeof cartB64 !== "string") {
       return NextResponse.json({ error: "Invalid cart metadata" }, { status: 400 });
     }
     if (typeof amountCents !== "number" || !Number.isFinite(amountCents) || amountCents <= 0) {
@@ -272,22 +298,28 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
 
     const signer = await generateKeyPairSigner();
     const orderReference = signer.address;
-    const issuedAt = Date.now();
-    const expiresAt = issuedAt + PENDING_TTL_SECONDS * 1000;
+    const expiresAt = Date.now() + PENDING_TTL_SECONDS * 1000;
     const db = await getWebhookDb();
-    await insertPendingPaymentIfNew(db, {
-      orderReference,
-      metadataJson: JSON.stringify({
-        metadata,
-        amountCents: Math.floor(amountCents),
-        currency: currency.trim().toLowerCase(),
-      }),
-      issuedAt,
-      expiresAt,
-      status: "pending",
+    const normalizedMetadata = {
+      [CART_CODEC_KEY]: cartCodec,
+      [CART_B64_KEY]: cartB64,
+    };
+    const pendingPayload = await buildKitchenOrderPayload(db, {
+      provider: "helius",
+      paymentIngressEventId: "",
+      paymentReferenceId: orderReference,
+      amountCents: Math.floor(amountCents),
+      currency: currency.trim().toLowerCase(),
+      metadata: normalizedMetadata,
     });
-    await upsertOrderContact(db, {
+    await insertPendingPurchaseOrderIfNew(db, {
       orderReference,
+      paymentProvider: "helius",
+      paymentIntentExpiresAt: expiresAt,
+      amountCents: Math.floor(amountCents),
+      currency: currency.trim().toLowerCase(),
+      payload: pendingPayload,
+      metadata: normalizedMetadata,
       customerName: contact.customerName,
       customerPhone: contact.customerPhone,
       customerEmail: contact.customerEmail,

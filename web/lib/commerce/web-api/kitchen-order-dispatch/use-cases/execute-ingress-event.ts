@@ -1,14 +1,17 @@
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { publishOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
-import { insertPurchaseOrderPaidIfNew, persistSolanaPaidPurchaseOrderAtomic } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  markSolanaPurchaseOrderPaidIfNew,
+  markStripePurchaseOrderPaidIfNew,
+} from "@/lib/infrastructure/turso/webhook-db";
 import { IngressProcessError, buildKitchenOrderPayload } from "./process-ingress-event";
 
 export type IngressOutcome =
   | { ok: true }
   | { ok: false; status: number; body: Record<string, string> };
 
-/** Stripe ingress: insert `purchase_orders` (paid), then broadcast on first insert. */
+/** Stripe ingress: mark the pending `purchase_orders` row paid, then broadcast on first transition. */
 export async function executeStripeIngressEvent(
   db: Client,
   event: NormalizedIngressEvent,
@@ -21,9 +24,8 @@ export async function executeStripeIngressEvent(
   }
 
   try {
-    const inserted = await insertPurchaseOrderPaidIfNew(db, {
+    const inserted = await markStripePurchaseOrderPaidIfNew(db, {
       orderReference: event.paymentReferenceId,
-      paymentProvider: "stripe",
       payload,
     });
     if (inserted) {
@@ -42,8 +44,7 @@ export async function executeStripeIngressEvent(
 }
 
 /**
- * Solana ingress: atomic two-statement persist (insert `purchase_orders` paid +
- * confirm `pending_payments`), then broadcast after commit.
+ * Solana ingress: mark the pending `purchase_orders` row paid, then broadcast after commit.
  */
 export async function executeSolanaIngressEvent(
   db: Client,
@@ -58,9 +59,8 @@ export async function executeSolanaIngressEvent(
   }
 
   try {
-    const inserted = await persistSolanaPaidPurchaseOrderAtomic(db, {
+    const inserted = await markSolanaPurchaseOrderPaidIfNew(db, {
       orderReference: context.orderReference,
-      transactionSignature: context.transactionSignature,
       payload,
     });
     if (inserted) {
