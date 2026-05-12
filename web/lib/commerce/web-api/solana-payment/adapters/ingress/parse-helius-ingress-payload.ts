@@ -3,15 +3,13 @@ import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 
 type UnknownRecord = Record<string, unknown>;
 
-/** Well-known program / sysvar pubkeys to exclude when inferring Solana Pay `reference` candidates */
-const REFERENCE_LOOKUP_SKIP_PUBKEYS_LOWER = new Set([
-  "11111111111111111111111111111111",
-  "tokenkegqfezyonwajbbnbgkpxxcwuavkfbnbkfjeze",
-  "memo1uhkjrfhyvlmcvucjwxxeud728eqvddwqdxfmno",
-  "memosqwiks5bqqukffsupbyvmqek31wnueww6saphdd",
-  "atokengpvbdgvxr1b2hvzbsiqw5xwh25eftnslja8knl",
-  "computebudget111111111111111111111111111111",
-]);
+type HeliusInstruction = {
+  accounts?: string[];
+};
+
+type HeliusTransactionCandidate = {
+  instructions?: HeliusInstruction[];
+};
 
 export type HeliusIngressConfig = {
   authHeaderName: string;
@@ -125,7 +123,7 @@ function parseCandidate(
     return { kind: "ignore", signature, reason: "invalid_transfer_amount" };
   }
 
-  const orderReference = extractSolanaPayOrderReferencePubkey(candidate, config);
+  const orderReference = extractSolanaPayOrderReferencePubkey(candidate);
   if (!orderReference) {
     return { kind: "ignore", signature, reason: "missing_solana_pay_order_reference" };
   }
@@ -147,81 +145,20 @@ function parseCandidate(
 }
 
 /**
- * Solana Pay order reference pubkey: first transaction account key not accounted for as
- * merchant, mint, fee payer, token transfer ATAs, or well-known programs.
+ * Helius enhanced webhooks expose the Solana Pay reference at the sixth account
+ * on the fourth top-level instruction for our SPL token transfer payload.
  */
 function extractSolanaPayOrderReferencePubkey(
   candidate: UnknownRecord,
-  config: HeliusIngressConfig,
 ): string | undefined {
-  const skip = new Set(REFERENCE_LOOKUP_SKIP_PUBKEYS_LOWER);
-  const er = toLower(config.expectedRecipient.trim());
-  const mint = toLower(config.expectedUsdcMint.trim());
-  if (er) skip.add(er);
-  if (mint) skip.add(mint);
-
-  const feePayer = firstString(candidate, [
-    ["feePayer"],
-    ["transaction", "message", "header", "feePayer"],
-  ]);
-  const fp = toLower(feePayer?.trim());
-  if (fp) skip.add(fp);
-
-  const transferAccountPathGroups: string[][][] = [
-    [["fromUserAccount"], ["from"]],
-    [["toUserAccount"], ["to"], ["destination"]],
-  ];
-  for (const transfer of listTokenTransfers(candidate)) {
-    for (const paths of transferAccountPathGroups) {
-      const addr = firstString(transfer, paths);
-      const lo = toLower(addr?.trim());
-      if (lo) skip.add(lo);
-    }
-  }
-
-  const raw = collectTransactionPubkeys(candidate);
-  const ordered: string[] = [];
-  const seen = new Set<string>();
-  for (const p of raw) {
-    const lo = toLower(p);
-    if (!lo || skip.has(lo)) continue;
-    if (seen.has(p)) continue;
-    seen.add(p);
-    ordered.push(p);
-  }
-  return ordered[0];
-}
-
-function collectTransactionPubkeys(candidate: UnknownRecord): string[] {
-  const out: string[] = [];
-  const visitString = (s: string) => {
-    const t = s.trim();
-    if (t.length < 32 || t.length > 44) return;
-    if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(t)) return;
-    out.push(t);
-  };
-
-  const walkArrays = (paths: string[][]) => {
-    const arr = firstArray(candidate, paths);
-    if (!arr) return;
-    for (const item of arr) {
-      if (typeof item === "string") visitString(item);
-      else if (isRecord(item)) {
-        const pk = firstString(item, [["pubkey"], ["account"], ["accountKey"]]);
-        if (pk) visitString(pk);
-      }
-    }
-  };
-
-  walkArrays([
-    ["transaction", "message", "accountKeys"],
-    ["transaction", "message", "staticAccountKeys"],
-    ["message", "accountKeys"],
-    ["message", "staticAccountKeys"],
-    ["accountData"],
-  ]);
-
-  return out;
+  const TOKEN_TRANSFER_INSTRUCTION_INDEX = 3;
+  const SOLANA_PAY_REFERENCE_ACCOUNT_INDEX = 5;
+  const heliusCandidate = candidate as HeliusTransactionCandidate;
+  const reference =
+    heliusCandidate.instructions?.[TOKEN_TRANSFER_INSTRUCTION_INDEX]?.accounts?.[
+      SOLANA_PAY_REFERENCE_ACCOUNT_INDEX
+    ];
+  return typeof reference === "string" ? reference : undefined;
 }
 
 function extractMemo(candidate: UnknownRecord): string | undefined {

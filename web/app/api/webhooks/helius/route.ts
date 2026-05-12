@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    console.log("Helius webhook received.", headers, body);
+    console.log("Helius webhook received.", JSON.stringify({ headers, body }, null, 2));
 
 
     after(async () => {
