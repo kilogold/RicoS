@@ -64,6 +64,10 @@ function isRefundOrderStatus(status: string): boolean {
   return status === "refunding" || status === "refunded";
 }
 
+function isPendingOrderStatus(status: string): boolean {
+  return status === "pending";
+}
+
 function formatRefundConfirmation(refund: RefundDetailRow): string {
   if (refund.stripeRefundConfirmation) return refund.stripeRefundConfirmation;
   if (refund.solanaRefundTransactionSignature) return refund.solanaRefundTransactionSignature;
@@ -238,6 +242,7 @@ export default function AdminOrderTestPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
+  const [showPendingOrders, setShowPendingOrders] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [refundAmountCents, setRefundAmountCents] = useState("");
@@ -311,7 +316,22 @@ export default function AdminOrderTestPage() {
     return () => window.clearInterval(intervalId);
   }, [fetchOrders]);
 
-  const selectedOrder = orders.find((order) => order.orderReference === selectedOrderReference) ?? null;
+  const visibleOrders = showPendingOrders
+    ? orders
+    : orders.filter((order) => !isPendingOrderStatus(order.status));
+  const hiddenPendingCount = showPendingOrders
+    ? 0
+    : orders.filter((order) => isPendingOrderStatus(order.status)).length;
+
+  const selectedOrder =
+    visibleOrders.find((order) => order.orderReference === selectedOrderReference) ?? null;
+
+  useEffect(() => {
+    if (!selectedOrderReference) return;
+    if (!visibleOrders.some((order) => order.orderReference === selectedOrderReference)) {
+      setSelectedOrderReference(null);
+    }
+  }, [visibleOrders, selectedOrderReference]);
 
   async function postJson(requestPath: string, requestBody: Record<string, unknown>): Promise<void> {
     const trimmedToken = token.trim();
@@ -410,6 +430,21 @@ export default function AdminOrderTestPage() {
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
+        <button
+          type="button"
+          aria-pressed={showPendingOrders}
+          onClick={() => setShowPendingOrders((show) => !show)}
+          className={`min-h-[44px] shrink-0 rounded-lg border px-4 py-2.5 text-base font-medium touch-manipulation sm:text-sm ${
+            showPendingOrders
+              ? "border-amber-600 bg-amber-900/50 text-amber-100 hover:bg-amber-800/50 active:bg-amber-950/50"
+              : "border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 active:bg-slate-900/60"
+          }`}
+        >
+          {showPendingOrders ? "Hide pending" : "Show pending"}
+          {!showPendingOrders && hiddenPendingCount > 0
+            ? ` (${hiddenPendingCount})`
+            : ""}
+        </button>
       </div>
 
       {error ? (
@@ -478,12 +513,16 @@ export default function AdminOrderTestPage() {
 
       {/* Mobile: stacked cards (no horizontal scroll) */}
       <div className="mt-6 space-y-3 md:hidden">
-        {orders.length === 0 && !loading ? (
+        {visibleOrders.length === 0 && !loading ? (
           <div className="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-10 text-center text-sm text-slate-500">
-            No orders in the selected window.
+            {orders.length === 0
+              ? "No orders in the selected window."
+              : hiddenPendingCount > 0
+                ? `No visible orders (${hiddenPendingCount} pending hidden).`
+                : "No orders in the selected window."}
           </div>
         ) : null}
-        {orders.map((order) => {
+        {visibleOrders.map((order) => {
           const isSelected = selectedOrderReference === order.orderReference;
           const refundBlocks =
             isRefundOrderStatus(order.status) && order.refunds.length > 0
@@ -574,14 +613,18 @@ export default function AdminOrderTestPage() {
             </tr>
           </thead>
           <tbody>
-            {orders.length === 0 && !loading ? (
+            {visibleOrders.length === 0 && !loading ? (
               <tr>
                 <td colSpan={ORDER_TABLE_COLUMN_COUNT} className="p-6 text-center text-slate-500">
-                  No orders in the selected window.
+                  {orders.length === 0
+                    ? "No orders in the selected window."
+                    : hiddenPendingCount > 0
+                      ? `No visible orders (${hiddenPendingCount} pending hidden).`
+                      : "No orders in the selected window."}
                 </td>
               </tr>
             ) : null}
-            {orders.flatMap((order) => {
+            {visibleOrders.flatMap((order) => {
               const isSelected = selectedOrderReference === order.orderReference;
               const refundExtras =
                 isRefundOrderStatus(order.status) && order.refunds.length > 0
