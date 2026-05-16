@@ -1,7 +1,10 @@
+import type { KitchenOrderIntent } from "@ricos/shared";
+
 export async function postPrintAck(params: {
   backendBase: string;
   printAckSecret?: string;
   paymentIngressEventId: string;
+  intent: KitchenOrderIntent;
 }): Promise<void> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (params.printAckSecret?.trim()) {
@@ -10,7 +13,10 @@ export async function postPrintAck(params: {
   const res = await fetch(`${params.backendBase}/api/print/ack`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ paymentIngressEventId: params.paymentIngressEventId }),
+    body: JSON.stringify({
+      paymentIngressEventId: params.paymentIngressEventId,
+      intent: params.intent,
+    }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

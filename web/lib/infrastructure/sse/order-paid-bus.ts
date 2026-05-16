@@ -1,9 +1,9 @@
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 
-type OrderPaidListener = (payload: KitchenOrderPayload) => void;
+type OrderListener = (payload: KitchenOrderPayload) => void;
 
 type BusRuntimeState = {
-  listeners: Set<OrderPaidListener>;
+  listeners: Set<OrderListener>;
 };
 
 const state = globalThis as typeof globalThis & {
@@ -11,12 +11,12 @@ const state = globalThis as typeof globalThis & {
 };
 
 if (!state.__ricosOrderPaidBus) {
-  state.__ricosOrderPaidBus = { listeners: new Set<OrderPaidListener>() };
+  state.__ricosOrderPaidBus = { listeners: new Set<OrderListener>() };
 }
 
 const runtime = state.__ricosOrderPaidBus;
 
-export function publishOrderPaid(payload: KitchenOrderPayload): void {
+export function publishOrder(payload: KitchenOrderPayload): void {
   for (const listener of runtime.listeners) {
     try {
       listener(payload);
@@ -26,7 +26,7 @@ export function publishOrderPaid(payload: KitchenOrderPayload): void {
   }
 }
 
-export function subscribeOrderPaid(listener: OrderPaidListener): () => void {
+export function subscribeOrder(listener: OrderListener): () => void {
   runtime.listeners.add(listener);
   return () => {
     runtime.listeners.delete(listener);

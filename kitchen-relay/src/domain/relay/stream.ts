@@ -1,3 +1,4 @@
+import { isKitchenOrderIntent } from "@ricos/shared";
 import EventSource from "eventsource";
 import type { OrderPaidPayload } from "./types";
 
@@ -8,7 +9,8 @@ function isValidOrderPaidPayload(data: OrderPaidPayload): boolean {
     typeof data.customerName === "string" &&
     typeof data.amountCents === "number" &&
     typeof data.currency === "string" &&
-    Array.isArray(data.lines)
+    Array.isArray(data.lines) &&
+    isKitchenOrderIntent(data.intent)
   );
 }
 

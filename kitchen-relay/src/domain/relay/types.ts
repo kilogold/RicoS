@@ -1,3 +1,5 @@
+import type { KitchenOrderIntent } from "@ricos/shared";
+
 export type OrderPaidPayload = {
   paymentIngressEventId: string;
   paymentReferenceId: string;
@@ -5,6 +7,7 @@ export type OrderPaidPayload = {
   serviceMode: "takeout" | "dine_in";
   amountCents: number;
   currency: string;
+  intent: KitchenOrderIntent;
   lines: {
     id: string;
     quantity: number;

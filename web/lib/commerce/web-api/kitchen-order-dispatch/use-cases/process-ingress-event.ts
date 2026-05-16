@@ -86,5 +86,6 @@ export async function buildKitchenOrderPayload(
     amountCents: Number(event.amountCents),
     currency: event.currency,
     lines,
+    intent: "manual-print",
   };
 }

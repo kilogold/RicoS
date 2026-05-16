@@ -19,14 +19,19 @@ export function createOrderPaidHandler(
 ): (data: OrderPaidPayload) => Promise<void> {
   return async (data: OrderPaidPayload): Promise<void> => {
     const eventId = data.paymentIngressEventId;
+    const intent = data.intent;
+    const isManualPrint = intent === "manual-print";
 
-    const shouldProcess = await idempotency.tryCommit(eventId);
+    const shouldProcess = isManualPrint
+      ? true
+      : await idempotency.tryCommit(`${eventId}:${intent}`);
     if (!shouldProcess) {
       try {
         await postPrintAck({
           backendBase,
           printAckSecret,
           paymentIngressEventId: eventId,
+          intent,
         });
       } catch (err) {
         console.error("print-ack retry after idempotent skip failed:", err);
@@ -53,6 +58,7 @@ export function createOrderPaidHandler(
         backendBase,
         printAckSecret,
         paymentIngressEventId: eventId,
+        intent,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

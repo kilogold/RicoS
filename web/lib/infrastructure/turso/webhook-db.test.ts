@@ -25,6 +25,7 @@ function payload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayl
     customerName: "Test Customer",
     amountCents: 1000,
     currency: "usd",
+    intent: "manual-print",
     lines: [
       {
         id: "item_1",
@@ -146,6 +147,7 @@ describe("webhook-db payment persistence", () => {
       paymentIngressEventId: "evt_helius_sig_1",
       paymentReferenceId: "solana_ref_2",
       serviceMode: "dine_in",
+      intent: "paid",
     });
     expect(
       await markSolanaPurchaseOrderPaidIfNew(db, {
@@ -165,7 +167,10 @@ describe("webhook-db payment persistence", () => {
     ]);
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Grace");
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.intent).toBe("paid");
     expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
+    expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
+    expect(await statusHistory(db, "solana_ref_2")).toEqual(["pending", "paid", "acknowledged"]);
     expect(await listPaidPurchaseOrdersForKitchen(db)).toEqual([]);
     expect(await markPurchaseOrderFulfilled(db, "solana_ref_2")).toBe(true);
 
@@ -210,9 +215,55 @@ describe("webhook-db payment persistence", () => {
     expect(paid?.status).toBe("paid");
     expect(paid?.payload.serviceMode).toBe("dine_in");
     expect(paid?.payload.paymentIngressEventId).toBe("evt_stripe_saved_payload");
+    expect(paid?.payload.intent).toBe("paid");
     expect(paid?.payload.customerName).toBe("Saved");
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
     expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Saved");
+    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.intent).toBe("paid");
+  });
+
+  test("print ack is idempotent and only advances paid to acknowledged", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pi_ack_idempotent",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      amountCents: 500,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pi_ack_idempotent",
+      }),
+      customerName: "Ack Test",
+      customerPhone: "555-0199",
+      customerEmail: null,
+    });
+    const paidPayload = payload({
+      paymentIngressEventId: "evt_ack_test",
+      paymentReferenceId: "pi_ack_idempotent",
+      intent: "paid",
+    });
+    expect(
+      await markStripePurchaseOrderPaidIfNew(db, {
+        orderReference: "pi_ack_idempotent",
+        payload: paidPayload,
+      }),
+    ).toBe(true);
+    expect(await markPurchaseOrderAcknowledged(db, "evt_ack_test")).toBe(true);
+    expect(await markPurchaseOrderAcknowledged(db, "evt_ack_test")).toBe(true);
+    expect(await statusHistory(db, "pi_ack_idempotent")).toEqual([
+      "pending",
+      "paid",
+      "acknowledged",
+    ]);
+    expect(await markPurchaseOrderFulfilled(db, "pi_ack_idempotent")).toBe(true);
+    expect(await markPurchaseOrderAcknowledged(db, "evt_ack_test")).toBe(true);
+    expect(await statusHistory(db, "pi_ack_idempotent")).toEqual([
+      "pending",
+      "paid",
+      "acknowledged",
+      "fulfilled",
+    ]);
+    expect(await markPurchaseOrderAcknowledged(db, "evt_unknown")).toBe(false);
   });
 
   test("status ids restart at one for each order reference", async () => {

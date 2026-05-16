@@ -448,13 +448,13 @@ export async function listPaidPurchaseOrdersForKitchen(
     if (!fromDb) {
       throw new Error("Missing customer_name for paid purchase order");
     }
-    return { ...parsed, customerName: fromDb };
+    return { ...parsed, customerName: fromDb, intent: "paid" };
   });
 }
 
 /**
  * Print-ack transition: `paid` → `acknowledged` keyed by ingress event id.
- * Returns true when a row was updated (false when no `paid` row matched, e.g. duplicate ack).
+ * Idempotent: duplicate acks for an already-acknowledged order return true without a new transition.
  */
 export async function markPurchaseOrderAcknowledged(
   client: Client,
@@ -462,22 +462,28 @@ export async function markPurchaseOrderAcknowledged(
 ): Promise<boolean> {
   const current = await client.execute({
     sql: `
-      SELECT po.order_reference
+      SELECT po.order_reference, sh.status
       FROM purchase_orders po
       JOIN status_history sh
         ON sh.order_reference = po.order_reference
        AND sh.status_id = po.status_id
       WHERE po.payment_ingress_event_id = ?
-        AND sh.status = 'paid'
     `,
     args: [paymentIngressEventId],
   });
   const rows = (current.rows ?? []) as Record<string, unknown>[];
-  const orderReference = rows[0]?.order_reference ?? rows[0]?.ORDER_REFERENCE;
-  if (!orderReference) {
+  if (rows.length === 0) {
     return false;
   }
-  await transitionOrderStatus(client, String(orderReference), "acknowledged");
+  const orderReference = String(rows[0].order_reference ?? rows[0].ORDER_REFERENCE);
+  const status = String(rows[0].status ?? rows[0].STATUS);
+  if (status === "acknowledged" || status === "fulfilled") {
+    return true;
+  }
+  if (status !== "paid") {
+    return false;
+  }
+  await transitionOrderStatus(client, orderReference, "acknowledged");
   return true;
 }
 

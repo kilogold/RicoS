@@ -1,8 +1,8 @@
 import { publishMenuFromRepoFile } from "@/lib/commerce/web-api/staff-order-management/use-cases/publish-menu-from-repo-file";
 import { fulfillPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/fulfill-purchase-order";
+import { manualPrintPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/manual-print-purchase-order";
 import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-management/use-cases/recover-solana-pending-payment";
 import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   listPurchaseOrdersCreatedBetween,
@@ -10,36 +10,7 @@ import {
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
-function verifyStaffPublishAuth(authorizationHeader: string | null): boolean {
-  const secret = process.env.STAFF_MENU_PUBLISH_SECRET?.trim();
-  if (!secret) {
-    return false;
-  }
-  const header = authorizationHeader ?? "";
-  const prefix = "Bearer ";
-  if (!header.startsWith(prefix)) {
-    return false;
-  }
-  const token = header.slice(prefix.length);
-  try {
-    const a = Buffer.from(token);
-    const b = Buffer.from(secret);
-    if (a.length !== b.length) {
-      return false;
-    }
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
-
-export async function handleStaffMenuPublishRequest(
-  authorizationHeader: string | null,
-): Promise<Response> {
-  if (!verifyStaffPublishAuth(authorizationHeader)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
+export async function handleStaffMenuPublishRequest(): Promise<Response> {
   try {
     const out = await publishMenuFromRepoFile();
     return NextResponse.json(out);
@@ -60,10 +31,6 @@ const MAX_ORDER_LIST_RANGE_DAYS = 8;
 const MAX_ORDER_LIST_RANGE_MS = MAX_ORDER_LIST_RANGE_DAYS * MS_PER_DAY;
 
 export async function handleStaffListOrdersRequest(req: Request): Promise<Response> {
-  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   const url = new URL(req.url);
   const fromRaw = url.searchParams.get("from");
   const toRaw = url.searchParams.get("to");
@@ -127,10 +94,6 @@ export async function handleStaffListOrdersRequest(req: Request): Promise<Respon
 }
 
 export async function handleStaffFulfillmentRequest(req: Request): Promise<Response> {
-  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   let body: { orderReference?: unknown };
   try {
     body = await req.json();
@@ -158,11 +121,22 @@ export async function handleStaffFulfillmentRequest(req: Request): Promise<Respo
   return NextResponse.json({ orderReference: result.orderReference, status: "fulfilled" });
 }
 
-export async function handleStaffRefundRequest(req: Request): Promise<Response> {
-  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export async function handleStaffManualPrintRequest(orderReference: string): Promise<Response> {
+  const db = await getWebhookDb();
+  const result = await manualPrintPurchaseOrder(db, orderReference);
+  if (!result.ok) {
+    if (result.error === "not_found") {
+      return NextResponse.json({ error: "order_not_found" }, { status: 404 });
+    }
+    if (result.error === "missing_customer_name") {
+      return NextResponse.json({ error: "missing_customer_name" }, { status: 409 });
+    }
   }
 
+  return new NextResponse(null, { status: 204 });
+}
+
+export async function handleStaffRefundRequest(req: Request): Promise<Response> {
   let body: {
     orderReference?: unknown;
     amountCents?: unknown;
@@ -226,10 +200,6 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
 }
 
 export async function handleSolanaManualRecoverRequest(req: Request): Promise<Response> {
-  if (!verifyStaffPublishAuth(req.headers.get("authorization"))) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   let body: { orderReference?: unknown; transactionSignature?: unknown };
   try {
     body = await req.json();

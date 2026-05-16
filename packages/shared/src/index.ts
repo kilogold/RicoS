@@ -63,6 +63,13 @@ export {
 
 export { getPackagedMenuCatalogParsed } from "./packaged-menu";
 
+export type { KitchenOrderIntent } from "./kitchen-order";
+export {
+  PENDING_PAYMENT_NO_SALE_INGRESS_ID,
+  isKitchenOrderIntent,
+  isValidPaymentIngressEventId,
+} from "./kitchen-order";
+
 export const DEFAULT_LANGUAGE: Language = "es";
 
 /** @deprecated Prefer `MenuCatalogSurface.resolveLocalizedText`. */

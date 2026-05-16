@@ -1,4 +1,11 @@
+import type { KitchenOrderIntent } from "@ricos/shared";
 import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
+
+export type { KitchenOrderIntent } from "@ricos/shared";
+export {
+  PENDING_PAYMENT_NO_SALE_INGRESS_ID,
+  isValidPaymentIngressEventId,
+} from "@ricos/shared";
 
 export type IngressProvider = "stripe" | "helius";
 
@@ -37,4 +44,6 @@ export type KitchenOrderPayload = {
     /** English modifier summary lines for tickets. */
     selectionLines?: string[];
   }[];
+  /** `manual-print` while order is pending; `paid` once payment ingress has committed. */
+  intent: KitchenOrderIntent;
 };

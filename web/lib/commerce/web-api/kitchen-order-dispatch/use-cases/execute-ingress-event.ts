@@ -1,6 +1,6 @@
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
-import { publishOrderPaid } from "@/lib/infrastructure/sse/order-paid-bus";
+import { publishOrder } from "@/lib/infrastructure/sse/order-paid-bus";
 import {
   getPurchaseOrderByReference,
   markSolanaPurchaseOrderPaidIfNew,
@@ -42,6 +42,7 @@ async function loadPaidPayloadFromPending(
     amountCents: event.amountCents,
     currency: event.currency,
     customerName,
+    intent: "paid",
   };
 }
 
@@ -94,7 +95,7 @@ export async function executeStripeIngressEvent(
     });
     if (inserted) {
       try {
-        publishOrderPaid(payload);
+        publishOrder(payload);
       } catch (broadcastErr) {
         console.error("SSE broadcast failed (order is persisted):", broadcastErr);
       }
@@ -129,7 +130,7 @@ export async function executeSolanaIngressEvent(
     });
     if (inserted) {
       try {
-        publishOrderPaid(payload);
+        publishOrder(payload);
       } catch (broadcastErr) {
         console.error("SSE broadcast failed (order is persisted):", broadcastErr);
       }

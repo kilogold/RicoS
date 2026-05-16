@@ -425,7 +425,7 @@ export default function AdminOrderTestPage() {
         </p>
       ) : null}
 
-      <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-3 sm:gap-3">
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
         <button
           type="button"
           disabled={!selectedOrder || actionBusy}
@@ -438,6 +438,19 @@ export default function AdminOrderTestPage() {
           className="min-h-[48px] rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Fulfill selected
+        </button>
+        <button
+          type="button"
+          disabled={!selectedOrder || actionBusy}
+          onClick={() =>
+            selectedOrder &&
+            void postJson("/api/staff/admin/manual-print", {
+              orderReference: selectedOrder.orderReference,
+            })
+          }
+          className="min-h-[48px] rounded-lg border border-violet-700 bg-violet-900/40 px-4 py-3 text-base font-medium text-violet-100 touch-manipulation hover:bg-violet-800/50 active:bg-violet-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
+        >
+          Manual print selected
         </button>
         <button
           type="button"

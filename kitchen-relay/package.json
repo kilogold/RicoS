@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ricos/shared": "*",
     "@libsql/client": "^0.17.3",
     "eventsource": "^2.0.2",
     "p-queue": "^9.2.0"
