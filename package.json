@@ -12,6 +12,7 @@
   "scripts": {
     "preinstall": "bun scripts/enforce-bun-install.mjs",
     "db:nuke": "bun scripts/nuke-turso-db.mjs",
+    "db:clear-orders": "bun --env-file=.env --env-file=.env.local scripts/clear-orders-turso-db.mjs",
     "dev:bootstrap": "bun scripts/dev-bootstrap.mjs",
     "dev:web": "bun --env-file=../.env --env-file=../.env.local run --cwd web dev",
     "dev:kitchen": "bun --env-file=../.env --env-file=../.env.local run --cwd kitchen-relay dev",
