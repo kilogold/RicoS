@@ -1,4 +1,4 @@
-export { formatTicket } from "./format";
+export { formatTicket, printModeFromIntent, type TicketPrintMode } from "./format";
 export {
   createConsolePrinterAdapter,
   createIpPrinterAdapter,

@@ -1,6 +1,7 @@
 import {
   appendDeadLetter,
   formatTicket,
+  printModeFromIntent,
   printWithRetries,
   type PrinterAdapter,
 } from "../../component/ticket-printing/service";
@@ -40,6 +41,7 @@ export function createOrderPaidHandler(
     }
 
     const text = formatTicket({
+      mode: printModeFromIntent(data.intent),
       paymentReferenceId: data.paymentReferenceId,
       customerName: data.customerName,
       serviceMode: data.serviceMode,

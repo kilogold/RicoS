@@ -1,7 +1,25 @@
-import type { OrderTotals } from "@ricos/shared";
+import type { KitchenOrderIntent, OrderTotals } from "@ricos/shared";
 import type { CartLine } from "./types";
 
+export type TicketPrintMode = "kitchen-order" | "customer-receipt";
+
+export function printModeFromIntent(intent: KitchenOrderIntent): TicketPrintMode {
+  return intent === "paid" ? "kitchen-order" : "customer-receipt";
+}
+
 type OrderServiceMode = "takeout" | "dine_in";
+
+const DIVIDER = "--------------------------------";
+
+type TicketFormatParams = OrderTotals & {
+  mode: TicketPrintMode;
+  paymentReferenceId: string;
+  customerName: string;
+  serviceMode?: OrderServiceMode;
+  currency: string;
+  lines: CartLine[];
+  printedAt: Date;
+};
 
 function serviceModeLabel(serviceMode: OrderServiceMode | undefined): string {
   if (serviceMode === "dine_in") return "DINE-IN";
@@ -24,16 +42,45 @@ function formatTotalsLine(label: string, cents: number, lineWidth: number): stri
   return formatAlignedRow(`${label}: `, cents, lineWidth);
 }
 
-export function formatTicket(
-  params: OrderTotals & {
-    paymentReferenceId: string;
-    customerName: string;
-    serviceMode?: OrderServiceMode;
-    currency: string;
-    lines: CartLine[];
-    printedAt: Date;
-  },
-): string {
+function appendLineItems(rows: string[], lines: CartLine[], withPrices: boolean): void {
+  const lineWidth = DIVIDER.length;
+
+  for (const line of lines) {
+    const label = line.itemLabel ?? line.id;
+    if (withPrices) {
+      rows.push(
+        formatAlignedRow(`${line.quantity}x ${label}`, line.lineExtendedTotalCents, lineWidth),
+      );
+      if (line.quantity > 1) {
+        rows.push(`   ${formatMoneyAmount(line.lineUnitTotalCents)} each`);
+      }
+    } else {
+      rows.push(`${line.quantity}x ${label}`);
+    }
+    const selectionRows = line.selectionLines ?? [];
+    for (const selection of selectionRows) {
+      rows.push(`   ${selection}`);
+    }
+  }
+}
+
+function formatKitchenOrderTicket(params: TicketFormatParams): string {
+  const { customerName, serviceMode, lines, printedAt } = params;
+  const rows: string[] = [
+    `Time: ${printedAt.toISOString()}`,
+    `Name: ${customerName.trim()}`,
+    `Service: ${serviceModeLabel(serviceMode)}`,
+    DIVIDER,
+  ];
+
+  appendLineItems(rows, lines, false);
+  rows.push(DIVIDER);
+  rows.push("");
+
+  return rows.join("\n");
+}
+
+function formatCustomerReceipt(params: TicketFormatParams): string {
   const {
     paymentReferenceId,
     customerName,
@@ -46,40 +93,32 @@ export function formatTicket(
     lines,
     printedAt,
   } = params;
-  const divider = "--------------------------------";
+  const lineWidth = DIVIDER.length;
   const rows: string[] = [
     "RICOS — KITCHEN TICKET",
-    divider,
+    DIVIDER,
     `Ref: ${paymentReferenceId}`,
     `Time: ${printedAt.toISOString()}`,
     `Name: ${customerName.trim()}`,
     `Service: ${serviceModeLabel(serviceMode)}`,
-    divider,
+    DIVIDER,
   ];
-  const lineWidth = divider.length;
 
-  for (const line of lines) {
-    const label = line.itemLabel ?? line.id;
-    rows.push(
-      formatAlignedRow(`${line.quantity}x ${label}`, line.lineExtendedTotalCents, lineWidth),
-    );
-    if (line.quantity > 1) {
-      rows.push(`   ${formatMoneyAmount(line.lineUnitTotalCents)} each`);
-    }
-    const selectionRows = line.selectionLines ?? [];
-    for (const selection of selectionRows) {
-      rows.push(`   ${selection}`);
-    }
-  }
-
-  rows.push(divider);
+  appendLineItems(rows, lines, true);
+  rows.push(DIVIDER);
   rows.push(formatTotalsLine("SUBTOTAL", subtotalCents, lineWidth));
   rows.push(formatTotalsLine("SERVICE CHARGE", serviceChargeCents, lineWidth));
   rows.push(formatTotalsLine("SALES TAX", salesTaxCents, lineWidth));
   rows.push(formatTotalsLine("MUNICIPAL TAX", municipalTaxCents, lineWidth));
   rows.push(formatTotalsLine("TOTAL", grandTotalCents, lineWidth));
-  rows.push(divider);
+  rows.push(DIVIDER);
   rows.push("");
 
   return rows.join("\n");
+}
+
+export function formatTicket(params: TicketFormatParams): string {
+  return params.mode === "kitchen-order"
+    ? formatKitchenOrderTicket(params)
+    : formatCustomerReceipt(params);
 }
