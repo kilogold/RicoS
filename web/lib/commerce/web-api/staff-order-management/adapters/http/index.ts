@@ -121,7 +121,7 @@ export async function handleStaffFulfillmentRequest(req: Request): Promise<Respo
   return NextResponse.json({ orderReference: result.orderReference, status: "fulfilled" });
 }
 
-export async function handleStaffManualPrintRequest(orderReference: string): Promise<Response> {
+export async function handleStaffPrintReceiptRequest(orderReference: string): Promise<Response> {
   const db = await getWebhookDb();
   const result = await manualPrintPurchaseOrder(db, orderReference);
   if (!result.ok) {

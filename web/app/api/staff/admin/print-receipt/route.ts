@@ -1,4 +1,4 @@
-import { handleStaffManualPrintRequest } from "@/lib/commerce/web-api/staff-order-management/adapters/http";
+import { handleStaffPrintReceiptRequest } from "@/lib/commerce/web-api/staff-order-management/adapters/http";
 import { verifyStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import { NextResponse } from "next/server";
 
@@ -19,5 +19,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_orderReference" }, { status: 400 });
   }
 
-  return handleStaffManualPrintRequest(orderReference);
+  return handleStaffPrintReceiptRequest(orderReference);
 }

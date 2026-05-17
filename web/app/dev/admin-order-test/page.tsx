@@ -472,20 +472,20 @@ export default function AdminOrderTestPage() {
           }
           className="min-h-[48px] rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
-          Fulfill selected
+          Fulfill
         </button>
         <button
           type="button"
           disabled={!selectedOrder || actionBusy}
           onClick={() =>
             selectedOrder &&
-            void postJson("/api/staff/admin/manual-print", {
+            void postJson("/api/staff/admin/print-receipt", {
               orderReference: selectedOrder.orderReference,
             })
           }
           className="min-h-[48px] rounded-lg border border-violet-700 bg-violet-900/40 px-4 py-3 text-base font-medium text-violet-100 touch-manipulation hover:bg-violet-800/50 active:bg-violet-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
-          Manual print selected
+          Print receipt
         </button>
         <button
           type="button"
@@ -493,7 +493,7 @@ export default function AdminOrderTestPage() {
           onClick={openRefundModal}
           className="min-h-[48px] rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-3 text-base font-medium text-amber-100 touch-manipulation hover:bg-amber-800/50 active:bg-amber-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
-          Refund selected…
+          Refund…
         </button>
         <button
           type="button"
