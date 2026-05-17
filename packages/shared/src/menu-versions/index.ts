@@ -36,7 +36,7 @@ export function buildDecodeIndex(version: number, catalog: MenuDocument): Decode
       });
     }
   }
-  return { version, items };
+  return { version, items, orderFees: catalog.orderFees } as DecodeIndex;
 }
 
 /**

@@ -45,10 +45,18 @@ export type MenuCategory = {
   items: MenuItem[];
 };
 
+/** Decimal fractions applied at checkout (e.g. 0.05 = 5%). */
+export type OrderFeeRates = {
+  serviceFeeRate: number;
+  salesTaxRate: number;
+  municipalTaxRate: number;
+};
+
 export type MenuDocument = {
   restaurant: LocalizedText;
   menuName: LocalizedText;
   categories: MenuCategory[];
+  orderFees: OrderFeeRates;
 };
 
 /** Per line: modifier group id → selected option ids. */

@@ -73,7 +73,7 @@ function logHeliusSolanaPayDuplicatePayment(params: {
   originalPaymentIngressEventId: string | null;
   duplicatePaymentIngressEventId: string;
   duplicateTransactionSignature: string;
-  amountCents: number;
+  grandTotalCents: number;
   currency: string;
 }): void {
   console.error(
@@ -88,7 +88,7 @@ function logHeliusSolanaPayDuplicatePayment(params: {
 
 function pendingOrderMatchesHeliusEventPayment(order: PurchaseOrderRecord, event: NormalizedIngressEvent): boolean {
   return (
-    Math.floor(order.amountCents) === Math.floor(event.amountCents) &&
+    Math.floor(order.grandTotalCents) === Math.floor(event.grandTotalCents) &&
     order.currency.trim().toLowerCase() === event.currency.trim().toLowerCase()
   );
 }
@@ -124,7 +124,7 @@ async function resolveHeliusSolanaPayPending(
       originalPaymentIngressEventId: row.paymentIngressEventId,
       duplicatePaymentIngressEventId: event.paymentIngressEventId,
       duplicateTransactionSignature: transactionSignature,
-      amountCents: event.amountCents,
+      grandTotalCents: event.grandTotalCents,
       currency: event.currency,
     });
     return {
@@ -151,7 +151,7 @@ async function resolveHeliusSolanaPayPending(
 
 type ReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
-  amountCents?: unknown;
+  grandTotalCents?: unknown;
   currency?: unknown;
   menuVersionSeen?: unknown;
   customerName?: unknown;
@@ -202,7 +202,7 @@ export async function handleHeliusWebhookRequest(headers: Record<string, string 
         paymentIngressEventId: event.paymentIngressEventId,
         orderReference: event.paymentReferenceId,
         transactionSignature,
-        amountCents: event.amountCents,
+        grandTotalCents: event.grandTotalCents,
         currency: event.currency,
       });
     }
@@ -265,7 +265,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
 
     const body = (await req.json().catch(() => ({}))) as ReferenceRegistrationRequest;
     const metadata = body.metadata;
-    const amountCents = body.amountCents;
+    const grandTotalCents = body.grandTotalCents;
     const currency = body.currency;
     const menuVersionSeen = body.menuVersionSeen;
     const contactCheck = validateCustomerContact({
@@ -302,8 +302,12 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     if (typeof cartCodec !== "string" || typeof cartB64 !== "string") {
       return NextResponse.json({ error: "Invalid cart metadata" }, { status: 400 });
     }
-    if (typeof amountCents !== "number" || !Number.isFinite(amountCents) || amountCents <= 0) {
-      return NextResponse.json({ error: "Invalid amountCents" }, { status: 400 });
+    if (
+      typeof grandTotalCents !== "number" ||
+      !Number.isFinite(grandTotalCents) ||
+      grandTotalCents <= 0
+    ) {
+      return NextResponse.json({ error: "Invalid grandTotalCents" }, { status: 400 });
     }
     if (typeof currency !== "string" || !currency.trim()) {
       return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
@@ -334,7 +338,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
         provider: "helius",
         paymentIngressEventId: "",
         paymentReferenceId: orderReference,
-        amountCents: Math.floor(amountCents),
+        grandTotalCents: Math.floor(grandTotalCents),
         currency: currency.trim().toLowerCase(),
         metadata: normalizedMetadata,
       },
@@ -345,7 +349,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       orderReference,
       paymentProvider: "helius",
       paymentIntentExpiresAt: expiresAt,
-      amountCents: Math.floor(amountCents),
+      grandTotalCents: Math.floor(grandTotalCents),
       currency: currency.trim().toLowerCase(),
       payload: pendingPayload,
       metadata: normalizedMetadata,

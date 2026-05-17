@@ -71,7 +71,7 @@ export async function handleStaffListOrdersRequest(req: Request): Promise<Respon
     return {
       orderReference: r.orderReference,
       paymentProvider: r.paymentProvider,
-      amountCents: r.amountCents,
+      grandTotalCents: r.grandTotalCents,
       currency: r.currency,
       status: r.status,
       createdAt: r.createdAt,

@@ -11,6 +11,7 @@ import type {
   MenuItem,
   ModifierGroup,
   ModifierOption,
+  OrderFeeRates,
 } from "./menu-types";
 
 /** Same key shape as root `menu.json` (serializable manifest for hashing). */
@@ -123,6 +124,25 @@ function parseMenuCategory(raw: unknown, ctx: string): MenuCategory {
   };
 }
 
+function parseDecimalFeeRate(rawRate: unknown, rateFieldName: string): number {
+  if (typeof rawRate !== "number" || !Number.isFinite(rawRate) || rawRate < 0 || rawRate >= 1) {
+    throw new Error(`Invalid menu: orderFees.${rateFieldName} must be a number in [0, 1)`);
+  }
+  return rawRate;
+}
+
+function parseOrderFees(rawOrderFees: unknown): OrderFeeRates {
+  if (!rawOrderFees || typeof rawOrderFees !== "object" || Array.isArray(rawOrderFees)) {
+    throw new Error("Invalid menu: orderFees");
+  }
+  const orderFeesFields = rawOrderFees as Record<string, unknown>;
+  return {
+    serviceFeeRate: parseDecimalFeeRate(orderFeesFields.serviceFeeRate, "serviceFeeRate"),
+    salesTaxRate: parseDecimalFeeRate(orderFeesFields.salesTaxRate, "salesTaxRate"),
+    municipalTaxRate: parseDecimalFeeRate(orderFeesFields.municipalTaxRate, "municipalTaxRate"),
+  };
+}
+
 function parseMenuDocumentFromRoot(raw: Record<string, unknown>): MenuDocument {
   if (!isLocalizedText(raw.restaurant)) throw new Error("Invalid menu: restaurant");
   if (!isLocalizedText(raw.menuName)) throw new Error("Invalid menu: menuName");
@@ -131,6 +151,7 @@ function parseMenuDocumentFromRoot(raw: Record<string, unknown>): MenuDocument {
     restaurant: raw.restaurant,
     menuName: raw.menuName,
     categories: raw.categories.map((cat, i) => parseMenuCategory(cat, `categories[${i}]`)),
+    orderFees: parseOrderFees(raw.orderFees),
   };
 }
 
@@ -174,6 +195,7 @@ export function buildManifestForHash(params: {
     restaurant: catalog.restaurant,
     menuName: catalog.menuName,
     categories: catalog.categories,
+    orderFees: catalog.orderFees,
   };
 }
 

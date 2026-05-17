@@ -21,8 +21,14 @@ export type {
   MenuItem,
   ModifierGroup,
   ModifierOption,
+  OrderFeeRates,
   SelectionType,
 } from "./menu-types";
+
+export {
+  computeOrderTotals,
+  type OrderTotals,
+} from "./order-totals";
 
 export {
   CART_B64_KEY,

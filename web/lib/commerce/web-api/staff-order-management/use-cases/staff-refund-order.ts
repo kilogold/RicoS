@@ -110,7 +110,7 @@ export async function staffRefundOrder(
 
   const total = await sumConfirmedRefundsForOrder(db, orderReference);
   const nextStatus: PurchaseOrderStatus =
-    total >= order.amountCents ? "refunded" : "refunding";
+    total >= order.grandTotalCents ? "refunded" : "refunding";
   await setPurchaseOrderStatus(db, orderReference, nextStatus);
 
   return {

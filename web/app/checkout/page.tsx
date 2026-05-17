@@ -23,7 +23,7 @@ import {
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
-import { formatUsd, totalCents } from "@/lib/pricing";
+import { formatUsd, orderTotalsForCart } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
 import { Elements } from "@stripe/react-stripe-js";
 import Link from "next/link";
@@ -38,7 +38,7 @@ export default function CheckoutPage() {
   const { lines, clear } = useCart();
   const { language } = useLanguage();
   const { status } = useStoreSession();
-  const { surface, menuVersionSeen } = useMenuRuntime();
+  const { surface, catalog, menuVersionSeen } = useMenuRuntime();
   const copy = getAppStrings(language);
   const router = useRouter();
 
@@ -48,7 +48,7 @@ export default function CheckoutPage() {
 
   const [selectedMethod, setSelectedMethod] = useState<SelectedPaymentMethod | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [amountCents, setAmountCents] = useState(0);
+  const [grandTotalCents, setGrandTotalCents] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const [customerName, setCustomerName] = useState("");
@@ -69,23 +69,26 @@ export default function CheckoutPage() {
   const selectedServiceModeLabel =
     selectedServiceMode === ORDER_SERVICE_MODE_DINE_IN ? copy.dineInLabel : copy.takeoutLabel;
 
-  const cartTotalCents = totalCents(lines, surface);
+  const orderTotals = useMemo(
+    () => orderTotalsForCart(lines, surface, catalog.orderFees),
+    [lines, surface, catalog.orderFees],
+  );
   const displayTotalCents =
-    selectedMethod === "stripe" && clientSecret && amountCents > 0
-      ? amountCents
-      : cartTotalCents;
+    selectedMethod === "stripe" && clientSecret && grandTotalCents > 0
+      ? grandTotalCents
+      : orderTotals.grandTotalCents;
 
   const goBackToPaymentSelection = useCallback(() => {
     setSelectedMethod(null);
     setClientSecret(null);
-    setAmountCents(0);
+    setGrandTotalCents(0);
     setError(null);
   }, []);
 
   const resetPaymentState = useCallback(() => {
     setSelectedMethod(null);
     setClientSecret(null);
-    setAmountCents(0);
+    setGrandTotalCents(0);
     setError(null);
   }, []);
 
@@ -127,7 +130,7 @@ export default function CheckoutPage() {
     setPhase("payment");
     setSelectedMethod(null);
     setClientSecret(null);
-    setAmountCents(0);
+    setGrandTotalCents(0);
     setError(null);
   }, [
     copy.dineInUnavailableDuringLastCall,
@@ -142,7 +145,7 @@ export default function CheckoutPage() {
     setPhase("contact");
     setSelectedMethod(null);
     setClientSecret(null);
-    setAmountCents(0);
+    setGrandTotalCents(0);
     setError(null);
   }, []);
 
@@ -188,7 +191,7 @@ export default function CheckoutPage() {
       await Promise.resolve();
       if (cancelled) return;
       setClientSecret(null);
-      setAmountCents(0);
+      setGrandTotalCents(0);
       setError(null);
 
       const res = await fetch("/api/create-payment-intent", {
@@ -207,7 +210,7 @@ export default function CheckoutPage() {
         error?: string;
         code?: string;
         clientSecret?: string;
-        amountCents?: number;
+        grandTotalCents?: number;
       };
       if (!res.ok) {
         if (cancelled) return;
@@ -229,9 +232,9 @@ export default function CheckoutPage() {
         setError(data.error ?? copy.checkoutErrorTitle);
         return;
       }
-      if (!cancelled && data.clientSecret && data.amountCents != null) {
+      if (!cancelled && data.clientSecret && data.grandTotalCents != null) {
         setClientSecret(data.clientSecret);
-        setAmountCents(data.amountCents);
+        setGrandTotalCents(data.grandTotalCents);
       }
     })();
 
@@ -274,7 +277,7 @@ export default function CheckoutPage() {
             copy.checkoutPhasePaymentIntro
           ) : (
             <>
-              {copy.guestCheckoutMessage} {copy.totalLabel}{" "}
+              {copy.guestCheckoutMessage} {copy.grandTotalLabel}{" "}
               <span className="font-semibold text-[#f4c430]">
                 {formatUsd(displayTotalCents, language)}
               </span>
@@ -539,7 +542,7 @@ export default function CheckoutPage() {
                 <div className="py-8 text-center text-white/80">
                   <p className="text-lg">{copy.preparingSecureCheckout}</p>
                   <p className="mt-2 text-sm text-white/60">
-                    {copy.totalLabel} {formatUsd(cartTotalCents, language)}
+                    {copy.grandTotalLabel} {formatUsd(orderTotals.grandTotalCents, language)}
                   </p>
                 </div>
               ) : (
@@ -559,7 +562,7 @@ export default function CheckoutPage() {
                     },
                   }}
                 >
-                  <CheckoutForm amountCents={amountCents} />
+                  <CheckoutForm grandTotalCents={grandTotalCents} />
                 </Elements>
               )}
             </>

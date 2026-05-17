@@ -134,7 +134,7 @@ function parseCandidate(
       provider: "helius",
       paymentIngressEventId: `evt_helius_${signature}`,
       paymentReferenceId: orderReference,
-      amountCents: matchingTransfer.amountCents,
+      grandTotalCents: matchingTransfer.grandTotalCents,
       currency: "usdc",
       metadata: {
         [CART_CODEC_KEY]: CART_CODEC_ID_V1,
@@ -219,7 +219,7 @@ function findMatchingTransfer(
   expectedMint: string,
   expectedRecipient: string,
 ):
-  | { kind: "ok"; amountCents: number }
+  | { kind: "ok"; grandTotalCents: number }
   | { kind: "mint_or_recipient_mismatch" }
   | { kind: "no_amount" } {
   const transfers = listTokenTransfers(candidate);
@@ -239,9 +239,9 @@ function findMatchingTransfer(
     const recipientMatches = recipient === toLower(expectedRecipient);
     if (!mintMatches || !recipientMatches) continue;
 
-    const amountCents = extractAmountCents(transfer);
-    if (amountCents === null) return { kind: "no_amount" };
-    return { kind: "ok", amountCents };
+    const grandTotalCents = extractAmountCents(transfer);
+    if (grandTotalCents === null) return { kind: "no_amount" };
+    return { kind: "ok", grandTotalCents };
   }
 
   return { kind: "mint_or_recipient_mismatch" };

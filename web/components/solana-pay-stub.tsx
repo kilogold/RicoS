@@ -20,6 +20,7 @@ import {
   CART_B64_KEY,
   CART_CODEC_ID_V1,
   CART_CODEC_KEY,
+  computeOrderTotals,
   encodeCartToMetadataV1,
   type MenuDocument,
 } from "@ricos/shared";
@@ -38,7 +39,7 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
-import { formatUsd, linesWithItems, totalCents } from "@/lib/pricing";
+import { formatUsd, linesWithItems, subtotalCents } from "@/lib/pricing";
 
 // Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
 const MERCHANT_WALLET = "EEHj6a2oScEN2nKT7rN9n2UKT2jLbGQtJnNK5cC5MDJb";
@@ -70,7 +71,7 @@ const CONFIRMATION_TIMEOUT_MS = 90_000;
 
 async function fetchEphemeralReference(params: {
   metadata: Record<string, string | undefined>;
-  amountCents: number;
+  grandTotalCents: number;
   currency: string;
   menuVersionSeen: number;
   customerName: string;
@@ -152,13 +153,14 @@ export function SolanaPayStub({
   // one-shot snapshot so request construction / reference generation don't
   // re-fire on unrelated re-renders (e.g. language toggles, status pills).
   const [snapshot] = useState(() => {
-    const snapCents = totalCents(lines, surface);
+    const subtotal = subtotalCents(lines, surface);
+    const grandTotalCents = computeOrderTotals(subtotal, catalog.orderFees).grandTotalCents;
     return {
-      cents: snapCents,
+      cents: grandTotalCents,
       menuVersion: menuVersionSeen,
       catalogSnapshot: catalog,
       amountMinor:
-        snapCents > 0 ? toMinorUnits(snapCents / 100, USDC_DECIMALS) : BigInt(0),
+        grandTotalCents > 0 ? toMinorUnits(grandTotalCents / 100, USDC_DECIMALS) : BigInt(0),
       cartLines: lines.map((line) => ({
         id: line.id,
         quantity: line.quantity,
@@ -228,7 +230,7 @@ export function SolanaPayStub({
             [CART_B64_KEY]: memo,
             [CART_CODEC_KEY]: CART_CODEC_ID_V1,
           },
-          amountCents: cents,
+          grandTotalCents: cents,
           currency: "usdc",
           menuVersionSeen: menuVersion,
           customerName: customerName.trim(),

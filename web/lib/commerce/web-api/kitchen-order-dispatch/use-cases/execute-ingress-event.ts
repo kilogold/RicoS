@@ -39,7 +39,7 @@ async function loadPaidPayloadFromPending(
     ...savedPayload,
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
-    amountCents: event.amountCents,
+    grandTotalCents: event.grandTotalCents,
     currency: event.currency,
     customerName,
     intent: "paid",
@@ -62,10 +62,10 @@ function assertPaymentMatchesSavedOrder(
       `Payment reference mismatch: ${event.paymentReferenceId} !== ${order.orderReference}`,
     );
   }
-  if (Math.floor(order.amountCents) !== Math.floor(event.amountCents)) {
+  if (Math.floor(order.grandTotalCents) !== Math.floor(event.grandTotalCents)) {
     throw new IngressProcessError(
       "payment_mismatch",
-      `Payment amount mismatch: ${event.amountCents} !== ${order.amountCents}`,
+      `Payment amount mismatch: ${event.grandTotalCents} !== ${order.grandTotalCents}`,
     );
   }
   if (order.currency.trim().toLowerCase() !== event.currency.trim().toLowerCase()) {

@@ -1,22 +1,23 @@
-import type { KitchenOrderIntent } from "@ricos/shared";
+import type { KitchenOrderIntent, OrderTotals } from "@ricos/shared";
 
-export type OrderPaidPayload = {
+export type OrderPaidLine = {
+  id: string;
+  quantity: number;
+  selections: Record<string, string[]>;
+  unitBasePriceCents: number;
+  selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
+  lineUnitTotalCents: number;
+  lineExtendedTotalCents: number;
+  itemLabel?: string;
+  selectionLines?: string[];
+};
+
+export type OrderPaidPayload = OrderTotals & {
   paymentIngressEventId: string;
   paymentReferenceId: string;
   customerName: string;
   serviceMode: "takeout" | "dine_in";
-  amountCents: number;
   currency: string;
   intent: KitchenOrderIntent;
-  lines: {
-    id: string;
-    quantity: number;
-    selections: Record<string, string[]>;
-    unitBasePriceCents: number;
-    selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
-    lineUnitTotalCents: number;
-    lineExtendedTotalCents: number;
-    itemLabel?: string;
-    selectionLines?: string[];
-  }[];
+  lines: OrderPaidLine[];
 };

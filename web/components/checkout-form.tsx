@@ -11,7 +11,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useState } from "react";
 
-export function CheckoutForm({ amountCents }: { amountCents: number }) {
+export function CheckoutForm({ grandTotalCents }: { grandTotalCents: number }) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const stripe = useStripe();
@@ -63,7 +63,7 @@ export function CheckoutForm({ amountCents }: { amountCents: number }) {
       >
         {loading
           ? copy.processing
-          : `${copy.payCtaPrefix} ${formatUsd(amountCents, language)}`}
+          : `${copy.payCtaPrefix} ${formatUsd(grandTotalCents, language)}`}
       </button>
     </form>
   );

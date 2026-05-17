@@ -88,7 +88,7 @@ describe("parseHeliusIngressPayload", () => {
           provider: "helius",
           paymentIngressEventId: `evt_helius_${signature}`,
           paymentReferenceId: orderReference,
-          amountCents: 399,
+          grandTotalCents: 399,
           currency: "usdc",
           metadata: {
             [CART_CODEC_KEY]: CART_CODEC_ID_V1,

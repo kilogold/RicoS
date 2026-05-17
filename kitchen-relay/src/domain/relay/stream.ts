@@ -7,7 +7,11 @@ function isValidOrderPaidPayload(data: OrderPaidPayload): boolean {
     typeof data.paymentIngressEventId === "string" &&
     typeof data.paymentReferenceId === "string" &&
     typeof data.customerName === "string" &&
-    typeof data.amountCents === "number" &&
+    typeof data.subtotalCents === "number" &&
+    typeof data.serviceChargeCents === "number" &&
+    typeof data.salesTaxCents === "number" &&
+    typeof data.municipalTaxCents === "number" &&
+    typeof data.grandTotalCents === "number" &&
     typeof data.currency === "string" &&
     Array.isArray(data.lines) &&
     isKitchenOrderIntent(data.intent)

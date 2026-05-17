@@ -35,7 +35,7 @@ const sampleReceipt = [
   "   Sugar: Sugar",
   "   Garnish: None",
   "--------------------------------",
-  "TOTAL: 3.99 USDC",
+  "TOTAL:                 $3.99",
   "--------------------------------",
   "",
 ].join("\n");

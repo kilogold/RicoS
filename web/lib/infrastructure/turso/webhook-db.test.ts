@@ -23,7 +23,11 @@ function payload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayl
     paymentReferenceId: "order_1",
     serviceMode: "takeout",
     customerName: "Test Customer",
-    amountCents: 1000,
+    subtotalCents: 1000,
+    serviceChargeCents: 0,
+    salesTaxCents: 0,
+    municipalTaxCents: 0,
+    grandTotalCents: 1000,
     currency: "usd",
     intent: "manual-print",
     lines: [
@@ -103,7 +107,7 @@ describe("webhook-db payment persistence", () => {
       orderReference: "solana_ref_1",
       paymentProvider: "helius",
       paymentIntentExpiresAt: 123,
-      amountCents: 1000,
+      grandTotalCents: 1000,
       currency: "usd",
       payload: payload({
         paymentIngressEventId: "",
@@ -132,7 +136,7 @@ describe("webhook-db payment persistence", () => {
       orderReference: "solana_ref_2",
       paymentProvider: "helius",
       paymentIntentExpiresAt: null,
-      amountCents: 1000,
+      grandTotalCents: 1000,
       currency: "usd",
       payload: payload({
         paymentIngressEventId: "",
@@ -189,7 +193,7 @@ describe("webhook-db payment persistence", () => {
       orderReference: "pi_saved_payload",
       paymentProvider: "stripe",
       paymentIntentExpiresAt: null,
-      amountCents: 1000,
+      grandTotalCents: 1000,
       currency: "usd",
       payload: payload({
         paymentIngressEventId: "",
@@ -205,7 +209,7 @@ describe("webhook-db payment persistence", () => {
       provider: "stripe",
       paymentIngressEventId: "evt_stripe_saved_payload",
       paymentReferenceId: "pi_saved_payload",
-      amountCents: 1000,
+      grandTotalCents: 1000,
       currency: "usd",
       metadata: {},
     });
@@ -227,7 +231,7 @@ describe("webhook-db payment persistence", () => {
       orderReference: "pi_ack_idempotent",
       paymentProvider: "stripe",
       paymentIntentExpiresAt: null,
-      amountCents: 500,
+      grandTotalCents: 500,
       currency: "usd",
       payload: payload({
         paymentIngressEventId: "",
@@ -272,7 +276,7 @@ describe("webhook-db payment persistence", () => {
         orderReference,
         paymentProvider: "stripe",
         paymentIntentExpiresAt: null,
-        amountCents: 1000,
+        grandTotalCents: 1000,
         currency: "usd",
         payload: payload({
           paymentIngressEventId: "",
@@ -293,7 +297,7 @@ describe("webhook-db payment persistence", () => {
       orderReference: "pi_1",
       paymentProvider: "stripe",
       paymentIntentExpiresAt: null,
-      amountCents: 1000,
+      grandTotalCents: 1000,
       currency: "usd",
       payload: payload({
         paymentIngressEventId: "",

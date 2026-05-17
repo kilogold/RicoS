@@ -16,6 +16,11 @@ export type AppStrings = {
   backToMenu: string;
   preparingSecureCheckout: string;
   totalLabel: string;
+  subtotalLabel: string;
+  serviceChargeLabel: string;
+  salesTaxLabel: string;
+  municipalTaxLabel: string;
+  grandTotalLabel: string;
   payForPickup: string;
   guestCheckoutMessage: string;
   orderSummary: string;
@@ -82,6 +87,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     backToMenu: "Back to menu",
     preparingSecureCheckout: "Preparing secure checkout…",
     totalLabel: "Total",
+    subtotalLabel: "Subtotal",
+    serviceChargeLabel: "Service charge",
+    salesTaxLabel: "Sales tax",
+    municipalTaxLabel: "Municipal tax",
+    grandTotalLabel: "Total",
     payForPickup: "Checkout",
     guestCheckoutMessage: "Guest checkout — no account required.",
     orderSummary: "Order summary",
@@ -150,6 +160,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     backToMenu: "Volver al menu",
     preparingSecureCheckout: "Preparando pago seguro…",
     totalLabel: "Total",
+    subtotalLabel: "Subtotal",
+    serviceChargeLabel: "Cargo por servicio",
+    salesTaxLabel: "IVU",
+    municipalTaxLabel: "Impuesto municipal",
+    grandTotalLabel: "Total",
     payForPickup: "Pagar",
     guestCheckoutMessage: "Pago como invitado — no requiere cuenta.",
     orderSummary: "Resumen de orden",

@@ -2,6 +2,8 @@ export type CartLine = {
   id: string;
   quantity: number;
   selections: Record<string, string[]>;
+  lineUnitTotalCents: number;
+  lineExtendedTotalCents: number;
   itemLabel?: string;
   selectionLines?: string[];
 };

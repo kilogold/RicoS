@@ -9,6 +9,11 @@
     "en": "All Day Breakfast",
     "es": "Desayuno Todo el Dia"
   },
+  "orderFees": {
+    "serviceFeeRate": 0.05,
+    "salesTaxRate": 0.105,
+    "municipalTaxRate": 0.01
+  },
   "categories": [
     {
       "id": "cat_breakfast_griddles",

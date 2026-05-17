@@ -4,13 +4,15 @@ import type { CartLine } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
-import { formatUsd, lineTotalCents, linesWithItems } from "@/lib/pricing";
+import { CheckoutTotalsBreakdown } from "@/components/checkout-totals-breakdown";
+import { formatUsd, lineTotalCents, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
 
 export function CheckoutOrderSummary({ lines }: { lines: CartLine[] }) {
   const { language } = useLanguage();
-  const { surface } = useMenuRuntime();
+  const { surface, catalog } = useMenuRuntime();
   const copy = getAppStrings(language);
   const summaryLines = linesWithItems(lines, surface);
+  const totals = orderTotalsForCart(lines, surface, catalog.orderFees);
 
   return (
     <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4">
@@ -36,6 +38,7 @@ export function CheckoutOrderSummary({ lines }: { lines: CartLine[] }) {
           );
         })}
       </ul>
+      <CheckoutTotalsBreakdown totals={totals} />
     </div>
   );
 }

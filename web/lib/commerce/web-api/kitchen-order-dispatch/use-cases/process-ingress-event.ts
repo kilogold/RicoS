@@ -1,4 +1,5 @@
 import {
+  computeOrderTotals,
   createMenuCatalogSurface,
   decodeCartFromMetadataV1,
   type HydratedCart,
@@ -47,14 +48,24 @@ export async function buildKitchenOrderPayload(
     throw new IngressProcessError("invalid_cart_metadata", message);
   }
 
-  const recomputedCartTotalCents = decodedCart.lines.reduce(
+  const subtotalCents = decodedCart.lines.reduce(
     (sum: number, line: HydratedCartLine) => sum + line.lineExtendedTotalCents,
     0,
   );
-  if (recomputedCartTotalCents !== Number(event.amountCents)) {
+
+  const decodeIndex = getDecodeIndex(decodedCart.menuVersion);
+  if (!decodeIndex) {
+    throw new IngressProcessError(
+      "invalid_cart_metadata",
+      `Unknown menu version ${decodedCart.menuVersion} for order totals`,
+    );
+  }
+
+  const orderTotals = computeOrderTotals(subtotalCents, decodeIndex.orderFees);
+  if (orderTotals.grandTotalCents !== Number(event.grandTotalCents)) {
     throw new IngressProcessError(
       "cart_total_mismatch",
-      `Cart total mismatch: ${recomputedCartTotalCents} !== ${Number(event.amountCents)}`,
+      `Order total mismatch: ${orderTotals.grandTotalCents} !== ${Number(event.grandTotalCents)}`,
     );
   }
 
@@ -79,11 +90,11 @@ export async function buildKitchenOrderPayload(
   });
 
   return {
+    ...orderTotals,
     paymentIngressEventId: event.paymentIngressEventId,
     paymentReferenceId: event.paymentReferenceId,
     serviceMode,
     customerName: customerName.trim(),
-    amountCents: Number(event.amountCents),
     currency: event.currency,
     lines,
     intent: "manual-print",

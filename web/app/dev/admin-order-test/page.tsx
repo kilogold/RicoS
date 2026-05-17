@@ -41,7 +41,7 @@ type RefundDetailRow = {
 type OrderRow = {
   orderReference: string;
   paymentProvider: "stripe" | "helius";
-  amountCents: number;
+  grandTotalCents: number;
   currency: string;
   status: string;
   createdAt: number;
@@ -204,7 +204,7 @@ function OrderPayloadCartView({
       <div className="mt-4 flex items-center justify-between border-t border-slate-600 pt-4">
         <span className="text-sm font-medium uppercase tracking-wide text-slate-400">Order total</span>
         <span className="text-lg font-semibold tabular-nums text-white">
-          {formatMoney(payload.amountCents, currencyCode)}
+          {formatMoney(payload.grandTotalCents, currencyCode)}
         </span>
       </div>
 
@@ -368,7 +368,7 @@ export default function AdminOrderTestPage() {
 
   function openRefundModal(): void {
     if (!selectedOrder) return;
-    setRefundAmountCents(String(selectedOrder.amountCents));
+    setRefundAmountCents(String(selectedOrder.grandTotalCents));
     setRefundSolanaSig("");
     setRefundIdempotency("");
     setRefundOpen(true);
@@ -565,7 +565,7 @@ export default function AdminOrderTestPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <span className="text-2xl font-semibold tabular-nums text-white">
-                      {formatMoney(order.amountCents, order.currency)}
+                      {formatMoney(order.grandTotalCents, order.currency)}
                     </span>
                     <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-medium capitalize text-slate-300">
                       {order.status}
@@ -697,7 +697,7 @@ export default function AdminOrderTestPage() {
                   </td>
                   <td className="p-3">{order.paymentProvider}</td>
                   <td className="p-3">{formatServiceMode(order.serviceMode)}</td>
-                  <td className="p-3">{formatMoney(order.amountCents, order.currency)}</td>
+                  <td className="p-3">{formatMoney(order.grandTotalCents, order.currency)}</td>
                   <td className="p-3">{order.status}</td>
                   <td className="p-3">{order.lineCount}</td>
                   <td className="max-w-[140px] truncate p-3 text-slate-300" title={order.customerName ?? ""}>

@@ -1,4 +1,12 @@
-import type { Language, MenuCatalogSurface, MenuItem } from "@ricos/shared";
+import {
+  computeOrderTotals,
+  type MenuCatalogSurface,
+  type MenuDocument,
+  type MenuItem,
+  type OrderFeeRates,
+  type OrderTotals,
+  type Language,
+} from "@ricos/shared";
 import type { CartLine } from "@/lib/cart-context";
 
 export function linesWithItems(
@@ -13,12 +21,27 @@ export function linesWithItems(
   return out;
 }
 
-export function totalCents(lines: CartLine[], surface: MenuCatalogSurface): number {
+export function subtotalCents(lines: CartLine[], surface: MenuCatalogSurface): number {
   let sum = 0;
   for (const line of lines) {
     sum += lineTotalCents(line, surface);
   }
   return sum;
+}
+
+export function orderTotalsForCart(
+  lines: CartLine[],
+  surface: MenuCatalogSurface,
+  orderFees: OrderFeeRates,
+): OrderTotals {
+  return computeOrderTotals(subtotalCents(lines, surface), orderFees);
+}
+
+export function orderTotalsForCatalog(
+  subtotal: number,
+  catalog: MenuDocument,
+): OrderTotals {
+  return computeOrderTotals(subtotal, catalog.orderFees);
 }
 
 export function lineUnitPriceCents(line: CartLine, surface: MenuCatalogSurface): number {

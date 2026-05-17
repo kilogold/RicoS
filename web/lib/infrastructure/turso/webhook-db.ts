@@ -29,7 +29,7 @@ export type PurchaseOrderRecord = {
   paymentProvider: IngressProvider;
   paymentIngressEventId: string | null;
   paymentIntentExpiresAt: number | null;
-  amountCents: number;
+  grandTotalCents: number;
   currency: string;
   payload: KitchenOrderPayload;
   status: PurchaseOrderStatus;
@@ -186,7 +186,7 @@ export async function insertPendingPurchaseOrderIfNew(
     orderReference: string;
     paymentProvider: IngressProvider;
     paymentIntentExpiresAt?: number | null;
-    amountCents: number;
+    grandTotalCents: number;
     currency: string;
     payload: KitchenOrderPayload;
     metadata?: Record<string, string | undefined>;
@@ -222,7 +222,7 @@ export async function insertPendingPurchaseOrderIfNew(
       params.orderReference,
       params.paymentProvider,
       params.paymentIntentExpiresAt ?? null,
-      params.amountCents,
+      params.grandTotalCents,
       params.currency,
       JSON.stringify(payload),
       now,
@@ -278,6 +278,15 @@ export function getPendingPurchaseOrderMetadata(
 
 // ---------- purchase_orders -------------------------------------------------
 
+function normalizeKitchenOrderPayload(raw: KitchenOrderPayload): KitchenOrderPayload {
+  const legacy = raw as KitchenOrderPayload & { amountCents?: number };
+  if (legacy.grandTotalCents === undefined && legacy.amountCents !== undefined) {
+    const { amountCents: chargedTotalCents, ...rest } = legacy;
+    return { ...rest, grandTotalCents: chargedTotalCents };
+  }
+  return raw;
+}
+
 function rowToPurchaseOrder(row: Record<string, unknown>): PurchaseOrderRecord {
   const payloadRaw = row.payload_json ?? row.PAYLOAD_JSON;
   const ingressEventId = row.payment_ingress_event_id ?? row.PAYMENT_INGRESS_EVENT_ID;
@@ -293,9 +302,11 @@ function rowToPurchaseOrder(row: Record<string, unknown>): PurchaseOrderRecord {
       : String(ingressEventId),
     paymentIntentExpiresAt:
       expiresAt === null || expiresAt === undefined ? null : Number(expiresAt),
-    amountCents: Number(row.amount_cents ?? row.AMOUNT_CENTS ?? 0),
+    grandTotalCents: Number(row.amount_cents ?? row.AMOUNT_CENTS ?? 0),
     currency: String(row.currency ?? row.CURRENCY ?? ""),
-    payload: JSON.parse(String(payloadRaw)) as KitchenOrderPayload,
+    payload: normalizeKitchenOrderPayload(
+      JSON.parse(String(payloadRaw)) as KitchenOrderPayload,
+    ),
     status: String(row.status ?? row.STATUS ?? "pending") as PurchaseOrderStatus,
     statusId: statusId === null || statusId === undefined ? null : Number(statusId),
     createdAt: Number(row.created_at ?? row.CREATED_AT ?? 0),
@@ -353,7 +364,7 @@ export async function markStripePurchaseOrderPaidIfNew(
     `,
     args: [
       params.payload.paymentIngressEventId,
-      params.payload.amountCents,
+      params.payload.grandTotalCents,
       params.payload.currency,
       JSON.stringify(params.payload),
       params.orderReference,
@@ -414,7 +425,7 @@ export async function markSolanaPurchaseOrderPaidIfNew(
     `,
     args: [
       params.payload.paymentIngressEventId,
-      params.payload.amountCents,
+      params.payload.grandTotalCents,
       params.payload.currency,
       JSON.stringify(params.payload),
       params.orderReference,
@@ -817,6 +828,10 @@ const decodeIndexCache = new Map<number, DecodeIndex>();
 
 export function getDecodeIndex(version: number): DecodeIndex | undefined {
   return decodeIndexCache.get(version);
+}
+
+export function isDecodeIndexCacheEmpty(): boolean {
+  return decodeIndexCache.size === 0;
 }
 
 /**

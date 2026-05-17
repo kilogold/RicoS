@@ -1,3 +1,5 @@
+import type { OrderFeeRates } from "./menu-types";
+
 /**
  * Cart metadata codec v1.
  *
@@ -15,8 +17,8 @@
  * Identifiers, prices, and derived totals never travel on the wire. They are
  * reconstructed at decode time from the pinned menu version's decode index.
  *
- * Integrity is verified externally: the webhook consumer compares the sum of
- * recomputed line totals to the Stripe PaymentIntent amount.
+ * Integrity is verified externally: the webhook consumer recomputes subtotal
+ * from lines, applies pinned menu orderFees, and compares to PaymentIntent amount.
  */
 
 /** Wire identifier written to metadata so decoders can select schema behavior. */
@@ -66,6 +68,7 @@ export type DecodeIndexItem = {
 export type DecodeIndex = {
   version: number;
   items: DecodeIndexItem[];
+  orderFees: OrderFeeRates;
 };
 
 /** Lookup callback used by the decoder to resolve a pinned menu version. */
@@ -106,8 +109,8 @@ export type HydratedCart = {
 /**
  * Encoder output.
  * `metadata` goes on the Stripe PaymentIntent.
- * `amountCents` is the cart total; callers use it as the PaymentIntent amount
- * so there is a single source of truth for pricing math.
+ * `amountCents` is the cart subtotal (items + modifiers); callers apply
+ * `computeOrderTotals` with `decodeIndex.orderFees` for the charge amount.
  */
 export type EncodeCartResult = {
   metadata: Record<string, string>;

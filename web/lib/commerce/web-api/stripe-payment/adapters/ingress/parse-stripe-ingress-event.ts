@@ -42,7 +42,7 @@ export async function parseStripeIngressEvent(params: {
       provider: "stripe",
       paymentIngressEventId: event.id,
       paymentReferenceId: pi.id,
-      amountCents: Number(pi.amount),
+      grandTotalCents: Number(pi.amount),
       currency: pi.currency,
       metadata: pi.metadata,
     },

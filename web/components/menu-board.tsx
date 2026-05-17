@@ -5,7 +5,7 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { useStoreSession } from "@/app/_client/store-session-context";
-import { formatUsd, lineTotalCents, totalCents } from "@/lib/pricing";
+import { formatUsd, lineTotalCents, subtotalCents } from "@/lib/pricing";
 import {
   normalizeSelections,
   selectionSignature,
@@ -308,7 +308,7 @@ export function CartBar() {
   const { surface } = useMenuRuntime();
   const { shoppingEnabled } = useStoreSession();
   const copy = getAppStrings(language);
-  const sum = totalCents(lines, surface);
+  const sum = subtotalCents(lines, surface);
   const count = lines.reduce((a, l) => a + l.quantity, 0);
 
   if (!shoppingEnabled) return null;

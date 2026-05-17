@@ -3,6 +3,7 @@ import { requiredEnv } from "@/lib/shared/config/server-env";
 import {
   bootstrapMenuFromPackagedFileIfEmpty,
   hydrateMenuCachesFromDb,
+  isDecodeIndexCacheEmpty,
   migrate,
   openDb,
 } from "./webhook-db";
@@ -21,13 +22,23 @@ if (!state.__ricosWebhookDbRuntime) {
 
 const runtime = state.__ricosWebhookDbRuntime;
 
+async function ensureDecodeIndexCachesHydrated(db: Client): Promise<void> {
+  if (isDecodeIndexCacheEmpty()) {
+    await hydrateMenuCachesFromDb(db);
+  }
+}
+
 /** Turso client for commerce + menu state (web + webhook). */
 export async function getCommerceDb(): Promise<Client> {
   return getWebhookDb();
 }
 
 export async function getWebhookDb(): Promise<Client> {
-  if (runtime.dbPromise) return runtime.dbPromise;
+  if (runtime.dbPromise) {
+    const db = await runtime.dbPromise;
+    await ensureDecodeIndexCachesHydrated(db);
+    return db;
+  }
 
   runtime.dbPromise = (async () => {
     const databaseUrl = requiredEnv("TURSO_DATABASE_URL");
@@ -49,5 +60,7 @@ export async function getWebhookDb(): Promise<Client> {
     throw err;
   });
 
-  return runtime.dbPromise;
+  const db = await runtime.dbPromise;
+  await ensureDecodeIndexCachesHydrated(db);
+  return db;
 }

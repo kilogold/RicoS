@@ -105,6 +105,6 @@ export async function handleCreatePaymentIntentRequest(req: Request): Promise<Re
 
   return NextResponse.json({
     clientSecret: result.clientSecret,
-    amountCents: result.amountCents,
+    grandTotalCents: result.grandTotalCents,
   });
 }

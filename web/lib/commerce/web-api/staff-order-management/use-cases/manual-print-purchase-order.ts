@@ -35,7 +35,7 @@ export async function manualPrintPurchaseOrder(
     ...order.payload,
     paymentIngressEventId,
     paymentReferenceId: order.orderReference,
-    amountCents: order.amountCents,
+    grandTotalCents: order.grandTotalCents,
     currency: order.currency,
     customerName,
     intent: "manual-print",

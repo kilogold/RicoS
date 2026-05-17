@@ -1,5 +1,6 @@
 import type { Client } from "@libsql/client";
 import {
+  computeOrderTotals,
   encodeCartToMetadataV1,
   type CartLineInput,
 } from "@ricos/shared";
@@ -23,7 +24,7 @@ type RawLine = { id: string; quantity: number; selections?: Record<string, strin
 
 export type CreatePaymentIntentResult =
   | { ok: false; status: number; error: string; code?: string }
-  | { ok: true; clientSecret: string; amountCents: number };
+  | { ok: true; clientSecret: string; grandTotalCents: number };
 
 export async function createPaymentIntentFromCart(
   rawLines: unknown,
@@ -115,12 +116,14 @@ export async function createPaymentIntentFromCart(
     return { ok: false, status: 400, error: message };
   }
 
-  if (encoded.amountCents < 50) {
+  const orderTotals = computeOrderTotals(encoded.amountCents, decodeIndex.orderFees);
+
+  if (orderTotals.grandTotalCents < 50) {
     return { ok: false, status: 400, error: "Amount too small" };
   }
 
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: encoded.amountCents,
+    amount: orderTotals.grandTotalCents,
     currency: "usd",
     automatic_payment_methods: { enabled: true },
     metadata: encoded.metadata,
@@ -136,7 +139,7 @@ export async function createPaymentIntentFromCart(
       provider: "stripe",
       paymentIngressEventId: "",
       paymentReferenceId: paymentIntent.id,
-      amountCents: encoded.amountCents,
+      grandTotalCents: orderTotals.grandTotalCents,
       currency: "usd",
       metadata: encoded.metadata,
     },
@@ -148,7 +151,7 @@ export async function createPaymentIntentFromCart(
     orderReference: paymentIntent.id,
     paymentProvider: "stripe",
     paymentIntentExpiresAt: null,
-    amountCents: encoded.amountCents,
+    grandTotalCents: orderTotals.grandTotalCents,
     currency: "usd",
     payload: pendingPayload,
     metadata: encoded.metadata,
@@ -160,6 +163,6 @@ export async function createPaymentIntentFromCart(
   return {
     ok: true,
     clientSecret: paymentIntent.client_secret,
-    amountCents: encoded.amountCents,
+    grandTotalCents: orderTotals.grandTotalCents,
   };
 }

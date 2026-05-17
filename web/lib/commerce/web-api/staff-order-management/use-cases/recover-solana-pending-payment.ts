@@ -35,7 +35,7 @@ export async function recoverSolanaPendingPayment(
     provider: "helius",
     paymentIngressEventId: `evt_helius_${sig}`,
     paymentReferenceId: ref,
-    amountCents: pending.amountCents,
+    grandTotalCents: pending.grandTotalCents,
     currency: pending.currency,
     metadata,
   };
