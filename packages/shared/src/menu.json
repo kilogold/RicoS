@@ -357,7 +357,9 @@
                   { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
                 ]
             }
-          ]
+          ],
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01
         }
       ]
     },
@@ -505,7 +507,9 @@
                 { "id": "opt_remove_cheese", "label": { "en": "No cheese", "es": "Sin queso" } }
               ]
             }
-          ]
+          ],
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01
         }
       ]
     },
@@ -620,8 +624,9 @@
                   { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
                 ]
               }
-          ]
-     
+          ],
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01
         },
         {
           "id": "item_any_style_eggs",
@@ -728,7 +733,9 @@
                 { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
               ]
             }
-          ]
+          ],
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01
         }
       ]
     },
@@ -925,7 +932,9 @@
                   { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
               ]
             }
-          ]
+          ],
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01
         }
       ]
     }
