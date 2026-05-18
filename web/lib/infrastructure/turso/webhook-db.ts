@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createClient, type Client } from "@libsql/client";
 import {
   buildDecodeIndex,
@@ -9,7 +10,12 @@ import {
   type MenuDocument,
   type ParsedMenuCatalogFile,
 } from "@ricos/shared";
-import type { KitchenOrderPayload, IngressProvider } from "@/lib/commerce/domain";
+import type { KitchenOrderIntent } from "@ricos/shared";
+import {
+  type KitchenOrderPayload,
+  IngressProvider,
+  PENDING_PAYMENT_NO_SALE_INGRESS_ID,
+} from "@/lib/commerce/domain";
 
 export type PurchaseOrderStatus =
   | "pending"
@@ -49,6 +55,14 @@ export type RefundRecord = {
   solanaRefundTransactionSignature?: string;
   createdAt: number;
   confirmedAt?: number;
+};
+
+export type PrintQueueJob = {
+  printJobId: string;
+  orderReference: string;
+  intent: KitchenOrderIntent;
+  paymentIngressEventId: string | null;
+  createdAt: number;
 };
 
 export function openDb(url: string, authToken: string): Client {
@@ -135,6 +149,25 @@ export async function migrate(client: Client): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS uq_refunds_solana_signature
     ON refunds(solana_refund_transaction_signature)
     WHERE solana_refund_transaction_signature IS NOT NULL
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS print_queue (
+      print_job_id              TEXT PRIMARY KEY,
+      order_reference           TEXT NOT NULL
+                                REFERENCES purchase_orders(order_reference),
+      intent                    TEXT NOT NULL
+                                CHECK (intent IN ('paid','manual-print')),
+      payment_ingress_event_id  TEXT,
+      created_at                INTEGER NOT NULL
+    )
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_print_queue_created_at ON print_queue(created_at)
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_print_queue_one_paid_per_order
+    ON print_queue(order_reference) WHERE intent = 'paid'
   `);
 }
 
@@ -374,6 +407,7 @@ export async function markStripePurchaseOrderPaidIfNew(
     return false;
   }
   await transitionOrderStatus(client, params.orderReference, "paid");
+  await enqueuePrintJob(client, { orderReference: params.orderReference, intent: "paid" });
   return true;
 }
 
@@ -435,32 +469,144 @@ export async function markSolanaPurchaseOrderPaidIfNew(
     return false;
   }
   await transitionOrderStatus(client, params.orderReference, "paid");
+  await enqueuePrintJob(client, { orderReference: params.orderReference, intent: "paid" });
   return true;
 }
 
-/** Kitchen queue: every `purchase_orders` row still in `paid` (not yet acknowledged). */
-export async function listPaidPurchaseOrdersForKitchen(
+export function hydratePrintJobPayload(
+  order: PurchaseOrderRecord,
+  intent: KitchenOrderIntent,
+): KitchenOrderPayload {
+  const customerName = order.customerName?.trim();
+  if (!customerName) {
+    throw new Error(`Missing customer_name for print job ${order.orderReference}`);
+  }
+  const paymentIngressEventId =
+    order.paymentIngressEventId?.trim() ||
+    order.payload.paymentIngressEventId?.trim() ||
+    PENDING_PAYMENT_NO_SALE_INGRESS_ID;
+
+  return {
+    ...order.payload,
+    paymentIngressEventId,
+    paymentReferenceId: order.orderReference,
+    grandTotalCents: order.grandTotalCents,
+    currency: order.currency,
+    customerName,
+    intent,
+  };
+}
+
+/** Enqueue a kitchen print job. Returns job id, or null when a duplicate paid job is skipped. */
+export async function enqueuePrintJob(
   client: Client,
-): Promise<KitchenOrderPayload[]> {
+  params: { orderReference: string; intent: KitchenOrderIntent },
+): Promise<string | null> {
+  const order = await getPurchaseOrderByReference(client, params.orderReference);
+  if (!order) {
+    throw new Error(`missing purchase order ${params.orderReference}`);
+  }
+
+  const printJobId = randomUUID();
+  const createdAt = Date.now();
+  const paymentIngressEventId =
+    params.intent === "paid"
+      ? order.paymentIngressEventId?.trim() || order.payload.paymentIngressEventId?.trim() || null
+      : null;
+
+  if (params.intent === "paid" && !paymentIngressEventId) {
+    throw new Error(`missing payment_ingress_event_id for paid print job ${params.orderReference}`);
+  }
+
+  if (params.intent === "paid") {
+    const result = await client.execute({
+      sql: `
+        INSERT OR IGNORE INTO print_queue (
+          print_job_id, order_reference, intent, payment_ingress_event_id, created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `,
+      args: [printJobId, params.orderReference, params.intent, paymentIngressEventId, createdAt],
+    });
+    return (result.rowsAffected ?? 0) > 0 ? printJobId : null;
+  }
+
+  await client.execute({
+    sql: `
+      INSERT INTO print_queue (
+        print_job_id, order_reference, intent, payment_ingress_event_id, created_at
+      )
+      VALUES (?, ?, ?, NULL, ?)
+    `,
+    args: [printJobId, params.orderReference, params.intent, createdAt],
+  });
+  return printJobId;
+}
+
+export async function listPrintJobs(client: Client): Promise<PrintQueueJob[]> {
   const result = await client.execute(`
-    SELECT po.payload_json, po.customer_name
-    FROM purchase_orders po
-    JOIN status_history sh
-      ON sh.order_reference = po.order_reference
-     AND sh.status_id = po.status_id
-    WHERE sh.status = 'paid'
-    ORDER BY po.created_at ASC
+    SELECT print_job_id, order_reference, intent, payment_ingress_event_id, created_at
+    FROM print_queue
+    ORDER BY created_at ASC
   `);
   const rows = (result.rows ?? []) as Record<string, unknown>[];
-  return rows.map((row) => {
-    const raw = row.payload_json ?? row.PAYLOAD_JSON;
-    const parsed = JSON.parse(String(raw)) as KitchenOrderPayload;
-    const fromDb = String(row.customer_name ?? row.CUSTOMER_NAME ?? "").trim();
-    if (!fromDb) {
-      throw new Error("Missing customer_name for paid purchase order");
+  return rows.map((row) => ({
+    printJobId: String(row.print_job_id ?? row.PRINT_JOB_ID),
+    orderReference: String(row.order_reference ?? row.ORDER_REFERENCE),
+    intent: String(row.intent ?? row.INTENT) as KitchenOrderIntent,
+    paymentIngressEventId:
+      row.payment_ingress_event_id != null || row.PAYMENT_INGRESS_EVENT_ID != null
+        ? String(row.payment_ingress_event_id ?? row.PAYMENT_INGRESS_EVENT_ID)
+        : null,
+    createdAt: Number(row.created_at ?? row.CREATED_AT),
+  }));
+}
+
+export async function listPrintJobsHydrated(
+  client: Client,
+): Promise<Array<{ printJobId: string; payload: KitchenOrderPayload }>> {
+  const jobs = await listPrintJobs(client);
+  const hydrated: Array<{ printJobId: string; payload: KitchenOrderPayload }> = [];
+  for (const job of jobs) {
+    const order = await getPurchaseOrderByReference(client, job.orderReference);
+    if (!order) {
+      console.error(`print_queue orphan job ${job.printJobId} for missing order ${job.orderReference}`);
+      continue;
     }
-    return { ...parsed, customerName: fromDb, intent: "paid" };
+    hydrated.push({
+      printJobId: job.printJobId,
+      payload: hydratePrintJobPayload(order, job.intent),
+    });
+  }
+  return hydrated;
+}
+
+/** Delete print job; for paid intent also advances purchase order to acknowledged. */
+export async function ackPrintJob(client: Client, printJobId: string): Promise<void> {
+  const selected = await client.execute({
+    sql: `
+      SELECT intent, payment_ingress_event_id
+      FROM print_queue
+      WHERE print_job_id = ?
+    `,
+    args: [printJobId],
   });
+  const rows = (selected.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) {
+    return;
+  }
+
+  const intent = String(rows[0].intent ?? rows[0].INTENT);
+  const paymentIngressEventId = rows[0].payment_ingress_event_id ?? rows[0].PAYMENT_INGRESS_EVENT_ID;
+
+  await client.execute({
+    sql: `DELETE FROM print_queue WHERE print_job_id = ?`,
+    args: [printJobId],
+  });
+
+  if (intent === "paid" && paymentIngressEventId != null) {
+    await markPurchaseOrderAcknowledged(client, String(paymentIngressEventId));
+  }
 }
 
 /**

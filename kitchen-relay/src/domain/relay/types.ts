@@ -21,3 +21,8 @@ export type OrderPaidPayload = OrderTotals & {
   intent: KitchenOrderIntent;
   lines: OrderPaidLine[];
 };
+
+export type PrintJobHandlerInput = {
+  printJobId: string;
+  payload: OrderPaidPayload;
+};

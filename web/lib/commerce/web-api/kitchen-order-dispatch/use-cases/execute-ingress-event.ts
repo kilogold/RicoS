@@ -1,6 +1,5 @@
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
-import { publishOrder } from "@/lib/infrastructure/sse/order-paid-bus";
 import {
   getPurchaseOrderByReference,
   markSolanaPurchaseOrderPaidIfNew,
@@ -76,7 +75,7 @@ function assertPaymentMatchesSavedOrder(
   }
 }
 
-/** Stripe ingress: mark the pending `purchase_orders` row paid, then broadcast on first transition. */
+/** Stripe ingress: mark the pending `purchase_orders` row paid and enqueue kitchen print. */
 export async function executeStripeIngressEvent(
   db: Client,
   event: NormalizedIngressEvent,
@@ -89,17 +88,10 @@ export async function executeStripeIngressEvent(
   }
 
   try {
-    const inserted = await markStripePurchaseOrderPaidIfNew(db, {
+    await markStripePurchaseOrderPaidIfNew(db, {
       orderReference: event.paymentReferenceId,
       payload,
     });
-    if (inserted) {
-      try {
-        publishOrder(payload);
-      } catch (broadcastErr) {
-        console.error("SSE broadcast failed (order is persisted):", broadcastErr);
-      }
-    }
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -108,9 +100,7 @@ export async function executeStripeIngressEvent(
   }
 }
 
-/**
- * Solana ingress: mark the pending `purchase_orders` row paid, then broadcast after commit.
- */
+/** Solana ingress: mark the pending `purchase_orders` row paid and enqueue kitchen print. */
 export async function executeSolanaIngressEvent(
   db: Client,
   event: NormalizedIngressEvent,
@@ -124,17 +114,10 @@ export async function executeSolanaIngressEvent(
   }
 
   try {
-    const inserted = await markSolanaPurchaseOrderPaidIfNew(db, {
+    await markSolanaPurchaseOrderPaidIfNew(db, {
       orderReference: context.orderReference,
       payload,
     });
-    if (inserted) {
-      try {
-        publishOrder(payload);
-      } catch (broadcastErr) {
-        console.error("SSE broadcast failed (order is persisted):", broadcastErr);
-      }
-    }
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

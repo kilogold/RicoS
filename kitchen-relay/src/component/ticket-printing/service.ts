@@ -6,7 +6,6 @@ export {
   printReceipt,
 } from "./adapters";
 export { printWithRetries } from "./retry";
-export { appendDeadLetter } from "./dead-letter";
 export type {
   CartLine,
   ConsolePrinterOptions,

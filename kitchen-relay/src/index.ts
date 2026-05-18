@@ -3,9 +3,8 @@ import {
   createIpPrinterAdapter,
   createLpPrinterAdapter,
 } from "./component/ticket-printing/service";
-import { createSqliteIdempotencyStore, resolveIdempotencyStorePath } from "./domain/idempotency";
 import { startRelayLoop } from "./domain/runtime/relay-loop";
-import { createOrderPaidHandler } from "./domain/runtime/order-paid-handler";
+import { createPrintJobHandler } from "./domain/runtime/order-paid-handler";
 
 const backendBase = (
   process.env.KITCHEN_BACKEND_BASE_URL ||
@@ -14,8 +13,6 @@ const backendBase = (
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
 const logFilePath = process.env.KITCHEN_PRINT_LOG;
 const printerAdapterEnv = process.env.KITCHEN_PRINTER_ADAPTER;
-const deadLetterPath = process.env.KITCHEN_PRINT_DEAD_LETTER?.trim() || undefined;
-const idempotencyPath = resolveIdempotencyStorePath(process.env.KITCHEN_IDEMPOTENCY_STORE);
 const kitchenRelayPortRaw = process.env.KITCHEN_RELAY_PORT?.trim();
 const ipPrinterHost = process.env.KITCHEN_IP_PRINTER_HOST?.trim();
 const ipPrinterPortRaw = process.env.KITCHEN_IP_PRINTER_PORT?.trim();
@@ -39,6 +36,7 @@ const printRetryInitialDelayMs = parsePositiveInt(
   process.env.KITCHEN_PRINT_RETRY_INITIAL_DELAY_MS,
   200,
 );
+const pollIntervalMs = parsePositiveInt(process.env.KITCHEN_PRINT_POLL_INTERVAL_MS, 10_000);
 
 if (
   !printerAdapterEnv ||
@@ -61,11 +59,10 @@ const printer =
           host: ipPrinterHost,
           port: ipPrinterPortRaw ? parsePositiveInt(ipPrinterPortRaw, 9100) : undefined,
         })
-    : createLpPrinterAdapter({
-        destination: process.env.KITCHEN_PRINTER_NAME?.trim() || undefined,
-        title: process.env.KITCHEN_PRINTER_TITLE?.trim() || undefined,
-      });
-const idempotency = createSqliteIdempotencyStore(idempotencyPath);
+      : createLpPrinterAdapter({
+          destination: process.env.KITCHEN_PRINTER_NAME?.trim() || undefined,
+          title: process.env.KITCHEN_PRINTER_TITLE?.trim() || undefined,
+        });
 
 if (!kitchenRelayPortRaw) {
   console.error("Missing KITCHEN_RELAY_PORT");
@@ -79,16 +76,13 @@ if (!Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) {
 }
 
 console.log(`Printer adapter: ${printerAdapterEnv}`);
-console.log(`Idempotency store: ${idempotencyPath}`);
 
-const handleOrderPaid = createOrderPaidHandler(
-  idempotency,
+const handlePrintJob = createPrintJobHandler(
   printer,
   printMaxAttempts,
   printRetryInitialDelayMs,
   backendBase,
   printAckSecret,
-  deadLetterPath,
 );
 
-startRelayLoop(backendBase, relayPort, handleOrderPaid);
+startRelayLoop(backendBase, relayPort, printAckSecret, pollIntervalMs, handlePrintJob);

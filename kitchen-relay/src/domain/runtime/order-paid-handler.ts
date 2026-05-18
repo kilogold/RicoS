@@ -1,44 +1,21 @@
 import {
-  appendDeadLetter,
   formatTicket,
   printModeFromIntent,
   printWithRetries,
   type PrinterAdapter,
 } from "../../component/ticket-printing/service";
 import { postPrintAck } from "../relay/ack";
-import type { OrderPaidPayload } from "../relay/types";
-import type { IdempotencyStore } from "../idempotency";
+import type { PrintJobHandlerInput } from "../relay/types";
 
-export function createOrderPaidHandler(
-  idempotency: IdempotencyStore,
+export function createPrintJobHandler(
   printer: PrinterAdapter,
   printMaxAttempts: number,
   printRetryInitialDelayMs: number,
   backendBase: string,
   printAckSecret: string | undefined,
-  deadLetterPath: string | undefined,
-): (data: OrderPaidPayload) => Promise<void> {
-  return async (data: OrderPaidPayload): Promise<void> => {
-    const eventId = data.paymentIngressEventId;
-    const intent = data.intent;
-    const isManualPrint = intent === "manual-print";
-
-    const shouldProcess = isManualPrint
-      ? true
-      : await idempotency.tryCommit(`${eventId}:${intent}`);
-    if (!shouldProcess) {
-      try {
-        await postPrintAck({
-          backendBase,
-          printAckSecret,
-          paymentIngressEventId: eventId,
-          intent,
-        });
-      } catch (err) {
-        console.error("print-ack retry after idempotent skip failed:", err);
-      }
-      return;
-    }
+): (job: PrintJobHandlerInput) => Promise<void> {
+  return async (job: PrintJobHandlerInput): Promise<void> => {
+    const { printJobId, payload: data } = job;
 
     const text = formatTicket({
       mode: printModeFromIntent(data.intent),
@@ -55,30 +32,10 @@ export function createOrderPaidHandler(
       printedAt: new Date(),
     });
 
-    try {
-      await printWithRetries(printer, text, {
-        maxAttempts: printMaxAttempts,
-        initialDelayMs: printRetryInitialDelayMs,
-      });
-      await postPrintAck({
-        backendBase,
-        printAckSecret,
-        paymentIngressEventId: eventId,
-        intent,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Print failed after retries:", message);
-      if (deadLetterPath) {
-        try {
-          await appendDeadLetter(deadLetterPath, text, {
-            eventId,
-            message,
-          });
-        } catch (dlErr) {
-          console.error("Dead-letter write failed:", dlErr);
-        }
-      }
-    }
+    await printWithRetries(printer, text, {
+      maxAttempts: printMaxAttempts,
+      initialDelayMs: printRetryInitialDelayMs,
+    });
+    await postPrintAck({ backendBase, printAckSecret, printJobId });
   };
 }

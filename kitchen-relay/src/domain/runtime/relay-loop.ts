@@ -1,16 +1,16 @@
 import http from "node:http";
 import PQueue from "p-queue";
-import { subscribeOrderPaidStream } from "../relay/stream";
-import type { OrderPaidPayload } from "../relay/types";
+import { startPrintJobPoller, type PrintJob } from "../relay/poll-jobs";
+import type { PrintJobHandlerInput } from "../relay/types";
 
 export function startRelayLoop(
   backendBase: string,
   relayPort: number,
-  handleOrderPaid: (payload: OrderPaidPayload) => Promise<void>,
+  printAckSecret: string | undefined,
+  pollIntervalMs: number,
+  handlePrintJob: (job: PrintJobHandlerInput) => Promise<void>,
 ): void {
-
-  const streamUrl = `${backendBase}/api/events/stream`;
-  console.log(`Printing relay subscribing to SSE: ${streamUrl}`);
+  console.log(`Printing relay polling jobs: ${backendBase}/api/print/jobs (every ${pollIntervalMs}ms)`);
   console.log(`Print ack URL: ${backendBase}/api/print/ack`);
   console.log(`Health: http://127.0.0.1:${relayPort}/health`);
 
@@ -25,18 +25,25 @@ export function startRelayLoop(
   });
   healthServer.listen(relayPort, "127.0.0.1");
 
-  // Concurrency=1 guarantees FIFO processing for paid-order events.
   const orderQueue = new PQueue({ concurrency: 1 });
 
-  function onOrderPaid(payload: OrderPaidPayload): void {
-    orderQueue.add(() => handleOrderPaid(payload)).catch((err: unknown) => {
-      console.error("Queued order processing failed:", err);
-    });
+  function onPrintJob(job: PrintJob): void {
+    orderQueue
+      .add(() => handlePrintJob({ printJobId: job.printJobId, payload: job.payload }))
+      .catch((err: unknown) => {
+        console.error("Print job failed (will retry on next poll):", err);
+      });
   }
 
-  function onStreamError(err: unknown): void {
-    console.error("SSE error / reconnecting:", err);
+  function onPollError(err: unknown): void {
+    console.error("Print jobs poll error:", err);
   }
 
-  subscribeOrderPaidStream(backendBase, onOrderPaid, onStreamError);
+  startPrintJobPoller({
+    backendBase,
+    printAckSecret,
+    intervalMs: pollIntervalMs,
+    onJob: onPrintJob,
+    onError: onPollError,
+  });
 }

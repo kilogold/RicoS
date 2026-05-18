@@ -1,12 +1,12 @@
 import { createClient, type Client } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
-import { subscribeOrder } from "@/lib/infrastructure/sse/order-paid-bus";
 import {
   insertPendingPurchaseOrderIfNew,
+  listPrintJobs,
   markStripePurchaseOrderPaidIfNew,
-  markPurchaseOrderAcknowledged,
   migrate,
+  markPurchaseOrderAcknowledged,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { manualPrintPurchaseOrder } from "./manual-print-purchase-order";
 
@@ -68,27 +68,25 @@ describe("manualPrintPurchaseOrder", () => {
     ).toBe(true);
     await markStripePurchaseOrderPaidIfNew(db, {
       orderReference: "pi_manual_print_test",
-      payload: payload(),
+      payload: payload({ intent: "paid", paymentIngressEventId: "evt_manual_print_test" }),
     });
   }
 
-  test("publishes manual-print intent for acknowledged order", async () => {
+  test("enqueues manual-print job for acknowledged order", async () => {
     await seedPaidOrder();
     await markPurchaseOrderAcknowledged(db, "evt_manual_print_test");
 
-    const received: KitchenOrderPayload[] = [];
-    const unsubscribe = subscribeOrder((p) => received.push(p));
+    const before = await listPrintJobs(db);
+    expect(before.filter((j) => j.intent === "manual-print")).toHaveLength(0);
 
     const result = await manualPrintPurchaseOrder(db, "pi_manual_print_test");
-    unsubscribe();
-
     expect(result).toEqual({ ok: true });
-    expect(received).toHaveLength(1);
-    expect(received[0]?.intent).toBe("manual-print");
-    expect(received[0]?.paymentIngressEventId).toBe("evt_manual_print_test");
+
+    const after = await listPrintJobs(db);
+    expect(after.filter((j) => j.intent === "manual-print")).toHaveLength(1);
   });
 
-  test("publishes manual-print for pending order with synthetic ingress id", async () => {
+  test("enqueues manual-print for pending order", async () => {
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference: "pi_pending",
       paymentProvider: "stripe",
@@ -101,15 +99,22 @@ describe("manualPrintPurchaseOrder", () => {
       customerEmail: null,
     });
 
-    const received: KitchenOrderPayload[] = [];
-    const unsubscribe = subscribeOrder((p) => received.push(p));
-
     const result = await manualPrintPurchaseOrder(db, "pi_pending");
-    unsubscribe();
-
     expect(result).toEqual({ ok: true });
-    expect(received[0]?.intent).toBe("manual-print");
-    expect(received[0]?.paymentIngressEventId).toBe("PENDING PAYMENT. NO SALE.");
+
+    const jobs = await listPrintJobs(db);
+    expect(jobs.filter((j) => j.intent === "manual-print")).toHaveLength(1);
+    expect(jobs[0]?.orderReference).toBe("pi_pending");
+  });
+
+  test("allows multiple manual-print jobs per order", async () => {
+    await seedPaidOrder();
+    await manualPrintPurchaseOrder(db, "pi_manual_print_test");
+    await manualPrintPurchaseOrder(db, "pi_manual_print_test");
+    await manualPrintPurchaseOrder(db, "pi_manual_print_test");
+
+    const manualJobs = (await listPrintJobs(db)).filter((j) => j.intent === "manual-print");
+    expect(manualJobs).toHaveLength(3);
   });
 
   test("returns not_found for unknown order", async () => {

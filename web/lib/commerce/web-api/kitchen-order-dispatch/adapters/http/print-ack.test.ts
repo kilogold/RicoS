@@ -1,11 +1,11 @@
 import { createClient, type Client } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
-  type KitchenOrderPayload,
-  PENDING_PAYMENT_NO_SALE_INGRESS_ID,
-} from "@/lib/commerce/domain";
-import {
+  ackPrintJob,
+  enqueuePrintJob,
   insertPendingPurchaseOrderIfNew,
+  listPrintJobs,
   markStripePurchaseOrderPaidIfNew,
   migrate,
   markPurchaseOrderAcknowledged,
@@ -72,73 +72,77 @@ describe("handlePrintAckRequest", () => {
     testDb.close();
   });
 
-  test("paid intent advances lifecycle and echoes intent", async () => {
+  test("paid job ack advances lifecycle and clears queue", async () => {
+    const jobs = await listPrintJobs(testDb);
+    const paidJob = jobs.find((j) => j.intent === "paid");
+    expect(paidJob).toBeDefined();
+
     const res = await handlePrintAckRequest(
       new Request("http://localhost/api/print/ack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentIngressEventId: "evt_print_ack",
-          intent: "paid",
-        }),
+        body: JSON.stringify({ printJobId: paidJob!.printJobId }),
       }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ intent: "paid" });
+    expect(await res.json()).toEqual({ ok: true });
     expect(await statusHistory(testDb, "pi_print_ack")).toEqual([
       "pending",
       "paid",
       "acknowledged",
     ]);
+    expect(await listPrintJobs(testDb)).toEqual([]);
   });
 
-  test("manual-print intent echoes intent without lifecycle change", async () => {
-    await markPurchaseOrderAcknowledged(testDb, "evt_print_ack");
+  test("manual-print job ack does not change lifecycle", async () => {
+    const jobs = await listPrintJobs(testDb);
+    const paidJob = jobs.find((j) => j.intent === "paid");
+    expect(paidJob).toBeDefined();
+    await ackPrintJob(testDb, paidJob!.printJobId);
+
+    const manualJobId = await enqueuePrintJob(testDb, {
+      orderReference: "pi_print_ack",
+      intent: "manual-print",
+    });
+    expect(manualJobId).toBeTruthy();
 
     const res = await handlePrintAckRequest(
       new Request("http://localhost/api/print/ack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentIngressEventId: "evt_print_ack",
-          intent: "manual-print",
-        }),
+        body: JSON.stringify({ printJobId: manualJobId }),
       }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ intent: "manual-print" });
+    expect(await res.json()).toEqual({ ok: true });
     expect(await statusHistory(testDb, "pi_print_ack")).toEqual([
       "pending",
       "paid",
       "acknowledged",
     ]);
+    expect(await listPrintJobs(testDb)).toEqual([]);
   });
 
-  test("accepts pending-payment sentinel for manual-print ack", async () => {
+  test("ack is idempotent for unknown job id", async () => {
     const res = await handlePrintAckRequest(
       new Request("http://localhost/api/print/ack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentIngressEventId: PENDING_PAYMENT_NO_SALE_INGRESS_ID,
-          intent: "manual-print",
-        }),
+        body: JSON.stringify({ printJobId: "00000000-0000-4000-8000-000000000000" }),
       }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ intent: "manual-print" });
-    expect(await statusHistory(testDb, "pi_print_ack")).toEqual(["pending", "paid"]);
+    expect(await res.json()).toEqual({ ok: true });
   });
 
-  test("defaults intent to paid when omitted", async () => {
+  test("rejects missing printJobId", async () => {
     const res = await handlePrintAckRequest(
       new Request("http://localhost/api/print/ack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentIngressEventId: "evt_print_ack" }),
+        body: JSON.stringify({}),
       }),
     );
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ intent: "paid" });
+    expect(res.status).toBe(400);
   });
 });

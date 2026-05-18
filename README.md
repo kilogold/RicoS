@@ -82,8 +82,10 @@ Optional vars are documented in `.env.example` and `.env.local.example`.
 ## Kitchen Relay (On-Prem)
 
 - Run `kitchen-relay` under a supervisor (for example `systemd`)
-- Point `KITCHEN_BACKEND_BASE_URL` to hosted `web`
-- If using print ack auth, set matching `PRINT_ACK_SECRET` in `web` and relay
+- Point `KITCHEN_BACKEND_BASE_URL` to hosted `web` (must stay reachable; relay polls `GET /api/print/jobs`)
+- If using print ack auth, set matching `PRINT_ACK_SECRET` in `web` and relay (`X-Print-Ack-Key` header)
+- Print jobs live in Turso `print_queue` until the relay prints and calls `POST /api/print/ack` with `printJobId`; failed prints retry on the next poll (no ACK until success)
+- Optional: `KITCHEN_PRINT_POLL_INTERVAL_MS` (default `10000`)
 - Extend printing behavior in `kitchen-relay/src/component/ticket-printing/service.ts` as needed
 
 ## Menu Publish Workflow

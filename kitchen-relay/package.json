@@ -13,11 +13,9 @@
   "dependencies": {
     "@ricos/shared": "*",
     "@libsql/client": "^0.17.3",
-    "eventsource": "^2.0.2",
     "p-queue": "^9.2.0"
   },
   "devDependencies": {
-    "@types/eventsource": "^1.1.15",
     "@types/node": "^20.0.0",
     "bun-types": "^1.3.13",
     "typescript": "^5.0.0"

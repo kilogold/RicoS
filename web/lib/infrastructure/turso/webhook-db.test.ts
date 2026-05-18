@@ -5,7 +5,9 @@ import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-
 import {
   getPurchaseOrderByReference,
   insertPendingPurchaseOrderIfNew,
-  listPaidPurchaseOrdersForKitchen,
+  ackPrintJob,
+  enqueuePrintJob,
+  listPrintJobs,
   markPurchaseOrderAcknowledged,
   markPurchaseOrderExpired,
   markPurchaseOrderFulfilled,
@@ -96,6 +98,7 @@ describe("webhook-db payment persistence", () => {
 
     expect((result.rows ?? []).map((row) => String(row.name))).toEqual([
       "menu_versions",
+      "print_queue",
       "purchase_orders",
       "refunds",
       "status_history",
@@ -166,16 +169,14 @@ describe("webhook-db payment persistence", () => {
       }),
     ).toBe(false);
 
-    expect((await listPaidPurchaseOrdersForKitchen(db)).map((row) => row.paymentIngressEventId)).toEqual([
-      "evt_helius_sig_1",
-    ]);
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Grace");
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.intent).toBe("paid");
-    expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
-    expect(await markPurchaseOrderAcknowledged(db, "evt_helius_sig_1")).toBe(true);
+    const pendingJobs = await listPrintJobs(db);
+    expect(pendingJobs).toHaveLength(1);
+    expect(pendingJobs[0]?.intent).toBe("paid");
+    expect(pendingJobs[0]?.paymentIngressEventId).toBe("evt_helius_sig_1");
+
+    await ackPrintJob(db, pendingJobs[0]!.printJobId);
     expect(await statusHistory(db, "solana_ref_2")).toEqual(["pending", "paid", "acknowledged"]);
-    expect(await listPaidPurchaseOrdersForKitchen(db)).toEqual([]);
+    expect(await listPrintJobs(db)).toEqual([]);
     expect(await markPurchaseOrderFulfilled(db, "solana_ref_2")).toBe(true);
 
     expect((await getPurchaseOrderByReference(db, "solana_ref_2"))?.status).toBe("fulfilled");
@@ -221,9 +222,58 @@ describe("webhook-db payment persistence", () => {
     expect(paid?.payload.paymentIngressEventId).toBe("evt_stripe_saved_payload");
     expect(paid?.payload.intent).toBe("paid");
     expect(paid?.payload.customerName).toBe("Saved");
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.serviceMode).toBe("dine_in");
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.customerName).toBe("Saved");
-    expect((await listPaidPurchaseOrdersForKitchen(db))[0]?.intent).toBe("paid");
+    const jobs = await listPrintJobs(db);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.intent).toBe("paid");
+    expect(jobs[0]?.orderReference).toBe("pi_saved_payload");
+  });
+
+  test("print queue dedupes paid jobs per order", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pi_dup_paid",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 1000,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pi_dup_paid",
+      }),
+      customerName: "Dup",
+      customerPhone: "555-0105",
+      customerEmail: null,
+    });
+    const paidPayload = payload({
+      paymentIngressEventId: "evt_dup",
+      paymentReferenceId: "pi_dup_paid",
+      intent: "paid",
+    });
+    await markStripePurchaseOrderPaidIfNew(db, {
+      orderReference: "pi_dup_paid",
+      payload: paidPayload,
+    });
+    expect(await enqueuePrintJob(db, { orderReference: "pi_dup_paid", intent: "paid" })).toBeNull();
+    expect(await listPrintJobs(db)).toHaveLength(1);
+  });
+
+  test("print queue allows multiple manual-print jobs", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pi_multi_manual",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 1000,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pi_multi_manual",
+      }),
+      customerName: "Multi",
+      customerPhone: "555-0106",
+      customerEmail: null,
+    });
+    await enqueuePrintJob(db, { orderReference: "pi_multi_manual", intent: "manual-print" });
+    await enqueuePrintJob(db, { orderReference: "pi_multi_manual", intent: "manual-print" });
+    expect((await listPrintJobs(db)).filter((j) => j.intent === "manual-print")).toHaveLength(2);
   });
 
   test("print ack is idempotent and only advances paid to acknowledged", async () => {

@@ -1,1 +1,1 @@
-export { handleKitchenOrderEventStream, handlePrintAckRequest } from "./adapters/http";
+export { handlePrintAckRequest, handlePrintJobsRequest } from "./adapters/http";
