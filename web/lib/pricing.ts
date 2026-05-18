@@ -1,5 +1,5 @@
 import {
-  computeOrderTotals,
+  computeOrderTotalsFromLines,
   type MenuCatalogSurface,
   type MenuDocument,
   type MenuItem,
@@ -34,14 +34,20 @@ export function orderTotalsForCart(
   surface: MenuCatalogSurface,
   orderFees: OrderFeeRates,
 ): OrderTotals {
-  return computeOrderTotals(subtotalCents(lines, surface), orderFees);
+  const pricedLines = linesWithItems(lines, surface).map(({ line, item }) => ({
+    lineExtendedTotalCents: lineTotalCents(line, surface),
+    salesTaxRate: item.salesTaxRate,
+    municipalTaxRate: item.municipalTaxRate,
+  }));
+  return computeOrderTotalsFromLines(pricedLines, orderFees.serviceFeeRate);
 }
 
 export function orderTotalsForCatalog(
-  subtotal: number,
+  lines: CartLine[],
+  surface: MenuCatalogSurface,
   catalog: MenuDocument,
 ): OrderTotals {
-  return computeOrderTotals(subtotal, catalog.orderFees);
+  return orderTotalsForCart(lines, surface, catalog.orderFees);
 }
 
 export function lineUnitPriceCents(line: CartLine, surface: MenuCatalogSurface): number {

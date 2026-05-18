@@ -1,9 +1,8 @@
 import {
-  computeOrderTotals,
+  computeOrderTotalsFromHydratedCart,
   createMenuCatalogSurface,
   decodeCartFromMetadataV1,
   type HydratedCart,
-  type HydratedCartLine,
 } from "@ricos/shared";
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
@@ -48,11 +47,6 @@ export async function buildKitchenOrderPayload(
     throw new IngressProcessError("invalid_cart_metadata", message);
   }
 
-  const subtotalCents = decodedCart.lines.reduce(
-    (sum: number, line: HydratedCartLine) => sum + line.lineExtendedTotalCents,
-    0,
-  );
-
   const decodeIndex = getDecodeIndex(decodedCart.menuVersion);
   if (!decodeIndex) {
     throw new IngressProcessError(
@@ -61,7 +55,7 @@ export async function buildKitchenOrderPayload(
     );
   }
 
-  const orderTotals = computeOrderTotals(subtotalCents, decodeIndex.orderFees);
+  const orderTotals = computeOrderTotalsFromHydratedCart(decodedCart.lines, decodeIndex);
   if (orderTotals.grandTotalCents !== Number(event.grandTotalCents)) {
     throw new IngressProcessError(
       "cart_total_mismatch",

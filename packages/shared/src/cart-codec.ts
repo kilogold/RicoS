@@ -57,6 +57,8 @@ export type DecodeIndexGroup = {
 export type DecodeIndexItem = {
   id: string;
   priceCents: number;
+  salesTaxRate: number;
+  municipalTaxRate: number;
   groups: DecodeIndexGroup[];
 };
 
@@ -110,7 +112,7 @@ export type HydratedCart = {
  * Encoder output.
  * `metadata` goes on the Stripe PaymentIntent.
  * `amountCents` is the cart subtotal (items + modifiers); callers apply
- * `computeOrderTotals` with `decodeIndex.orderFees` for the charge amount.
+ * `computeOrderTotalsFromHydratedCart` with the pinned decode index for the charge amount.
  */
 export type EncodeCartResult = {
   metadata: Record<string, string>;

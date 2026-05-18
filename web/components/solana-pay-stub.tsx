@@ -20,7 +20,6 @@ import {
   CART_B64_KEY,
   CART_CODEC_ID_V1,
   CART_CODEC_KEY,
-  computeOrderTotals,
   encodeCartToMetadataV1,
   type MenuDocument,
 } from "@ricos/shared";
@@ -39,7 +38,7 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
-import { formatUsd, linesWithItems, subtotalCents } from "@/lib/pricing";
+import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
 
 // Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
 const MERCHANT_WALLET = "EEHj6a2oScEN2nKT7rN9n2UKT2jLbGQtJnNK5cC5MDJb";
@@ -153,8 +152,7 @@ export function SolanaPayStub({
   // one-shot snapshot so request construction / reference generation don't
   // re-fire on unrelated re-renders (e.g. language toggles, status pills).
   const [snapshot] = useState(() => {
-    const subtotal = subtotalCents(lines, surface);
-    const grandTotalCents = computeOrderTotals(subtotal, catalog.orderFees).grandTotalCents;
+    const grandTotalCents = orderTotalsForCart(lines, surface, catalog.orderFees).grandTotalCents;
     return {
       cents: grandTotalCents,
       menuVersion: menuVersionSeen,

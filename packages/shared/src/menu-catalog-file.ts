@@ -91,6 +91,8 @@ function parseMenuItem(raw: unknown, ctx: string): MenuItem {
     name: it.name,
     description: it.description,
     priceCents: it.priceCents,
+    salesTaxRate: parseDecimalFeeRate(it.salesTaxRate, `${ctx}.salesTaxRate`),
+    municipalTaxRate: parseDecimalFeeRate(it.municipalTaxRate, `${ctx}.municipalTaxRate`),
   };
   if (it.modifierGroups !== undefined) {
     if (!Array.isArray(it.modifierGroups)) {
@@ -126,7 +128,7 @@ function parseMenuCategory(raw: unknown, ctx: string): MenuCategory {
 
 function parseDecimalFeeRate(rawRate: unknown, rateFieldName: string): number {
   if (typeof rawRate !== "number" || !Number.isFinite(rawRate) || rawRate < 0 || rawRate >= 1) {
-    throw new Error(`Invalid menu: orderFees.${rateFieldName} must be a number in [0, 1)`);
+    throw new Error(`Invalid menu: ${rateFieldName} must be a number in [0, 1)`);
   }
   return rawRate;
 }
@@ -137,9 +139,7 @@ function parseOrderFees(rawOrderFees: unknown): OrderFeeRates {
   }
   const orderFeesFields = rawOrderFees as Record<string, unknown>;
   return {
-    serviceFeeRate: parseDecimalFeeRate(orderFeesFields.serviceFeeRate, "serviceFeeRate"),
-    salesTaxRate: parseDecimalFeeRate(orderFeesFields.salesTaxRate, "salesTaxRate"),
-    municipalTaxRate: parseDecimalFeeRate(orderFeesFields.municipalTaxRate, "municipalTaxRate"),
+    serviceFeeRate: parseDecimalFeeRate(orderFeesFields.serviceFeeRate, "orderFees.serviceFeeRate"),
   };
 }
 

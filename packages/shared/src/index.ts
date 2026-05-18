@@ -21,13 +21,16 @@ export type {
   MenuItem,
   ModifierGroup,
   ModifierOption,
+  ItemTaxRates,
   OrderFeeRates,
   SelectionType,
 } from "./menu-types";
 
 export {
-  computeOrderTotals,
+  computeOrderTotalsFromHydratedCart,
+  computeOrderTotalsFromLines,
   type OrderTotals,
+  type PricedLineForTotals,
 } from "./order-totals";
 
 export {

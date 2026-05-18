@@ -30,7 +30,13 @@ export type ModifierGroup = {
   options: ModifierOption[];
 };
 
-export type MenuItem = {
+/** Per-item tax rates (decimal fractions, e.g. 0.105 = 10.5%). */
+export type ItemTaxRates = {
+  salesTaxRate: number;
+  municipalTaxRate: number;
+};
+
+export type MenuItem = ItemTaxRates & {
   id: string;
   name: LocalizedText;
   description: LocalizedText;
@@ -45,11 +51,9 @@ export type MenuCategory = {
   items: MenuItem[];
 };
 
-/** Decimal fractions applied at checkout (e.g. 0.05 = 5%). */
+/** Menu-wide fee rates applied at checkout (e.g. 0.05 = 5%). */
 export type OrderFeeRates = {
   serviceFeeRate: number;
-  salesTaxRate: number;
-  municipalTaxRate: number;
 };
 
 export type MenuDocument = {

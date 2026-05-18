@@ -32,6 +32,8 @@ export function buildDecodeIndex(version: number, catalog: MenuDocument): Decode
       items.push({
         id: item.id,
         priceCents: item.priceCents,
+        salesTaxRate: item.salesTaxRate,
+        municipalTaxRate: item.municipalTaxRate,
         groups,
       });
     }

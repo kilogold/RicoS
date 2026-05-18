@@ -1,6 +1,7 @@
 import type { Client } from "@libsql/client";
 import {
-  computeOrderTotals,
+  computeOrderTotalsFromHydratedCart,
+  decodeCartFromMetadataV1,
   encodeCartToMetadataV1,
   type CartLineInput,
 } from "@ricos/shared";
@@ -116,7 +117,10 @@ export async function createPaymentIntentFromCart(
     return { ok: false, status: 400, error: message };
   }
 
-  const orderTotals = computeOrderTotals(encoded.amountCents, decodeIndex.orderFees);
+  const hydratedCart = decodeCartFromMetadataV1(encoded.metadata, (v) =>
+    v === activeVersion ? decodeIndex : undefined,
+  );
+  const orderTotals = computeOrderTotalsFromHydratedCart(hydratedCart.lines, decodeIndex);
 
   if (orderTotals.grandTotalCents < 50) {
     return { ok: false, status: 400, error: "Amount too small" };
