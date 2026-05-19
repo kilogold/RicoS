@@ -1,7 +1,14 @@
 import http from "node:http";
-import PQueue from "p-queue";
-import { startPrintJobPoller, type PrintJob } from "../relay/poll-jobs";
+import { startPrintJobPoller } from "../relay/poll-jobs";
+import { startPrintBellConsumer } from "../relay/sqs-wakeup";
 import type { PrintJobHandlerInput } from "../relay/types";
+
+function resolveAwsRegion(queueUrl: string): string | undefined {
+  const fromEnv = process.env.AWS_REGION?.trim();
+  if (fromEnv) return fromEnv;
+  const match = queueUrl.match(/sqs\.([a-z0-9-]+)\.amazonaws\.com/i);
+  return match?.[1];
+}
 
 export function startRelayLoop(
   backendBase: string,
@@ -10,7 +17,22 @@ export function startRelayLoop(
   pollIntervalMs: number,
   handlePrintJob: (job: PrintJobHandlerInput) => Promise<void>,
 ): void {
-  console.log(`Printing relay polling jobs: ${backendBase}/api/print/jobs (every ${pollIntervalMs}ms)`);
+  const queueUrl = process.env.PRINT_BELL_QUEUE_URL?.trim();
+  const sqsRegion = queueUrl ? resolveAwsRegion(queueUrl) : undefined;
+
+  if (queueUrl) {
+    if (!sqsRegion) {
+      console.error(
+        "PRINT_BELL_QUEUE_URL is set but AWS_REGION could not be determined (set AWS_REGION or use sqs.<region>.amazonaws.com in the URL)",
+      );
+      process.exit(1);
+    }
+    console.log(`PrintBell: SQS long-poll (${queueUrl})`);
+    console.log(`Print jobs fetched from: ${backendBase}/api/print/jobs`);
+  } else {
+    console.log(`Printing relay polling jobs: ${backendBase}/api/print/jobs (every ${pollIntervalMs}ms)`);
+  }
+
   console.log(`Print ack URL: ${backendBase}/api/print/ack`);
   console.log(`Health: http://127.0.0.1:${relayPort}/health`);
 
@@ -25,25 +47,26 @@ export function startRelayLoop(
   });
   healthServer.listen(relayPort, "127.0.0.1");
 
-  const orderQueue = new PQueue({ concurrency: 1 });
-
-  function onPrintJob(job: PrintJob): void {
-    orderQueue
-      .add(() => handlePrintJob({ printJobId: job.printJobId, payload: job.payload }))
-      .catch((err: unknown) => {
-        console.error("Print job failed (will retry on next poll):", err);
-      });
-  }
-
   function onPollError(err: unknown): void {
     console.error("Print jobs poll error:", err);
   }
 
-  startPrintJobPoller({
-    backendBase,
-    printAckSecret,
-    intervalMs: pollIntervalMs,
-    onJob: onPrintJob,
-    onError: onPollError,
-  });
+  if (queueUrl && sqsRegion) {
+    startPrintBellConsumer({
+      queueUrl,
+      region: sqsRegion,
+      backendBase,
+      printAckSecret,
+      handlePrintJob,
+      onError: onPollError,
+    });
+  } else {
+    startPrintJobPoller({
+      backendBase,
+      printAckSecret,
+      intervalMs: pollIntervalMs,
+      handlePrintJob,
+      onError: onPollError,
+    });
+  }
 }

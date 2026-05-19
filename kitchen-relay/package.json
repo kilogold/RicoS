@@ -8,12 +8,13 @@
     "start": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "print:test": "bun scripts/test-receipt-printer.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.750.0",
     "@ricos/shared": "*",
-    "@libsql/client": "^0.17.3",
-    "p-queue": "^9.2.0"
+    "@libsql/client": "^0.17.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

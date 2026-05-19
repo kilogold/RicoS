@@ -76,6 +76,11 @@ if (!Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) {
 }
 
 console.log(`Printer adapter: ${printerAdapterEnv}`);
+if (process.env.PRINT_BELL_QUEUE_URL?.trim()) {
+  console.log("Kitchen relay mode: PrintBell SQS wakeup");
+} else {
+  console.log(`Kitchen relay mode: HTTP interval poll (${pollIntervalMs}ms); set PRINT_BELL_QUEUE_URL for SQS`);
+}
 
 const handlePrintJob = createPrintJobHandler(
   printer,

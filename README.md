@@ -3,7 +3,7 @@
 Monorepo for RicoS online ordering.
 
 - `web`: Next.js storefront + API routes (Stripe checkout, Solana polling confirmation, staff menu publish)
-- `kitchen-relay`: Bun relay that consumes `order.paid` events and prints kitchen tickets
+- `kitchen-relay`: Bun relay that long-polls an SQS PrintBell queue (production) or HTTP-polls pending jobs (local dev), then prints kitchen tickets
 - `packages/shared`: Canonical menu and shared cart/menu utilities
 
 ## Current Runtime State
@@ -76,16 +76,18 @@ Optional vars are documented in `.env.example` and `.env.local.example`.
 ## Deploying `web` on Vercel
 
 - Configure project to build with Bun (`bun install`)
-- Set env vars used by `web` (Stripe, Turso, Solana, menu publish vars)
+- Set env vars used by `web` (Stripe, Turso, Solana, menu publish vars, optional PrintBell — see Kitchen Relay)
 - Keep `kitchen-relay` deployed separately (on-prem/supervised host)
 
 ## Kitchen Relay (On-Prem)
 
 - Run `kitchen-relay` under a supervisor (for example `systemd`)
-- Point `KITCHEN_BACKEND_BASE_URL` to hosted `web` (must stay reachable; relay polls `GET /api/print/jobs`)
+- Point `KITCHEN_BACKEND_BASE_URL` to hosted `web` (must stay reachable)
+- **PrintBell (recommended in production):** set `PRINT_BELL_QUEUE_URL` on both **Vercel (`web`)** and **kitchen-relay**. After a job is written to Turso `print_queue`, `web` sends one SQS message (wakeup only). The relay long-polls SQS, then `GET /api/print/jobs`, prints, `POST /api/print/ack`, and deletes the SQS message. Turso remains the source of truth for pending jobs.
+- **Local dev:** omit `PRINT_BELL_QUEUE_URL`; relay uses interval polling (`KITCHEN_PRINT_POLL_INTERVAL_MS`, default `10000`) instead — no AWS needed.
+- Configure the SQS queue visibility timeout (~300s) so it exceeds worst-case print + retries + ack before `DeleteMessage`.
 - If using print ack auth, set matching `PRINT_ACK_SECRET` in `web` and relay (`X-Print-Ack-Key` header)
-- Print jobs live in Turso `print_queue` until the relay prints and calls `POST /api/print/ack` with `printJobId`; failed prints retry on the next poll (no ACK until success)
-- Optional: `KITCHEN_PRINT_POLL_INTERVAL_MS` (default `10000`)
+- Print jobs live in Turso `print_queue` until the relay prints and calls `POST /api/print/ack` with `printJobId`; failed prints retry on the next wakeup / poll (no ACK until success)
 - Extend printing behavior in `kitchen-relay/src/component/ticket-printing/service.ts` as needed
 
 ## Menu Publish Workflow

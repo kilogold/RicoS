@@ -16,6 +16,7 @@ import {
   IngressProvider,
   PENDING_PAYMENT_NO_SALE_INGRESS_ID,
 } from "@/lib/commerce/domain";
+import { notifyPrintBell } from "@/lib/infrastructure/sqs/print-bell";
 
 export type PurchaseOrderStatus =
   | "pending"
@@ -528,7 +529,11 @@ export async function enqueuePrintJob(
       `,
       args: [printJobId, params.orderReference, params.intent, paymentIngressEventId, createdAt],
     });
-    return (result.rowsAffected ?? 0) > 0 ? printJobId : null;
+    const id = (result.rowsAffected ?? 0) > 0 ? printJobId : null;
+    if (id) {
+      void notifyPrintBell(id).catch((err) => console.error("PrintBell notify failed:", err));
+    }
+    return id;
   }
 
   await client.execute({
@@ -540,6 +545,7 @@ export async function enqueuePrintJob(
     `,
     args: [printJobId, params.orderReference, params.intent, createdAt],
   });
+  void notifyPrintBell(printJobId).catch((err) => console.error("PrintBell notify failed:", err));
   return printJobId;
 }
 

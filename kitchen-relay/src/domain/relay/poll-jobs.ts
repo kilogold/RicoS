@@ -1,4 +1,4 @@
-import type { OrderPaidPayload } from "./types";
+import type { OrderPaidPayload, PrintJobHandlerInput } from "./types";
 
 export type PrintJob = {
   printJobId: string;
@@ -35,6 +35,21 @@ export async function fetchPrintJobs(
   return valid;
 }
 
+export async function runPrintJobFetchOnce(
+  backendBase: string,
+  printAckSecret: string | undefined,
+  handlePrintJob: (job: PrintJobHandlerInput) => Promise<void>,
+): Promise<void> {
+  const jobs = await fetchPrintJobs(backendBase, printAckSecret);
+  for (const job of jobs) {
+    try {
+      await handlePrintJob({ printJobId: job.printJobId, payload: job.payload } as PrintJobHandlerInput);
+    } catch (err) {
+      console.error("Print job failed (will retry on next wakeup):", err);
+    }
+  }
+}
+
 const MIN_POLL_MS = 1_000;
 const MAX_BACKOFF_MS = 60_000;
 
@@ -42,7 +57,7 @@ export function startPrintJobPoller(params: {
   backendBase: string;
   printAckSecret: string | undefined;
   intervalMs: number;
-  onJob: (job: PrintJob) => void;
+  handlePrintJob: (job: PrintJobHandlerInput) => Promise<void>;
   onError: (err: unknown) => void;
 }): void {
   const intervalMs = Math.max(MIN_POLL_MS, params.intervalMs);
@@ -54,11 +69,12 @@ export function startPrintJobPoller(params: {
     if (stopped || inFlight) return;
     inFlight = true;
     try {
-      const jobs = await fetchPrintJobs(params.backendBase, params.printAckSecret);
+      await runPrintJobFetchOnce(
+        params.backendBase,
+        params.printAckSecret,
+        params.handlePrintJob,
+      );
       backoffMs = intervalMs;
-      for (const job of jobs) {
-        params.onJob(job);
-      }
     } catch (err) {
       params.onError(err);
       backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
