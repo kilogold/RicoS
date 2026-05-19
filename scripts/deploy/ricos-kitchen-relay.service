@@ -1,0 +1,21 @@
+[Unit]
+Description=RicoS kitchen-relay
+After=network-online.target cups.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ricos
+Group=ricos
+WorkingDirectory=/home/ricos/RicoS
+Environment=HOME=/home/ricos
+Environment=PATH=/home/ricos/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/ricos/.bun/bin/bun run start:kitchen
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ricos-kitchen-relay
+
+[Install]
+WantedBy=multi-user.target
