@@ -17,9 +17,6 @@ export function createLpPrinterAdapter(options: LpPrinterOptions = {}): PrinterA
       if (options.destination) {
         args.push("-d", options.destination);
       }
-      if (options.title) {
-        args.push("-t", options.title);
-      }
       await runLp(args, text);
       console.log(text);
     },
@@ -123,10 +120,11 @@ function runLp(args: string[], stdin: string): Promise<void> {
 export function createConsolePrinterAdapter(options: ConsolePrinterOptions = {}): PrinterAdapter {
   return {
     async print(text: string): Promise<void> {
-      console.log(text);
+      const prefix = options.label ? `[${options.label}]\n` : "";
+      console.log(`${prefix}${text}`);
       if (options.logFilePath) {
         const fs = await import("node:fs/promises");
-        await fs.appendFile(options.logFilePath, text + "\n", "utf8");
+        await fs.appendFile(options.logFilePath, prefix + text + "\n", "utf8");
       }
     },
   };

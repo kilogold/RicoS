@@ -74,12 +74,14 @@ export async function buildKitchenOrderPayload(
 
   const lines: KitchenOrderPayload["lines"] = decodedCart.lines.map((line) => {
     const item = surface.getItemById(line.id);
-    const itemLabel = item ? surface.resolveLocalizedText(item.name, "en") : line.id;
-    const selectionLines = surface.getSelectionDisplayLines(line.id, line.selections, "en");
+    if (!item) {
+      throw new IngressProcessError("invalid_cart_metadata", `Unknown menu item ${line.id}`);
+    }
     return {
       ...line,
-      itemLabel,
-      selectionLines,
+      station: item.station,
+      itemLabel: surface.resolveLocalizedText(item.name, "en"),
+      selectionLines: surface.getSelectionDisplayLines(line.id, line.selections, "en"),
     };
   });
 

@@ -1,10 +1,6 @@
-import {
-  createConsolePrinterAdapter,
-  createIpPrinterAdapter,
-  createLpPrinterAdapter,
-} from "./component/ticket-printing/service";
 import { startRelayLoop } from "./domain/runtime/relay-loop";
 import { createPrintJobHandler } from "./domain/runtime/order-paid-handler";
+import { resolvePrinterAdapters, type PrinterAdapterKind } from "./domain/runtime/printer-setup";
 
 const backendBase = (
   process.env.KITCHEN_BACKEND_BASE_URL ||
@@ -12,10 +8,10 @@ const backendBase = (
 ).replace(/\/$/, ""); // avoid double-slash in endpoint joins.
 const printAckSecret = process.env.PRINT_ACK_SECRET?.trim();
 const logFilePath = process.env.KITCHEN_PRINT_LOG;
-const printerAdapterEnv = process.env.KITCHEN_PRINTER_ADAPTER;
+const printerAdapterEnv = process.env.KITCHEN_PRINTER_ADAPTER?.trim();
 const kitchenRelayPortRaw = process.env.KITCHEN_RELAY_PORT?.trim();
-const ipPrinterHost = process.env.KITCHEN_IP_PRINTER_HOST?.trim();
-const ipPrinterPortRaw = process.env.KITCHEN_IP_PRINTER_PORT?.trim();
+const hostA = process.env.KITCHEN_IP_PRINTER_A_HOST?.trim();
+const hostB = process.env.KITCHEN_IP_PRINTER_B_HOST?.trim();
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   const normalized = raw?.trim();
@@ -46,23 +42,21 @@ if (
   process.exit(1);
 }
 
-if (printerAdapterEnv === "ip" && !ipPrinterHost) {
-  console.error("KITCHEN_IP_PRINTER_HOST must be set when KITCHEN_PRINTER_ADAPTER=ip");
+const adapterKind = printerAdapterEnv as PrinterAdapterKind;
+
+let printers;
+try {
+  printers = resolvePrinterAdapters({
+    kind: adapterKind,
+    logFilePath,
+    hostA,
+    hostB,
+  });
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(message);
   process.exit(1);
 }
-
-const printer =
-  printerAdapterEnv === "console"
-    ? createConsolePrinterAdapter({ logFilePath })
-    : printerAdapterEnv === "ip"
-      ? createIpPrinterAdapter({
-          host: ipPrinterHost,
-          port: ipPrinterPortRaw ? parsePositiveInt(ipPrinterPortRaw, 9100) : undefined,
-        })
-      : createLpPrinterAdapter({
-          destination: process.env.KITCHEN_PRINTER_NAME?.trim() || undefined,
-          title: process.env.KITCHEN_PRINTER_TITLE?.trim() || undefined,
-        });
 
 if (!kitchenRelayPortRaw) {
   console.error("Missing KITCHEN_RELAY_PORT");
@@ -76,6 +70,9 @@ if (!Number.isInteger(relayPort) || relayPort <= 0 || relayPort > 65535) {
 }
 
 console.log(`Printer adapter: ${printerAdapterEnv}`);
+if (printers.printerB) {
+  console.log("Kitchen relay: dual-printer mode");
+}
 if (process.env.PRINT_BELL_QUEUE_URL?.trim()) {
   console.log("Kitchen relay mode: PrintBell SQS wakeup");
 } else {
@@ -83,7 +80,7 @@ if (process.env.PRINT_BELL_QUEUE_URL?.trim()) {
 }
 
 const handlePrintJob = createPrintJobHandler(
-  printer,
+  printers,
   printMaxAttempts,
   printRetryInitialDelayMs,
   backendBase,

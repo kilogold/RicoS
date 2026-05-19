@@ -30,6 +30,9 @@ export type ModifierGroup = {
   options: ModifierOption[];
 };
 
+/** Kitchen print routing: A/default → Printer A; B → Printer B. */
+export type PrintStation = "A" | "B" | "default";
+
 /** Per-item tax rates (decimal fractions, e.g. 0.105 = 10.5%). */
 export type ItemTaxRates = {
   salesTaxRate: number;
@@ -41,6 +44,7 @@ export type MenuItem = ItemTaxRates & {
   name: LocalizedText;
   description: LocalizedText;
   priceCents: number;
+  station: PrintStation;
   modifierGroups?: ModifierGroup[];
 };
 

@@ -32,6 +32,7 @@ function payload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayl
         selectedModifiers: [],
         lineUnitTotalCents: 1200,
         lineExtendedTotalCents: 1200,
+        station: "B",
         itemLabel: "Test Item",
         selectionLines: [],
       },

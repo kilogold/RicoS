@@ -40,6 +40,8 @@ Core vars to set:
 - `HELIUS_MERCHANT_RECIPIENT`
 - `KITCHEN_RELAY_PORT`
 - `KITCHEN_PRINTER_ADAPTER`
+- `KITCHEN_IP_PRINTER_A_HOST` (required for `ip` / `lp`; optional for `console`)
+- `KITCHEN_IP_PRINTER_B_HOST` (optional; when set, dual-printer mode — kitchen chits split by menu `station`)
 
 Menu publish vars:
 
@@ -87,7 +89,8 @@ Optional vars are documented in `.env.example` and `.env.local.example`.
 - **Local dev:** omit `PRINT_BELL_QUEUE_URL`; relay uses interval polling (`KITCHEN_PRINT_POLL_INTERVAL_MS`, default `10000`) instead — no AWS needed.
 - Configure the SQS queue visibility timeout (~300s) so it exceeds worst-case print + retries + ack before `DeleteMessage`.
 - If using print ack auth, set matching `PRINT_ACK_SECRET` in `web` and relay (`X-Print-Ack-Key` header)
-- Print jobs live in Turso `print_queue` until the relay prints and calls `POST /api/print/ack` with `printJobId`; failed prints retry on the next wakeup / poll (no ACK until success)
+- Print jobs live in Turso `print_queue` until the relay prints and calls `POST /api/print/ack` with `printJobId`; failed prints retry on the next wakeup / poll (no ACK until success). Dual-printer jobs resume per destination (already-printed chits are not repeated).
+- `KITCHEN_IP_PRINTER_B_HOST` unset → single-printer mode (all items on Printer A). Same host for A and B is allowed (two separate print jobs).
 - Extend printing behavior in `kitchen-relay/src/component/ticket-printing/service.ts` as needed
 
 ## Menu Publish Workflow

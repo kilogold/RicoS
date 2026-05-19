@@ -46,7 +46,7 @@ function appendLineItems(rows: string[], lines: CartLine[], withPrices: boolean)
   const lineWidth = DIVIDER.length;
 
   for (const line of lines) {
-    const label = line.itemLabel ?? line.id;
+    const label = line.itemLabel;
     if (withPrices) {
       rows.push(
         formatAlignedRow(`${line.quantity}x ${label}`, line.lineExtendedTotalCents, lineWidth),
@@ -57,7 +57,7 @@ function appendLineItems(rows: string[], lines: CartLine[], withPrices: boolean)
     } else {
       rows.push(`${line.quantity}x ${label}`);
     }
-    const selectionRows = line.selectionLines ?? [];
+    const selectionRows = line.selectionLines;
     for (const selection of selectionRows) {
       rows.push(`   ${selection}`);
     }

@@ -161,9 +161,9 @@ function OrderPayloadCartView({
     <div className="space-y-1">
       <ul className="divide-y divide-slate-700/90">
         {payload.lines.map((line, lineIndex) => {
-          const title = line.itemLabel?.trim() || line.id;
+          const title = line.itemLabel.trim() || line.id;
           const detailLines =
-            line.selectionLines && line.selectionLines.length > 0
+            line.selectionLines.length > 0
               ? line.selectionLines
               : Object.entries(line.selections).flatMap(([groupId, optionIds]) =>
                   optionIds.length ? [`${groupId}: ${optionIds.join(", ")}`] : [],

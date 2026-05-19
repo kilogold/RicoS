@@ -65,4 +65,15 @@ describe("formatTicket", () => {
     expect(text).not.toContain("SUBTOTAL");
     expect(text).not.toContain("TOTAL");
   });
+
+  test("kitchen-order prints only supplied line subset", () => {
+    const text = formatTicket({
+      ...baseParams,
+      mode: "kitchen-order",
+      lines: [sampleLines[0]!],
+    });
+
+    expect(text).toContain("2x Farina");
+    expect(text).not.toContain("Granola");
+  });
 });

@@ -23,8 +23,11 @@ export type {
   ModifierOption,
   ItemTaxRates,
   OrderFeeRates,
+  PrintStation,
   SelectionType,
 } from "./menu-types";
+
+export type { PurchaseOrderLine } from "./purchase-order-line";
 
 export {
   computeOrderTotalsFromHydratedCart,

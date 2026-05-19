@@ -12,6 +12,7 @@ import type {
   ModifierGroup,
   ModifierOption,
   OrderFeeRates,
+  PrintStation,
 } from "./menu-types";
 
 /** Same key shape as root `menu.json` (serializable manifest for hashing). */
@@ -77,6 +78,13 @@ function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
   };
 }
 
+function parsePrintStation(raw: unknown, ctx: string): PrintStation {
+  if (raw !== "A" && raw !== "B" && raw !== "default") {
+    throw new Error(`Invalid menu: ${ctx} station must be "A", "B", or "default"`);
+  }
+  return raw;
+}
+
 function parseMenuItem(raw: unknown, ctx: string): MenuItem {
   if (!raw || typeof raw !== "object") throw new Error(`Invalid menu: ${ctx} item`);
   const it = raw as Record<string, unknown>;
@@ -86,11 +94,15 @@ function parseMenuItem(raw: unknown, ctx: string): MenuItem {
   if (typeof it.priceCents !== "number" || !Number.isInteger(it.priceCents)) {
     throw new Error(`Invalid menu: ${ctx} item priceCents`);
   }
+  if (it.station === undefined) {
+    throw new Error(`Invalid menu: ${ctx} item station is required`);
+  }
   const item: MenuItem = {
     id: it.id,
     name: it.name,
     description: it.description,
     priceCents: it.priceCents,
+    station: parsePrintStation(it.station, `${ctx}.station`),
     salesTaxRate: parseDecimalFeeRate(it.salesTaxRate, `${ctx}.salesTaxRate`),
     municipalTaxRate: parseDecimalFeeRate(it.municipalTaxRate, `${ctx}.municipalTaxRate`),
   };

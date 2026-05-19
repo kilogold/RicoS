@@ -6,6 +6,7 @@ export {
   printReceipt,
 } from "./adapters";
 export { printWithRetries } from "./retry";
+export { toCartLines } from "./to-cart-lines";
 export type {
   CartLine,
   ConsolePrinterOptions,

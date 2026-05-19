@@ -23,16 +23,36 @@ describe("notifyPrintBell", () => {
     sendCalls = [];
     delete process.env.PRINT_BELL_QUEUE_URL;
     delete process.env.AWS_REGION;
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.VERCEL;
   });
 
   afterEach(() => {
     delete process.env.PRINT_BELL_QUEUE_URL;
     delete process.env.AWS_REGION;
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    delete process.env.VERCEL;
   });
 
-  test("no-ops when PRINT_BELL_QUEUE_URL is unset", async () => {
+  test("no-ops when PRINT_BELL_QUEUE_URL is unset (local dev)", async () => {
     const { notifyPrintBell } = await import("./print-bell");
     await notifyPrintBell("job-1");
+    expect(sendCalls.length).toBe(0);
+  });
+
+  test("throws on Vercel when PRINT_BELL_QUEUE_URL is unset", async () => {
+    process.env.VERCEL = "1";
+    const { notifyPrintBell } = await import("./print-bell");
+    await expect(notifyPrintBell("job-1")).rejects.toThrow(/PRINT_BELL_QUEUE_URL/);
+    expect(sendCalls.length).toBe(0);
+  });
+
+  test("throws when queue URL is set but region cannot be resolved", async () => {
+    process.env.PRINT_BELL_QUEUE_URL = "https://example.com/not-sqs";
+    const { notifyPrintBell } = await import("./print-bell");
+    await expect(notifyPrintBell("job-1")).rejects.toThrow(/AWS_REGION/);
     expect(sendCalls.length).toBe(0);
   });
 

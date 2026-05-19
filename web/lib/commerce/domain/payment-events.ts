@@ -1,4 +1,4 @@
-import type { KitchenOrderIntent, OrderTotals } from "@ricos/shared";
+import type { KitchenOrderIntent, OrderTotals, PurchaseOrderLine } from "@ricos/shared";
 import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
 
 export type { KitchenOrderIntent, OrderTotals } from "@ricos/shared";
@@ -24,19 +24,7 @@ export type NormalizedIngressEvent = {
   metadata: Record<string, string | undefined>;
 };
 
-export type KitchenOrderLine = {
-  id: string;
-  quantity: number;
-  selections: Record<string, string[]>;
-  unitBasePriceCents: number;
-  selectedModifiers: { groupId: string; optionId: string; optionSurchargeCents: number }[];
-  lineUnitTotalCents: number;
-  lineExtendedTotalCents: number;
-  /** English primary label for tickets / relay (server-filled on new ingress). */
-  itemLabel?: string;
-  /** English modifier summary lines for tickets. */
-  selectionLines?: string[];
-};
+export type { PurchaseOrderLine } from "@ricos/shared";
 
 export type KitchenOrderPayload = OrderTotals & {
   paymentIngressEventId: string;
@@ -45,7 +33,7 @@ export type KitchenOrderPayload = OrderTotals & {
   /** Customer display name for kitchen tickets. */
   customerName: string;
   currency: string;
-  lines: KitchenOrderLine[];
+  lines: PurchaseOrderLine[];
   /** `manual-print` while order is pending; `paid` once payment ingress has committed. */
   intent: KitchenOrderIntent;
 };

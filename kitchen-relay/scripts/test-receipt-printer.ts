@@ -1,26 +1,13 @@
 import { createIpPrinterAdapter, type PrintOptions } from "../src/component/ticket-printing/service";
 
-const options: PrintOptions = {};
-const host = process.env.KITCHEN_IP_PRINTER_HOST?.trim();
-const port = process.env.KITCHEN_IP_PRINTER_PORT?.trim();
-
+const host = process.env.KITCHEN_IP_PRINTER_A_HOST?.trim();
 if (!host) {
-  console.error("Missing KITCHEN_IP_PRINTER_HOST");
+  console.error("Missing KITCHEN_IP_PRINTER_A_HOST");
   process.exit(1);
 }
-options.host = host;
-
-if (port) {
-  const parsedPort = Number.parseInt(port, 10);
-  if (!Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535) {
-    console.error(`Invalid KITCHEN_IP_PRINTER_PORT: ${port}`);
-    process.exit(1);
-  }
-  options.port = parsedPort;
-}
-
-const printerHost = options.host;
-const printerPort = options.port ?? 9100;
+const options: PrintOptions = { host, port: 9100 };
+const printerHost = host;
+const printerPort = 9100;
 
 const sampleReceipt = [
   "RICOS - KITCHEN TICKET",

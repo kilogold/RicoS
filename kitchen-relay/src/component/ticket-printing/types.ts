@@ -1,11 +1,15 @@
+/**
+ * Formatter-local ticket line — not `PurchaseOrderLine` so layout stays decoupled from
+ * commerce fields (modifiers, station, etc.). Map explicitly via `toCartLines`.
+ */
 export type CartLine = {
   id: string;
   quantity: number;
   selections: Record<string, string[]>;
   lineUnitTotalCents: number;
   lineExtendedTotalCents: number;
-  itemLabel?: string;
-  selectionLines?: string[];
+  itemLabel: string;
+  selectionLines: string[];
 };
 
 export type PrinterAdapter = {
@@ -14,14 +18,14 @@ export type PrinterAdapter = {
 };
 
 export type LpPrinterOptions = {
-  /** `lp -d` */
+  /** `lp -d` queue name */
   destination?: string;
-  /** `lp -t` job title */
-  title?: string;
 };
 
 export type ConsolePrinterOptions = {
   logFilePath?: string;
+  /** Prefix each ticket in stdout/log (e.g. `Printer A`). */
+  label?: string;
 };
 
 export type PrintOptions = {
