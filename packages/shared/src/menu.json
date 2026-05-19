@@ -1,6 +1,6 @@
 {
-  "catalogVersion": 4,
-  "publishedAt": "2026-05-09T22:18:40.000Z",
+  "catalogVersion": 5,
+  "publishedAt": "2026-05-19T21:40:43.847Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -53,8 +53,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_two_pancakes", "label": { "en": "(2) Pancakes", "es": "(2) Pancakes" } },
-                { "id": "opt_base_one_waffle", "label": { "en": "(1) Waffle", "es": "(1) Waffle" } }
+                {
+                  "id": "opt_base_two_pancakes",
+                  "label": {
+                    "en": "(2) Pancakes",
+                    "es": "(2) Pancakes"
+                  }
+                },
+                {
+                  "id": "opt_base_one_waffle",
+                  "label": {
+                    "en": "(1) Waffle",
+                    "es": "(1) Waffle"
+                  }
+                }
               ]
             },
             {
@@ -68,14 +80,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_blueberry_sunshine",
@@ -100,8 +131,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_two_pancakes", "label": { "en": "(2) Pancakes", "es": "(2) Pancakes" } },
-                { "id": "opt_base_one_waffle", "label": { "en": "(1) Waffle", "es": "(1) Waffle" } }
+                {
+                  "id": "opt_base_two_pancakes",
+                  "label": {
+                    "en": "(2) Pancakes",
+                    "es": "(2) Pancakes"
+                  }
+                },
+                {
+                  "id": "opt_base_one_waffle",
+                  "label": {
+                    "en": "(1) Waffle",
+                    "es": "(1) Waffle"
+                  }
+                }
               ]
             },
             {
@@ -115,14 +158,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_nutella_sensation",
@@ -147,8 +209,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_two_pancakes", "label": { "en": "(2) Pancakes", "es": "(2) Pancakes" } },
-                { "id": "opt_base_one_waffle", "label": { "en": "(1) Nutella Waffle", "es": "(1) Waffle de Nutella" } }
+                {
+                  "id": "opt_base_two_pancakes",
+                  "label": {
+                    "en": "(2) Pancakes",
+                    "es": "(2) Pancakes"
+                  }
+                },
+                {
+                  "id": "opt_base_one_waffle",
+                  "label": {
+                    "en": "(1) Nutella Waffle",
+                    "es": "(1) Waffle de Nutella"
+                  }
+                }
               ]
             },
             {
@@ -162,14 +236,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_red_velvet",
@@ -194,8 +287,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_two_pancakes", "label": { "en": "(2) Pancakes", "es": "(2) Pancakes" } },
-                { "id": "opt_base_one_waffle", "label": { "en": "(1) Waffle", "es": "(1) Waffle" } }
+                {
+                  "id": "opt_base_two_pancakes",
+                  "label": {
+                    "en": "(2) Pancakes",
+                    "es": "(2) Pancakes"
+                  }
+                },
+                {
+                  "id": "opt_base_one_waffle",
+                  "label": {
+                    "en": "(1) Waffle",
+                    "es": "(1) Waffle"
+                  }
+                }
               ]
             },
             {
@@ -209,14 +314,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_classic_pancakes_waffles",
@@ -241,8 +365,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_two_pancakes", "label": { "en": "(2) Pancakes", "es": "(2) Pancakes" } },
-                { "id": "opt_base_one_waffle", "label": { "en": "(1) Waffle", "es": "(1) Waffle" } }
+                {
+                  "id": "opt_base_two_pancakes",
+                  "label": {
+                    "en": "(2) Pancakes",
+                    "es": "(2) Pancakes"
+                  }
+                },
+                {
+                  "id": "opt_base_one_waffle",
+                  "label": {
+                    "en": "(1) Waffle",
+                    "es": "(1) Waffle"
+                  }
+                }
               ]
             },
             {
@@ -256,14 +392,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_granola_french_toast",
@@ -278,24 +433,43 @@
           "priceCents": 1299,
           "modifierGroups": [
             {
-                "id": "mod_side_choice",
-                "title": {
-                  "en": "Sides",
-                  "es": "Acompañante"
+              "id": "mod_side_choice",
+              "title": {
+                "en": "Sides",
+                "es": "Acompañante"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
                 },
-                "selectionType": "single",
-                "required": true,
-                "minSelections": 1,
-                "maxSelections": 1,
-                "options": [
-                  { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                  { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                  { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
-                ]
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
+              ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_coconut_french_toast",
@@ -310,24 +484,43 @@
           "priceCents": 1199,
           "modifierGroups": [
             {
-                "id": "mod_side_choice",
-                "title": {
-                  "en": "Sides",
-                  "es": "Acompañante"
+              "id": "mod_side_choice",
+              "title": {
+                "en": "Sides",
+                "es": "Acompañante"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
                 },
-                "selectionType": "single",
-                "required": true,
-                "minSelections": 1,
-                "maxSelections": 1,
-                "options": [
-                  { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                  { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                  { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
-                ]
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
+              ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_classic_french_toast",
@@ -342,24 +535,43 @@
           "priceCents": 1099,
           "modifierGroups": [
             {
-                "id": "mod_side_choice",
-                "title": {
-                  "en": "Sides",
-                  "es": "Acompañante"
+              "id": "mod_side_choice",
+              "title": {
+                "en": "Sides",
+                "es": "Acompañante"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
                 },
-                "selectionType": "single",
-                "required": true,
-                "minSelections": 1,
-                "maxSelections": 1,
-                "options": [
-                  { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                  { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                  { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
-                ]
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
+              ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         }
       ]
     },
@@ -399,18 +611,61 @@
               "minSelections": 0,
               "maxSelections": 4,
               "options": [
-                { "id": "opt_remove_peppers", "label": { "en": "No peppers", "es": "Sin pimientos" } },
-                { "id": "opt_remove_onion", "label": { "en": "No onion", "es": "Sin cebolla" } },
-                { "id": "opt_remove_monterey_jack", "label": { "en": "No Monterey Jack", "es": "Sin Monterey Jack" } },
-                { "id": "opt_remove_cheddar", "label": { "en": "No cheddar", "es": "Sin cheddar" } },
-                { "id": "opt_remove_sweet_chili", "label": { "en": "No sweet chili sauce", "es": "Sin salsa de chile dulce" } },
-                { "id": "opt_remove_sour_cream", "label": { "en": "No sour cream", "es": "Sin sour cream" } },
-                { "id": "opt_remove_pico", "label": { "en": "No pico de gallo", "es": "Sin pico de gallo" } }           
+                {
+                  "id": "opt_remove_peppers",
+                  "label": {
+                    "en": "No peppers",
+                    "es": "Sin pimientos"
+                  }
+                },
+                {
+                  "id": "opt_remove_onion",
+                  "label": {
+                    "en": "No onion",
+                    "es": "Sin cebolla"
+                  }
+                },
+                {
+                  "id": "opt_remove_monterey_jack",
+                  "label": {
+                    "en": "No Monterey Jack",
+                    "es": "Sin Monterey Jack"
+                  }
+                },
+                {
+                  "id": "opt_remove_cheddar",
+                  "label": {
+                    "en": "No cheddar",
+                    "es": "Sin cheddar"
+                  }
+                },
+                {
+                  "id": "opt_remove_sweet_chili",
+                  "label": {
+                    "en": "No sweet chili sauce",
+                    "es": "Sin salsa de chile dulce"
+                  }
+                },
+                {
+                  "id": "opt_remove_sour_cream",
+                  "label": {
+                    "en": "No sour cream",
+                    "es": "Sin sour cream"
+                  }
+                },
+                {
+                  "id": "opt_remove_pico",
+                  "label": {
+                    "en": "No pico de gallo",
+                    "es": "Sin pico de gallo"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_ricos_omelette",
@@ -435,15 +690,40 @@
               "minSelections": 0,
               "maxSelections": 7,
               "options": [
-                { "id": "opt_remove_onion", "label": { "en": "No onion", "es": "Sin cebolla" } },
-                { "id": "opt_remove_monterey_jack", "label": { "en": "No Monterey Jack", "es": "Sin Monterey Jack" } },
-                { "id": "opt_remove_cheddar", "label": { "en": "No cheddar", "es": "Sin cheddar" } },
-                { "id": "opt_remove_sour_cream", "label": { "en": "No sour cream", "es": "Sin sour cream" } }
+                {
+                  "id": "opt_remove_onion",
+                  "label": {
+                    "en": "No onion",
+                    "es": "Sin cebolla"
+                  }
+                },
+                {
+                  "id": "opt_remove_monterey_jack",
+                  "label": {
+                    "en": "No Monterey Jack",
+                    "es": "Sin Monterey Jack"
+                  }
+                },
+                {
+                  "id": "opt_remove_cheddar",
+                  "label": {
+                    "en": "No cheddar",
+                    "es": "Sin cheddar"
+                  }
+                },
+                {
+                  "id": "opt_remove_sour_cream",
+                  "label": {
+                    "en": "No sour cream",
+                    "es": "Sin sour cream"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_big_mouth_omelette",
@@ -468,15 +748,40 @@
               "minSelections": 0,
               "maxSelections": 7,
               "options": [
-                { "id": "opt_remove_onion", "label": { "en": "No onion", "es": "Sin cebolla" } },
-                { "id": "opt_remove_peppers", "label": { "en": "No peppers", "es": "Sin pimientos" } },
-                { "id": "opt_remove_mixed_cheese", "label": { "en": "No mixed cheese", "es": "Sin queso mixto" } },
-                { "id": "opt_remove_pico", "label": { "en": "No pico de gallo", "es": "Sin pico de gallo" } }
+                {
+                  "id": "opt_remove_onion",
+                  "label": {
+                    "en": "No onion",
+                    "es": "Sin cebolla"
+                  }
+                },
+                {
+                  "id": "opt_remove_peppers",
+                  "label": {
+                    "en": "No peppers",
+                    "es": "Sin pimientos"
+                  }
+                },
+                {
+                  "id": "opt_remove_mixed_cheese",
+                  "label": {
+                    "en": "No mixed cheese",
+                    "es": "Sin queso mixto"
+                  }
+                },
+                {
+                  "id": "opt_remove_pico",
+                  "label": {
+                    "en": "No pico de gallo",
+                    "es": "Sin pico de gallo"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_western_omelette",
@@ -501,15 +806,40 @@
               "minSelections": 0,
               "maxSelections": 4,
               "options": [
-                { "id": "opt_remove_tomato", "label": { "en": "No tomato", "es": "Sin tomate" } },
-                { "id": "opt_remove_onion", "label": { "en": "No onion", "es": "Sin cebolla" } },
-                { "id": "opt_remove_peppers", "label": { "en": "No peppers", "es": "Sin pimientos" } },
-                { "id": "opt_remove_cheese", "label": { "en": "No cheese", "es": "Sin queso" } }
+                {
+                  "id": "opt_remove_tomato",
+                  "label": {
+                    "en": "No tomato",
+                    "es": "Sin tomate"
+                  }
+                },
+                {
+                  "id": "opt_remove_onion",
+                  "label": {
+                    "en": "No onion",
+                    "es": "Sin cebolla"
+                  }
+                },
+                {
+                  "id": "opt_remove_peppers",
+                  "label": {
+                    "en": "No peppers",
+                    "es": "Sin pimientos"
+                  }
+                },
+                {
+                  "id": "opt_remove_cheese",
+                  "label": {
+                    "en": "No cheese",
+                    "es": "Sin queso"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         }
       ]
     },
@@ -544,13 +874,26 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_eggs_fried", "label": { "en": "Fried", "es": "Fritos" } },
-                { "id": "opt_eggs_scrambled", "label": { "en": "Scrambled", "es": "Revueltos" } }
+                {
+                  "id": "opt_eggs_fried",
+                  "label": {
+                    "en": "Fried",
+                    "es": "Fritos"
+                  }
+                },
+                {
+                  "id": "opt_eggs_scrambled",
+                  "label": {
+                    "en": "Scrambled",
+                    "es": "Revueltos"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_egg_benedict",
@@ -564,7 +907,8 @@
           },
           "priceCents": 1499,
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_home_fries",
@@ -589,8 +933,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_eggs_fried", "label": { "en": "Fried", "es": "Fritos" } },
-                { "id": "opt_eggs_scrambled", "label": { "en": "Scrambled", "es": "Revueltos" } }
+                {
+                  "id": "opt_eggs_fried",
+                  "label": {
+                    "en": "Fried",
+                    "es": "Fritos"
+                  }
+                },
+                {
+                  "id": "opt_eggs_scrambled",
+                  "label": {
+                    "en": "Scrambled",
+                    "es": "Revueltos"
+                  }
+                }
               ]
             },
             {
@@ -604,29 +960,61 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_toast_white", "label": { "en": "White", "es": "Blanco" } },
-                { "id": "opt_toast_wheat", "label": { "en": "Wheat", "es": "Integral" }, "priceDeltaCents": 100 }
+                {
+                  "id": "opt_toast_white",
+                  "label": {
+                    "en": "White",
+                    "es": "Blanco"
+                  }
+                },
+                {
+                  "id": "opt_toast_wheat",
+                  "label": {
+                    "en": "Wheat",
+                    "es": "Integral"
+                  },
+                  "priceDeltaCents": 100
+                }
               ]
             },
             {
-                "id": "mod_side_choice",
-                "title": {
-                  "en": "Sides",
-                  "es": "Acompañante"
+              "id": "mod_side_choice",
+              "title": {
+                "en": "Sides",
+                "es": "Acompañante"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
                 },
-                "selectionType": "single",
-                "required": true,
-                "minSelections": 1,
-                "maxSelections": 1,
-                "options": [
-                  { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                  { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                  { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
-                ]
-              }
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
+              ]
+            }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_any_style_eggs",
@@ -651,8 +1039,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_eggs_fried", "label": { "en": "Fried", "es": "Fritos" } },
-                { "id": "opt_eggs_scrambled", "label": { "en": "Scrambled", "es": "Revueltos" } }
+                {
+                  "id": "opt_eggs_fried",
+                  "label": {
+                    "en": "Fried",
+                    "es": "Fritos"
+                  }
+                },
+                {
+                  "id": "opt_eggs_scrambled",
+                  "label": {
+                    "en": "Scrambled",
+                    "es": "Revueltos"
+                  }
+                }
               ]
             },
             {
@@ -666,14 +1066,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         },
         {
           "id": "item_ricos_big_breakfast",
@@ -698,8 +1117,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_pancake", "label": { "en": "(1) Pancake", "es": "(1) Pancake" } },
-                { "id": "opt_base_waffle", "label": { "en": "(1) Waffle", "es": "(1) Waffle" } }
+                {
+                  "id": "opt_base_pancake",
+                  "label": {
+                    "en": "(1) Pancake",
+                    "es": "(1) Pancake"
+                  }
+                },
+                {
+                  "id": "opt_base_waffle",
+                  "label": {
+                    "en": "(1) Waffle",
+                    "es": "(1) Waffle"
+                  }
+                }
               ]
             },
             {
@@ -713,8 +1144,20 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_eggs_fried", "label": { "en": "Fried", "es": "Fritos" } },
-                { "id": "opt_eggs_scrambled", "label": { "en": "Scrambled", "es": "Revueltos" } }
+                {
+                  "id": "opt_eggs_fried",
+                  "label": {
+                    "en": "Fried",
+                    "es": "Fritos"
+                  }
+                },
+                {
+                  "id": "opt_eggs_scrambled",
+                  "label": {
+                    "en": "Scrambled",
+                    "es": "Revueltos"
+                  }
+                }
               ]
             },
             {
@@ -728,14 +1171,33 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_side_sausage", "label": { "en": "Sausage", "es": "Salchicha" } },
-                { "id": "opt_side_ham", "label": { "en": "Ham", "es": "Jamon" } },
-                { "id": "opt_side_bacon", "label": { "en": "Bacon", "es": "Tocineta" } }
+                {
+                  "id": "opt_side_sausage",
+                  "label": {
+                    "en": "Sausage",
+                    "es": "Salchicha"
+                  }
+                },
+                {
+                  "id": "opt_side_ham",
+                  "label": {
+                    "en": "Ham",
+                    "es": "Jamon"
+                  }
+                },
+                {
+                  "id": "opt_side_bacon",
+                  "label": {
+                    "en": "Bacon",
+                    "es": "Tocineta"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "B"
         }
       ]
     },
@@ -770,45 +1232,95 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_milk", "label": { "en": "Milk", "es": "Leche" } },
-                { "id": "opt_base_almond_milk", "label": { "en": "Almond Milk", "es": "Leche de Almendras" }, "priceDeltaCents": 100 },
-                { "id": "opt_base_water", "label": { "en": "Water", "es": "Agua" } }
+                {
+                  "id": "opt_base_milk",
+                  "label": {
+                    "en": "Milk",
+                    "es": "Leche"
+                  }
+                },
+                {
+                  "id": "opt_base_almond_milk",
+                  "label": {
+                    "en": "Almond Milk",
+                    "es": "Leche de Almendras"
+                  },
+                  "priceDeltaCents": 100
+                },
+                {
+                  "id": "opt_base_water",
+                  "label": {
+                    "en": "Water",
+                    "es": "Agua"
+                  }
+                }
               ]
             },
             {
               "id": "mod_sugar_choice",
               "title": {
-                  "en": "Sugar",
-                  "es": "Azucar"
+                "en": "Sugar",
+                "es": "Azucar"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_sugar_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
-                { "id": "opt_sugar_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } },
-                { "id": "opt_sugar_none", "label": { "en": "None", "es": "Nada" } }
-                ]
+                {
+                  "id": "opt_sugar_sugar",
+                  "label": {
+                    "en": "Sugar",
+                    "es": "Azucar"
+                  }
+                },
+                {
+                  "id": "opt_sugar_sweetener",
+                  "label": {
+                    "en": "Sweetener",
+                    "es": "Endulzante / Azucar dieta"
+                  }
+                },
+                {
+                  "id": "opt_sugar_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
+              ]
             },
             {
               "id": "mod_garnish_choice",
               "title": {
-                  "en": "Garnish",
-                  "es": "Garnish"
+                "en": "Garnish",
+                "es": "Garnish"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                  { "id": "opt_garnish_cinamon", "label": { "en": "Cinamon", "es": "Canela" } },
-                  { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
+                {
+                  "id": "opt_garnish_cinamon",
+                  "label": {
+                    "en": "Cinamon",
+                    "es": "Canela"
+                  }
+                },
+                {
+                  "id": "opt_garnish_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "A"
         },
         {
           "id": "item_hot_cereal_cornmeal",
@@ -833,45 +1345,95 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_milk", "label": { "en": "Milk", "es": "Leche" } },
-                { "id": "opt_base_almond_milk", "label": { "en": "Almond Milk", "es": "Leche de Almendras" }, "priceDeltaCents": 100 },
-                { "id": "opt_base_water", "label": { "en": "Water", "es": "Agua" } }
+                {
+                  "id": "opt_base_milk",
+                  "label": {
+                    "en": "Milk",
+                    "es": "Leche"
+                  }
+                },
+                {
+                  "id": "opt_base_almond_milk",
+                  "label": {
+                    "en": "Almond Milk",
+                    "es": "Leche de Almendras"
+                  },
+                  "priceDeltaCents": 100
+                },
+                {
+                  "id": "opt_base_water",
+                  "label": {
+                    "en": "Water",
+                    "es": "Agua"
+                  }
+                }
               ]
             },
             {
               "id": "mod_sugar_choice",
               "title": {
-                  "en": "Sugar",
-                  "es": "Azucar"
+                "en": "Sugar",
+                "es": "Azucar"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_sugar_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
-                { "id": "opt_sugar_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } },
-                { "id": "opt_sugar_none", "label": { "en": "None", "es": "Nada" } }
-                ]
+                {
+                  "id": "opt_sugar_sugar",
+                  "label": {
+                    "en": "Sugar",
+                    "es": "Azucar"
+                  }
+                },
+                {
+                  "id": "opt_sugar_sweetener",
+                  "label": {
+                    "en": "Sweetener",
+                    "es": "Endulzante / Azucar dieta"
+                  }
+                },
+                {
+                  "id": "opt_sugar_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
+              ]
             },
             {
               "id": "mod_garnish_choice",
               "title": {
-                  "en": "Garnish",
-                  "es": "Garnish"
+                "en": "Garnish",
+                "es": "Garnish"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                  { "id": "opt_garnish_cinamon", "label": { "en": "Cinamon", "es": "Canela" } },
-                  { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
+                {
+                  "id": "opt_garnish_cinamon",
+                  "label": {
+                    "en": "Cinamon",
+                    "es": "Canela"
+                  }
+                },
+                {
+                  "id": "opt_garnish_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "A"
         },
         {
           "id": "item_hot_cereal_farina",
@@ -896,45 +1458,95 @@
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                { "id": "opt_base_milk", "label": { "en": "Milk", "es": "Leche" } },
-                { "id": "opt_base_almond_milk", "label": { "en": "Almond Milk", "es": "Leche de Almendras" }, "priceDeltaCents": 100 },
-                { "id": "opt_base_water", "label": { "en": "Water", "es": "Agua" } }
+                {
+                  "id": "opt_base_milk",
+                  "label": {
+                    "en": "Milk",
+                    "es": "Leche"
+                  }
+                },
+                {
+                  "id": "opt_base_almond_milk",
+                  "label": {
+                    "en": "Almond Milk",
+                    "es": "Leche de Almendras"
+                  },
+                  "priceDeltaCents": 100
+                },
+                {
+                  "id": "opt_base_water",
+                  "label": {
+                    "en": "Water",
+                    "es": "Agua"
+                  }
+                }
               ]
             },
             {
               "id": "mod_sugar_choice",
               "title": {
-                  "en": "Sugar",
-                  "es": "Azucar"
+                "en": "Sugar",
+                "es": "Azucar"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                  { "id": "opt_sugar_1_sugar", "label": { "en": "Sugar", "es": "Azucar" } },
-                  { "id": "opt_sugar_2_sweetener", "label": { "en": "Sweetener", "es": "Endulzante / Azucar dieta" } },
-                  { "id": "opt_sugar_3_none", "label": { "en": "None", "es": "Nada" } }
+                {
+                  "id": "opt_sugar_1_sugar",
+                  "label": {
+                    "en": "Sugar",
+                    "es": "Azucar"
+                  }
+                },
+                {
+                  "id": "opt_sugar_2_sweetener",
+                  "label": {
+                    "en": "Sweetener",
+                    "es": "Endulzante / Azucar dieta"
+                  }
+                },
+                {
+                  "id": "opt_sugar_3_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
               ]
             },
             {
               "id": "mod_garnish_choice",
               "title": {
-                  "en": "Garnish",
-                  "es": "Garnish"
+                "en": "Garnish",
+                "es": "Garnish"
               },
               "selectionType": "single",
               "required": true,
               "minSelections": 1,
               "maxSelections": 1,
               "options": [
-                  { "id": "opt_garnish_cinamon", "label": { "en": "Cinamon", "es": "Canela" } },
-                  { "id": "opt_garnish_none", "label": { "en": "None", "es": "Nada" } }
+                {
+                  "id": "opt_garnish_cinamon",
+                  "label": {
+                    "en": "Cinamon",
+                    "es": "Canela"
+                  }
+                },
+                {
+                  "id": "opt_garnish_none",
+                  "label": {
+                    "en": "None",
+                    "es": "Nada"
+                  }
+                }
               ]
             }
           ],
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01
+          "municipalTaxRate": 0.01,
+          "station": "A"
         }
       ]
     }
