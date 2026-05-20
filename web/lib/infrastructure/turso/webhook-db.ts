@@ -531,7 +531,9 @@ export async function enqueuePrintJob(
     });
     const id = (result.rowsAffected ?? 0) > 0 ? printJobId : null;
     if (id) {
-      void notifyPrintBell(id).catch((err) => console.error("PrintBell notify failed:", err));
+      await notifyPrintBell(id).catch((err) =>
+        console.error("PrintBell notify failed:", err),
+      );
     }
     return id;
   }
@@ -545,7 +547,9 @@ export async function enqueuePrintJob(
     `,
     args: [printJobId, params.orderReference, params.intent, createdAt],
   });
-  void notifyPrintBell(printJobId).catch((err) => console.error("PrintBell notify failed:", err));
+  await notifyPrintBell(printJobId).catch((err) =>
+    console.error("PrintBell notify failed:", err),
+  );
   return printJobId;
 }
 

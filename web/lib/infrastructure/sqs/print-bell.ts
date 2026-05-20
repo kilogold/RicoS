@@ -14,7 +14,8 @@ function getRegion(): string | undefined {
 }
 
 /**
- * Fire-and-forget wakeup for kitchen-relay (SQS long-poll consumer).
+ * Wakeup for kitchen-relay (SQS long-poll consumer). Callers should await before
+ * returning on serverless (e.g. Vercel) so SendMessage completes.
  * No-op when PRINT_BELL_QUEUE_URL is unset.
  * Uses default AWS credential chain when credentials are configured (e.g. Vercel env).
  */
