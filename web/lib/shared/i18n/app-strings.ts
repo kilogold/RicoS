@@ -30,6 +30,12 @@ export type AppStrings = {
   paymentUnexpectedError: string;
   orderConfirmed: string;
   orderConfirmedMessage: string;
+  orderConfirmationVerifying: string;
+  orderConfirmationErrorTitle: string;
+  orderConfirmationMissingOrder: string;
+  orderConfirmationNotConfirmed: string;
+  orderConfirmationPaymentFailed: string;
+  orderConfirmationInvalidSession: string;
   paymentIntentLabel: string;
   statusLabel: string;
   orderMore: string;
@@ -102,6 +108,16 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     orderConfirmed: "Order confirmed",
     orderConfirmedMessage:
       "Thanks for your order. We'll start preparing it. Bring this confirmation if helpful for the cashier.",
+    orderConfirmationVerifying: "Verifying your order…",
+    orderConfirmationErrorTitle: "There is a problem with your order",
+    orderConfirmationMissingOrder:
+      "We could not find your order in our system. If you were charged, contact the store with your payment reference below — do not assume your order was placed.",
+    orderConfirmationNotConfirmed:
+      "Your payment may have gone through, but we have not confirmed your order yet. Please contact the store with the payment reference below.",
+    orderConfirmationPaymentFailed:
+      "Your payment did not complete. You have not been charged for a confirmed order. Please return to checkout and try again.",
+    orderConfirmationInvalidSession:
+      "This confirmation link is incomplete or invalid. Please return to the menu and start checkout again.",
     paymentIntentLabel: "Payment intent",
     statusLabel: "Status",
     orderMore: "Order more",
@@ -175,6 +191,16 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     orderConfirmed: "Orden confirmada",
     orderConfirmedMessage:
       "Gracias por tu orden. Empezaremos a prepararla. Puedes mostrar esta confirmacion en caja si hace falta.",
+    orderConfirmationVerifying: "Verificando tu orden…",
+    orderConfirmationErrorTitle: "Hay un problema con tu orden",
+    orderConfirmationMissingOrder:
+      "No encontramos tu orden en el sistema. Si se te cobro, contacta la tienda con la referencia de pago abajo — no asumas que tu orden fue registrada.",
+    orderConfirmationNotConfirmed:
+      "Es posible que el pago se haya procesado, pero aun no confirmamos tu orden. Contacta la tienda con la referencia de pago abajo.",
+    orderConfirmationPaymentFailed:
+      "El pago no se completo. No se registro una orden confirmada. Vuelve al pago e intentalo de nuevo.",
+    orderConfirmationInvalidSession:
+      "Este enlace de confirmacion esta incompleto o no es valido. Vuelve al menu e inicia el pago de nuevo.",
     paymentIntentLabel: "Intento de pago",
     statusLabel: "Estado",
     orderMore: "Ordenar mas",

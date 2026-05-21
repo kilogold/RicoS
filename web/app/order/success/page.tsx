@@ -4,7 +4,37 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+
+type ConfirmationState =
+  | { phase: "loading" }
+  | { phase: "confirmed" }
+  | {
+      phase: "error";
+      message: string;
+      code?: string;
+    };
+
+type ConfirmationApiResponse =
+  | { ok: true; orderStatus: string }
+  | { ok: false; code: string; detail?: string };
+
+function errorMessageForCode(
+  code: string,
+  copy: ReturnType<typeof getAppStrings>,
+): string {
+  switch (code) {
+    case "missing_order":
+      return copy.orderConfirmationMissingOrder;
+    case "payment_not_succeeded":
+      return copy.orderConfirmationPaymentFailed;
+    case "invalid_payment_intent":
+      return copy.orderConfirmationInvalidSession;
+    case "order_not_confirmed":
+    default:
+      return copy.orderConfirmationNotConfirmed;
+  }
+}
 
 function SuccessContent() {
   const { language } = useLanguage();
@@ -12,6 +42,94 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const paymentIntent = searchParams.get("payment_intent");
   const redirectStatus = searchParams.get("redirect_status");
+  const [state, setState] = useState<ConfirmationState>({ phase: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    const strings = getAppStrings(language);
+
+    async function verify() {
+      const params = new URLSearchParams();
+      if (paymentIntent) params.set("payment_intent", paymentIntent);
+      if (redirectStatus) params.set("redirect_status", redirectStatus);
+
+      try {
+        const res = await fetch(`/api/order/confirmation-status?${params.toString()}`);
+        const body = (await res.json()) as ConfirmationApiResponse;
+
+        if (cancelled) return;
+
+        if (body.ok) {
+          setState({ phase: "confirmed" });
+          return;
+        }
+
+        setState({
+          phase: "error",
+          message: errorMessageForCode(body.code, strings),
+          code: body.code,
+        });
+      } catch {
+        if (!cancelled) {
+          setState({
+            phase: "error",
+            message: strings.orderConfirmationNotConfirmed,
+          });
+        }
+      }
+    }
+
+    void verify();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentIntent, redirectStatus, language]);
+
+  const paymentRefBlock = paymentIntent ? (
+    <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90">
+      {copy.paymentIntentLabel}: {paymentIntent}
+    </p>
+  ) : null;
+
+  if (state.phase === "loading") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
+          <p className="text-white/75">{copy.orderConfirmationVerifying}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "error") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="rounded-2xl border border-red-400/50 bg-[#0c2340]/90 p-10 shadow-2xl">
+          <p className="text-sm font-medium uppercase tracking-widest text-red-300">
+            RicoS
+          </p>
+          <h1 className="mt-3 text-3xl font-bold text-white" role="alert">
+            {copy.orderConfirmationErrorTitle}
+          </h1>
+          <p className="mt-4 text-left text-white/85" role="alert">
+            {state.message}
+          </p>
+          {paymentRefBlock}
+          {redirectStatus ? (
+            <p className="mt-2 text-xs text-white/50">
+              {copy.statusLabel}: {redirectStatus}
+            </p>
+          ) : null}
+          <Link
+            href="/"
+            className="mt-10 inline-flex rounded-xl bg-[#f4c430] px-6 py-3 font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
+          >
+            {copy.backToMenu}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
@@ -20,14 +138,8 @@ function SuccessContent() {
           RicoS
         </p>
         <h1 className="mt-3 text-3xl font-bold text-white">{copy.orderConfirmed}</h1>
-        <p className="mt-4 text-white/75">
-          {copy.orderConfirmedMessage}
-        </p>
-        {paymentIntent ? (
-          <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90">
-            {copy.paymentIntentLabel}: {paymentIntent}
-          </p>
-        ) : null}
+        <p className="mt-4 text-white/75">{copy.orderConfirmedMessage}</p>
+        {paymentRefBlock}
         {redirectStatus ? (
           <p className="mt-2 text-xs text-white/50">
             {copy.statusLabel}: {redirectStatus}

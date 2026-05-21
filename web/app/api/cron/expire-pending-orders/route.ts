@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Vercel Cron only invokes scheduled jobs with GET (no POST option in vercel.json crons).
+// This route mutates data (hard-deletes pending orders); GET is a platform constraint, not an
+// HTTP design choice. Access is gated by CRON_SECRET Bearer auth, not by verb.
+
 export async function GET(req: Request) {
   if (!verifyCronAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
