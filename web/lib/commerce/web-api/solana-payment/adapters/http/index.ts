@@ -21,14 +21,11 @@ import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-d
 import {
   getPurchaseOrdersByReferences,
   insertPendingPurchaseOrderIfNew,
-  markPurchaseOrderExpired,
   type PurchaseOrderRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { getHeliusIngressConfig, isHeliusWebhookDebugEnabled } from "../../config";
 import { parseHeliusIngressPayload } from "../ingress/parse-helius-ingress-payload";
-
-const PENDING_TTL_SECONDS = 120; // Solana blockhash expiry + padding
 
 const HELIUS_INGRESS_EVENT_PREFIX = "evt_helius_";
 
@@ -113,8 +110,6 @@ async function resolveHeliusSolanaPayPending(
     return { ok: false, code: "solana_pay_reference_unknown", detail: "no_pending_order_row" };
   }
 
-  const now = Date.now();
-
   if (row.status === "paid") {
     if (row.paymentIngressEventId === event.paymentIngressEventId) {
       return { ok: true, orderReference: row.orderReference, duplicateWebhook: true };
@@ -134,16 +129,8 @@ async function resolveHeliusSolanaPayPending(
     };
   }
 
-  if (
-    row.status === "pending" &&
-    (row.paymentIntentExpiresAt === null || row.paymentIntentExpiresAt >= now) &&
-    pendingOrderMatchesHeliusEventPayment(row, event)
-  ) {
+  if (row.status === "pending" && pendingOrderMatchesHeliusEventPayment(row, event)) {
     return { ok: true, orderReference: row.orderReference, duplicateWebhook: false };
-  }
-
-  if (row.status === "pending" && row.paymentIntentExpiresAt !== null && row.paymentIntentExpiresAt < now) {
-    await markPurchaseOrderExpired(db, row.orderReference);
   }
 
   return { ok: false, code: "solana_pay_pending_expired", detail: "no_matching_active_pending" };
@@ -326,7 +313,6 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
 
     const signer = await generateKeyPairSigner();
     const orderReference = signer.address;
-    const expiresAt = Date.now() + PENDING_TTL_SECONDS * 1000;
     const db = await getWebhookDb();
     const normalizedMetadata = {
       [CART_CODEC_KEY]: cartCodec,
@@ -348,7 +334,7 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference,
       paymentProvider: "helius",
-      paymentIntentExpiresAt: expiresAt,
+      paymentIntentExpiresAt: null,
       grandTotalCents: Math.floor(grandTotalCents),
       currency: currency.trim().toLowerCase(),
       payload: pendingPayload,

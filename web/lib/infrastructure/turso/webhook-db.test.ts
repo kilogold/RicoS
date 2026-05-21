@@ -3,13 +3,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import {
+  deletePurchaseOrderByReference,
   getPurchaseOrderByReference,
   insertPendingPurchaseOrderIfNew,
   ackPrintJob,
   enqueuePrintJob,
+  listPendingPurchaseOrders,
   listPrintJobs,
   markPurchaseOrderAcknowledged,
-  markPurchaseOrderExpired,
   markPurchaseOrderFulfilled,
   markSolanaPurchaseOrderPaidIfNew,
   markStripePurchaseOrderPaidIfNew,
@@ -106,11 +107,11 @@ describe("webhook-db payment persistence", () => {
     ]);
   });
 
-  test("stores pending order contact data and can mark it expired", async () => {
+  test("stores pending order contact data and can hard-delete it", async () => {
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference: "solana_ref_1",
       paymentProvider: "helius",
-      paymentIntentExpiresAt: 123,
+      paymentIntentExpiresAt: null,
       grandTotalCents: 1000,
       currency: "usd",
       payload: payload({
@@ -125,14 +126,74 @@ describe("webhook-db payment persistence", () => {
 
     const pending = await getPurchaseOrderByReference(db, "solana_ref_1");
     expect(pending?.status).toBe("pending");
-    expect(pending?.paymentIntentExpiresAt).toBe(123);
+    expect(pending?.paymentIntentExpiresAt).toBeNull();
     expect(pending?.customerName).toBe("Ada");
     expect(pending?.payload.serviceMode).toBe("takeout");
 
-    expect(await markPurchaseOrderExpired(db, "solana_ref_1")).toBe(true);
-    expect((await getPurchaseOrderByReference(db, "solana_ref_1"))?.status).toBe("expired");
-    expect(await statusHistory(db, "solana_ref_1")).toEqual(["pending", "expired"]);
-    expect(await statusIds(db, "solana_ref_1")).toEqual([1, 2]);
+    expect(await deletePurchaseOrderByReference(db, "solana_ref_1")).toBe(true);
+    expect(await getPurchaseOrderByReference(db, "solana_ref_1")).toBeNull();
+    expect(await statusHistory(db, "solana_ref_1")).toEqual([]);
+  });
+
+  test("listPendingPurchaseOrders returns only pending and delete skips paid", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pending_stripe",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 500,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pending_stripe",
+      }),
+      customerName: "Bob",
+      customerPhone: "555-0101",
+      customerEmail: null,
+    });
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "pending_helius",
+      paymentProvider: "helius",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 600,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "pending_helius",
+      }),
+      customerName: "Cal",
+      customerPhone: "555-0102",
+      customerEmail: null,
+    });
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "paid_keep",
+      paymentProvider: "stripe",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 700,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "paid_keep",
+      }),
+      customerName: "Dee",
+      customerPhone: "555-0103",
+      customerEmail: null,
+    });
+    await markStripePurchaseOrderPaidIfNew(db, {
+      orderReference: "paid_keep",
+      payload: payload({
+        paymentIngressEventId: "evt_paid_keep",
+        paymentReferenceId: "paid_keep",
+      }),
+    });
+
+    const pending = await listPendingPurchaseOrders(db);
+    expect(pending.map((o) => o.orderReference).sort()).toEqual(["pending_helius", "pending_stripe"]);
+
+    expect(await deletePurchaseOrderByReference(db, "pending_stripe")).toBe(true);
+    expect(await deletePurchaseOrderByReference(db, "pending_helius")).toBe(true);
+
+    expect(await listPendingPurchaseOrders(db)).toEqual([]);
+    expect((await getPurchaseOrderByReference(db, "paid_keep"))?.status).toBe("paid");
   });
 
   test("moves paid orders through kitchen ack and fulfillment", async () => {

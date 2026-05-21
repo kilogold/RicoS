@@ -669,18 +669,6 @@ export async function markPurchaseOrderFulfilled(
   return true;
 }
 
-export async function markPurchaseOrderExpired(
-  client: Client,
-  orderReference: string,
-): Promise<boolean> {
-  const current = await getPurchaseOrderByReference(client, orderReference);
-  if (!current || current.status !== "pending") {
-    return false;
-  }
-  await transitionOrderStatus(client, orderReference, "expired");
-  return true;
-}
-
 export async function getPurchaseOrderByIngressEventId(
   client: Client,
   paymentIngressEventId: string,
@@ -750,6 +738,63 @@ export async function listPurchaseOrdersCreatedBetween(
   });
   const rows = (result.rows ?? []) as Record<string, unknown>[];
   return rows.map((row) => rowToPurchaseOrder(row));
+}
+
+const PURCHASE_ORDER_SELECT = `
+  SELECT po.order_reference, po.payment_provider, po.payment_ingress_event_id,
+         po.payment_intent_expires_at, po.amount_cents, po.currency, po.payload_json,
+         po.status_id, sh.status, po.created_at, sh.updated_at,
+         po.customer_name, po.customer_phone, po.customer_email
+  FROM purchase_orders po
+  LEFT JOIN status_history sh
+    ON sh.order_reference = po.order_reference
+   AND sh.status_id = po.status_id
+`;
+
+/** All purchase orders whose current status is `pending`. */
+export async function listPendingPurchaseOrders(client: Client): Promise<PurchaseOrderRecord[]> {
+  const result = await client.execute(
+    `${PURCHASE_ORDER_SELECT}
+      WHERE sh.status = 'pending'
+      ORDER BY po.created_at ASC`,
+  );
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return rows.map((row) => rowToPurchaseOrder(row));
+}
+
+/**
+ * Hard-delete an order and related rows (print queue, refunds, status history).
+ * Pending-order expiration is the only intended caller.
+ */
+export async function deletePurchaseOrderByReference(
+  client: Client,
+  orderReference: string,
+): Promise<boolean> {
+  const existing = await getPurchaseOrderByReference(client, orderReference);
+  if (!existing) {
+    return false;
+  }
+
+  await client.execute(`PRAGMA foreign_keys = OFF`);
+  await client.execute({
+    sql: `DELETE FROM print_queue WHERE order_reference = ?`,
+    args: [orderReference],
+  });
+  await client.execute({
+    sql: `DELETE FROM refunds WHERE order_reference = ?`,
+    args: [orderReference],
+  });
+  await client.execute({
+    sql: `DELETE FROM purchase_orders WHERE order_reference = ?`,
+    args: [orderReference],
+  });
+  await client.execute({
+    sql: `DELETE FROM status_history WHERE order_reference = ?`,
+    args: [orderReference],
+  });
+  await client.execute(`PRAGMA foreign_keys = ON`);
+
+  return true;
 }
 
 export async function setPurchaseOrderStatus(
