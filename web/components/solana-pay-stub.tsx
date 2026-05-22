@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   createCartRequest,
   createSolanaPayRequest,
@@ -37,6 +36,7 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
+import { fullRedirect } from "@/lib/navigation/full-redirect";
 import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
 
 // Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
@@ -143,7 +143,6 @@ export function SolanaPayStub({
 }: SolanaPayContactProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
-  const router = useRouter();
   const { lines, clear } = useCart();
   const { catalog, menuVersionSeen, surface } = useMenuRuntime();
 
@@ -238,7 +237,7 @@ export function SolanaPayStub({
       } catch (err) {
         if (err instanceof StoreClosedError) {
           clear();
-          router.replace("/");
+          fullRedirect("/");
           return;
         }
         paymentRef.current.handleError(
@@ -285,7 +284,7 @@ export function SolanaPayStub({
         if (cancelled) return;
         if (err instanceof StoreClosedError) {
           clear();
-          router.replace("/");
+          fullRedirect("/");
           return;
         }
         paymentRef.current.handleError(
@@ -309,7 +308,6 @@ export function SolanaPayStub({
     customerEmail,
     serviceMode,
     clear,
-    router,
   ]);
 
   // Poll the reference for a landed signature, then verify + confirm on-chain.
@@ -357,13 +355,12 @@ export function SolanaPayStub({
           if (cancelled) return;
 
           if (result.verified) {
-            clear();
             const params = new URLSearchParams({
               provider: "solana",
               reference: referenceAddress,
               signature: landed,
             });
-            router.replace(`/order/success?${params.toString()}`);
+            fullRedirect(`/order/success?${params.toString()}`);
             return;
           } else {
             paymentRef.current.handleError(
@@ -385,7 +382,7 @@ export function SolanaPayStub({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [qr, rpc, amountMinor, referenceAddress, clear, router]);
+  }, [qr, rpc, amountMinor, referenceAddress]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">

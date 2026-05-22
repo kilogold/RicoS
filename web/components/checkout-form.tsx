@@ -1,7 +1,6 @@
 "use client";
 
 import { formatUsd } from "@/lib/pricing";
-import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import {
@@ -16,7 +15,6 @@ export function CheckoutForm({ grandTotalCents }: { grandTotalCents: number }) {
   const copy = getAppStrings(language);
   const stripe = useStripe();
   const elements = useElements();
-  const { clear } = useCart();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -42,8 +40,6 @@ export function CheckoutForm({ grandTotalCents }: { grandTotalCents: number }) {
       setLoading(false);
       return;
     }
-
-    clear();
   };
 
   return (

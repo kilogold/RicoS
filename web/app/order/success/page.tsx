@@ -4,6 +4,7 @@ import {
   parseOrderConfirmationProvider,
   type OrderConfirmationProvider,
 } from "@/lib/commerce/order-confirmation-provider";
+import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import Link from "next/link";
@@ -45,6 +46,7 @@ function errorMessageForCode(
 
 function SuccessContent() {
   const { language } = useLanguage();
+  const { clear } = useCart();
   const copy = getAppStrings(language);
   const searchParams = useSearchParams();
   const provider = parseOrderConfirmationProvider(searchParams.get("provider"));
@@ -102,6 +104,7 @@ function SuccessContent() {
         if (cancelled) return;
 
         if (body.ok) {
+          clear();
           setState({ phase: "confirmed" });
           return;
         }
@@ -131,6 +134,7 @@ function SuccessContent() {
     redirectStatus,
     solanaPayReference,
     transactionSignature,
+    clear,
     language,
   ]);
 

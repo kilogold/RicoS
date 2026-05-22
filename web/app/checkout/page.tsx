@@ -27,8 +27,8 @@ import { formatUsd, orderTotalsForCart } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
 import { Elements } from "@stripe/react-stripe-js";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fullRedirect } from "@/lib/navigation/full-redirect";
 
 type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
@@ -37,11 +37,9 @@ type CheckoutPhase = "service" | "contact" | "payment";
 export default function CheckoutPage() {
   const { lines, clear } = useCart();
   const { language } = useLanguage();
-  const { status } = useStoreSession();
+  const { status, shoppingEnabled } = useStoreSession();
   const { surface, catalog, menuVersionSeen } = useMenuRuntime();
   const copy = getAppStrings(language);
-  const router = useRouter();
-
   const [phase, setPhase] = useState<CheckoutPhase>("service");
   const [selectedServiceMode, setSelectedServiceMode] = useState<OrderServiceMode | null>(null);
   const [lockedContact, setLockedContact] = useState<NormalizedCustomerContact | null>(null);
@@ -150,8 +148,15 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
+    if (!shoppingEnabled) {
+      clear();
+      fullRedirect("/");
+    }
+  }, [clear, shoppingEnabled]);
+
+  useEffect(() => {
     if (lines.length === 0) {
-      router.replace("/");
+      fullRedirect("/");
       return;
     }
 
@@ -162,17 +167,17 @@ export default function CheckoutPage() {
       if (cancelled || !res.ok || typeof data.version !== "number") return;
       if (data.version !== menuVersionSeen) {
         clear();
-        router.replace("/?menuUpdated=1");
+        fullRedirect("/?menuUpdated=1");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [clear, lines.length, menuVersionSeen, router]);
+  }, [clear, lines.length, menuVersionSeen]);
 
   useEffect(() => {
     if (lines.length === 0) {
-      router.replace("/");
+      fullRedirect("/");
       return;
     }
 
@@ -216,12 +221,12 @@ export default function CheckoutPage() {
         if (cancelled) return;
         if (res.status === 409 && data.code === MENU_VERSION_CONFLICT_CODE) {
           clear();
-          router.replace("/?menuUpdated=1");
+          fullRedirect("/?menuUpdated=1");
           return;
         }
         if (res.status === 403 && data.code === STORE_CLOSED_CODE) {
           clear();
-          router.replace("/");
+          fullRedirect("/");
           return;
         }
         if (res.status === 403 && data.code === DINE_IN_UNAVAILABLE_CODE) {
@@ -248,7 +253,6 @@ export default function CheckoutPage() {
     lockedContact,
     menuVersionSeen,
     phase,
-    router,
     selectedServiceMode,
     selectedMethod,
     copy.dineInUnavailableDuringLastCall,
