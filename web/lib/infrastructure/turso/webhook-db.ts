@@ -170,6 +170,31 @@ export async function migrate(client: Client): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_print_queue_one_paid_per_order
     ON print_queue(order_reference) WHERE intent = 'paid'
   `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS admin_passkeys (
+      credential_id  TEXT PRIMARY KEY,
+      public_key     TEXT NOT NULL,
+      counter        INTEGER NOT NULL DEFAULT 0,
+      name           TEXT,
+      created_at     INTEGER NOT NULL,
+      last_used_at   INTEGER
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS passkey_challenges (
+      challenge      TEXT PRIMARY KEY,
+      type           TEXT NOT NULL,
+      action_name    TEXT,
+      payload_hash   TEXT,
+      expires_at     INTEGER NOT NULL
+    )
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_passkey_challenges_expires_at
+    ON passkey_challenges(expires_at)
+  `);
 }
 
 async function appendOrderStatus(
@@ -1196,4 +1221,193 @@ export async function fetchMenuCatalogAndDecodeIndexByVersion(
   const catalog = JSON.parse(String(rows[0].catalog_json ?? rows[0].CATALOG_JSON)) as MenuDocument;
   const decodeIndex = JSON.parse(String(rows[0].decode_index ?? rows[0].DECODE_INDEX)) as DecodeIndex;
   return { catalog, decodeIndex };
+}
+
+// ---------- admin passkeys -----------------------------------------------
+
+export type AdminPasskeyRecord = {
+  credentialId: string;
+  publicKey: string;
+  counter: number;
+  name: string | null;
+  createdAt: number;
+  lastUsedAt: number | null;
+};
+
+export type PasskeyChallengeRecord = {
+  challenge: string;
+  type: "register" | "action";
+  actionName: string | null;
+  payloadHash: string | null;
+  expiresAt: number;
+};
+
+function rowToAdminPasskey(row: Record<string, unknown>): AdminPasskeyRecord {
+  const lastUsed = row.last_used_at ?? row.LAST_USED_AT;
+  return {
+    credentialId: String(row.credential_id ?? row.CREDENTIAL_ID ?? ""),
+    publicKey: String(row.public_key ?? row.PUBLIC_KEY ?? ""),
+    counter: Number(row.counter ?? row.COUNTER ?? 0),
+    name:
+      row.name === null || row.name === undefined
+        ? row.NAME === null || row.NAME === undefined
+          ? null
+          : String(row.NAME)
+        : String(row.name),
+    createdAt: Number(row.created_at ?? row.CREATED_AT ?? 0),
+    lastUsedAt:
+      lastUsed === null || lastUsed === undefined ? null : Number(lastUsed),
+  };
+}
+
+function rowToPasskeyChallenge(row: Record<string, unknown>): PasskeyChallengeRecord {
+  const actionName = row.action_name ?? row.ACTION_NAME;
+  const payloadHash = row.payload_hash ?? row.PAYLOAD_HASH;
+  return {
+    challenge: String(row.challenge ?? row.CHALLENGE ?? ""),
+    type: (row.type ?? row.TYPE ?? "action") as PasskeyChallengeRecord["type"],
+    actionName:
+      actionName === null || actionName === undefined ? null : String(actionName),
+    payloadHash:
+      payloadHash === null || payloadHash === undefined ? null : String(payloadHash),
+    expiresAt: Number(row.expires_at ?? row.EXPIRES_AT ?? 0),
+  };
+}
+
+export async function countAdminPasskeys(client: Client): Promise<number> {
+  const result = await client.execute(`SELECT COUNT(*) AS c FROM admin_passkeys`);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return Number(rows[0]?.c ?? rows[0]?.C ?? 0);
+}
+
+export async function listAdminPasskeyCredentials(
+  client: Client,
+): Promise<{ credentialId: string; name: string | null }[]> {
+  const result = await client.execute(`
+    SELECT credential_id, name FROM admin_passkeys ORDER BY created_at ASC
+  `);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  return rows.map((row) => ({
+    credentialId: String(row.credential_id ?? row.CREDENTIAL_ID ?? ""),
+    name:
+      row.name === null || row.name === undefined
+        ? row.NAME === null || row.NAME === undefined
+          ? null
+          : String(row.NAME)
+        : String(row.name),
+  }));
+}
+
+export async function getPasskeyByCredentialId(
+  client: Client,
+  credentialId: string,
+): Promise<AdminPasskeyRecord | null> {
+  const result = await client.execute({
+    sql: `
+      SELECT credential_id, public_key, counter, name, created_at, last_used_at
+      FROM admin_passkeys
+      WHERE credential_id = ?
+    `,
+    args: [credentialId],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  return rowToAdminPasskey(rows[0]);
+}
+
+export async function insertPasskey(
+  client: Client,
+  params: {
+    credentialId: string;
+    publicKey: string;
+    counter: number;
+    name?: string | null;
+  },
+): Promise<void> {
+  const now = Date.now();
+  await client.execute({
+    sql: `
+      INSERT INTO admin_passkeys (credential_id, public_key, counter, name, created_at, last_used_at)
+      VALUES (?, ?, ?, ?, ?, NULL)
+    `,
+    args: [
+      params.credentialId,
+      params.publicKey,
+      params.counter,
+      params.name ?? null,
+      now,
+    ],
+  });
+}
+
+export async function updatePasskeyCounter(
+  client: Client,
+  credentialId: string,
+  counter: number,
+): Promise<void> {
+  const now = Date.now();
+  await client.execute({
+    sql: `
+      UPDATE admin_passkeys
+      SET counter = ?, last_used_at = ?
+      WHERE credential_id = ?
+    `,
+    args: [counter, now, credentialId],
+  });
+}
+
+export async function insertPasskeyChallenge(
+  client: Client,
+  params: {
+    challenge: string;
+    type: PasskeyChallengeRecord["type"];
+    actionName?: string | null;
+    payloadHash?: string | null;
+    expiresAt: number;
+  },
+): Promise<void> {
+  await client.execute({
+    sql: `
+      INSERT INTO passkey_challenges (challenge, type, action_name, payload_hash, expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `,
+    args: [
+      params.challenge,
+      params.type,
+      params.actionName ?? null,
+      params.payloadHash ?? null,
+      params.expiresAt,
+    ],
+  });
+}
+
+export async function getPasskeyChallenge(
+  client: Client,
+  challenge: string,
+): Promise<PasskeyChallengeRecord | null> {
+  const result = await client.execute({
+    sql: `
+      SELECT challenge, type, action_name, payload_hash, expires_at
+      FROM passkey_challenges
+      WHERE challenge = ?
+    `,
+    args: [challenge],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  return rowToPasskeyChallenge(rows[0]);
+}
+
+export async function deletePasskeyChallenge(client: Client, challenge: string): Promise<void> {
+  await client.execute({
+    sql: `DELETE FROM passkey_challenges WHERE challenge = ?`,
+    args: [challenge],
+  });
+}
+
+export async function deleteExpiredPasskeyChallenges(client: Client): Promise<void> {
+  await client.execute({
+    sql: `DELETE FROM passkey_challenges WHERE expires_at < ?`,
+    args: [Date.now()],
+  });
 }

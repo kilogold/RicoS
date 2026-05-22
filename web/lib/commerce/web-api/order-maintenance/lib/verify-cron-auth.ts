@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import compare from "tsscmp";
 
 export function verifyCronAuth(authorizationHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET?.trim();
@@ -11,14 +11,5 @@ export function verifyCronAuth(authorizationHeader: string | null): boolean {
     return false;
   }
   const token = header.slice(prefix.length);
-  try {
-    const a = Buffer.from(token);
-    const b = Buffer.from(secret);
-    if (a.length !== b.length) {
-      return false;
-    }
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
+  return compare(token, secret);
 }

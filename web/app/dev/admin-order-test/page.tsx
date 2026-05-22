@@ -1,5 +1,6 @@
 "use client";
 
+import { approveRefund, registerAdminPasskey } from "@/lib/admin-passkey/client";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
   orderServiceModeLabel,
@@ -248,6 +249,12 @@ export default function AdminOrderTestPage() {
   const [refundAmountCents, setRefundAmountCents] = useState("");
   const [refundSolanaSig, setRefundSolanaSig] = useState("");
   const [refundIdempotency, setRefundIdempotency] = useState("");
+  const [refundError, setRefundError] = useState<string | null>(null);
+
+  const [passkeySectionOpen, setPasskeySectionOpen] = useState(false);
+  const [passkeyName, setPasskeyName] = useState("");
+  const [passkeySetupSecret, setPasskeySetupSecret] = useState("");
+  const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
 
   const persistToken = (nextToken: string) => {
     setToken(nextToken);
@@ -371,24 +378,34 @@ export default function AdminOrderTestPage() {
     setRefundAmountCents(String(selectedOrder.grandTotalCents));
     setRefundSolanaSig("");
     setRefundIdempotency("");
+    setRefundError(null);
     setRefundOpen(true);
+  }
+
+  function clearRefundFieldError(): void {
+    setRefundError(null);
   }
 
   async function submitRefund(): Promise<void> {
     if (!selectedOrder) return;
     const refundAmount = Number.parseInt(refundAmountCents.trim(), DECIMAL_RADIX);
     if (!Number.isFinite(refundAmount) || refundAmount < REFUND_MIN_AMOUNT_CENTS) {
-      setActionMessage("Refund amount (cents) must be a positive integer.");
+      setRefundError("Refund amount (cents) must be a positive integer.");
       return;
     }
-    const requestBody: Record<string, unknown> = {
+    const requestBody: {
+      orderReference: string;
+      amountCents: number;
+      solanaRefundTransactionSignature?: string;
+      idempotencyKey?: string;
+    } = {
       orderReference: selectedOrder.orderReference,
       amountCents: refundAmount,
     };
     if (selectedOrder.paymentProvider === "helius") {
       const solanaRefundTransactionSignature = refundSolanaSig.trim();
       if (!solanaRefundTransactionSignature) {
-        setActionMessage("Solana refund transaction signature is required for Helius orders.");
+        setRefundError("Solana refund transaction signature is required for Helius orders.");
         return;
       }
       requestBody.solanaRefundTransactionSignature = solanaRefundTransactionSignature;
@@ -396,18 +413,105 @@ export default function AdminOrderTestPage() {
     const idempotencyKey = refundIdempotency.trim();
     if (idempotencyKey) requestBody.idempotencyKey = idempotencyKey;
 
-    await postJson("/api/staff/admin/refund", requestBody);
-    setRefundOpen(false);
+    setActionBusy(true);
+    setRefundError(null);
+    try {
+      const result = await approveRefund(requestBody);
+      if (!result.ok) {
+        setRefundError(result.message);
+        return;
+      }
+      setRefundOpen(false);
+      setActionMessage(JSON.stringify(result.body));
+      await fetchOrders();
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function submitPasskeyRegistration(): Promise<void> {
+    setPasskeyMessage(null);
+    setActionBusy(true);
+    try {
+      const result = await registerAdminPasskey({
+        setupSecret: passkeySetupSecret.trim() || undefined,
+        name: passkeyName.trim() || undefined,
+      });
+      if (!result.ok) {
+        setPasskeyMessage(result.message);
+        return;
+      }
+      setPasskeyMessage("Passkey registered.");
+      setPasskeySetupSecret("");
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   return (
     <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
       <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
-        Unauthenticated page for manual UX testing. Listing and actions still require the staff
-        bearer token (<code className="rounded bg-slate-800 px-1 py-0.5 text-xs">STAFF_MENU_PUBLISH_SECRET</code>
-        ). Orders shown use your browser&apos;s local calendar day ({dayLabel}).
+        Unauthenticated page for manual UX testing. Order list, fulfill, and print receipt use the
+        staff bearer token (
+        <code className="rounded bg-slate-800 px-1 py-0.5 text-xs">STAFF_MENU_PUBLISH_SECRET</code>
+        ). Refunds require admin passkey approval when you submit inside the refund modal. Orders
+        shown use your browser&apos;s local calendar day ({dayLabel}).
       </p>
+
+      <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/40">
+        <button
+          type="button"
+          onClick={() => setPasskeySectionOpen((open) => !open)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-200"
+        >
+          Admin passkey setup
+          <span className="text-slate-500">{passkeySectionOpen ? "▾" : "▸"}</span>
+        </button>
+        {passkeySectionOpen ? (
+          <div className="space-y-3 border-t border-slate-700 px-4 py-4">
+            <p className="text-xs text-slate-400">
+              First passkey: set <code className="text-sky-400">ADMIN_SETUP_SECRET</code> in{" "}
+              <code className="text-sky-400">.env.local</code> and enter it below. Additional
+              passkeys require approving with an existing passkey.
+            </p>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-400">Label (optional)</span>
+              <input
+                type="text"
+                value={passkeyName}
+                onChange={(e) => setPasskeyName(e.target.value)}
+                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 outline-none focus:border-sky-500 sm:text-sm"
+                placeholder="e.g. MacBook Touch ID"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-400">Setup secret (bootstrap only)</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={passkeySetupSecret}
+                onChange={(e) => setPasskeySetupSecret(e.target.value)}
+                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono outline-none focus:border-sky-500 sm:text-sm"
+                placeholder="ADMIN_SETUP_SECRET"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={() => void submitPasskeyRegistration()}
+              className="min-h-[44px] rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
+            >
+              Register passkey
+            </button>
+            {passkeyMessage ? (
+              <p className="text-xs text-slate-400" role="status">
+                {passkeyMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 text-sm">
@@ -796,6 +900,19 @@ export default function AdminOrderTestPage() {
             </h2>
             <p className="mt-1 break-all font-mono text-xs text-slate-400">{selectedOrder.orderReference}</p>
 
+            {refundError ? (
+              <p
+                className="mt-4 rounded-lg border border-rose-800/80 bg-rose-950/50 px-3 py-2.5 text-sm text-rose-200"
+                role="alert"
+              >
+                {refundError}
+              </p>
+            ) : null}
+
+            {actionBusy ? (
+              <p className="mt-3 text-xs text-amber-200/90">Approve with passkey…</p>
+            ) : null}
+
             <label className="mt-4 flex flex-col gap-1 text-sm">
               <span className="text-slate-400">Amount (cents)</span>
               <input
@@ -803,7 +920,10 @@ export default function AdminOrderTestPage() {
                 inputMode="numeric"
                 min={REFUND_MIN_AMOUNT_CENTS}
                 value={refundAmountCents}
-                onChange={(changeEvent) => setRefundAmountCents(changeEvent.target.value)}
+                onChange={(changeEvent) => {
+                  setRefundAmountCents(changeEvent.target.value);
+                  clearRefundFieldError();
+                }}
                 className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
               />
             </label>
@@ -814,7 +934,10 @@ export default function AdminOrderTestPage() {
                 <input
                   type="text"
                   value={refundSolanaSig}
-                  onChange={(changeEvent) => setRefundSolanaSig(changeEvent.target.value)}
+                  onChange={(changeEvent) => {
+                    setRefundSolanaSig(changeEvent.target.value);
+                    clearRefundFieldError();
+                  }}
                   className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                   placeholder="Required for Helius"
                 />
@@ -825,7 +948,10 @@ export default function AdminOrderTestPage() {
                 <input
                   type="text"
                   value={refundIdempotency}
-                  onChange={(changeEvent) => setRefundIdempotency(changeEvent.target.value)}
+                  onChange={(changeEvent) => {
+                    setRefundIdempotency(changeEvent.target.value);
+                    clearRefundFieldError();
+                  }}
                   className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                 />
               </label>
@@ -845,7 +971,7 @@ export default function AdminOrderTestPage() {
                 onClick={() => void submitRefund()}
                 className="min-h-[48px] rounded-lg bg-amber-700 px-4 py-3 text-base font-medium text-white touch-manipulation hover:bg-amber-600 active:bg-amber-800 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
               >
-                Submit refund
+                {actionBusy ? "Approving…" : "Submit refund"}
               </button>
             </div>
           </div>
