@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createCartRequest,
@@ -358,10 +357,14 @@ export function SolanaPayStub({
           if (cancelled) return;
 
           if (result.verified) {
-            paymentRef.current.handleSuccess();
-            // Intentionally do not touch the cart or router here. Success is
-            // rendered inline; the "Return to menu" button handles cleanup so
-            // all Solana Pay prototype concerns stay inside this component.
+            clear();
+            const params = new URLSearchParams({
+              provider: "solana",
+              reference: referenceAddress,
+              signature: landed,
+            });
+            router.replace(`/order/success?${params.toString()}`);
+            return;
           } else {
             paymentRef.current.handleError(
               result.error ?? "On-chain verification failed",
@@ -382,7 +385,7 @@ export function SolanaPayStub({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [qr, rpc, amountMinor, referenceAddress]);
+  }, [qr, rpc, amountMinor, referenceAddress, clear, router]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
@@ -415,23 +418,9 @@ export function SolanaPayStub({
             </button>
           ) : null}
         </div>
-      ) : payment.status === "success" ? (
-        <div className="mt-4 space-y-3 rounded-lg border border-emerald-400/30 bg-emerald-400/5 p-4">
-          <p className="text-sm font-medium text-emerald-300">
-            Payment verified on-chain.
-          </p>
-          {signature ? (
-            <p className="break-all font-mono text-[10px] text-emerald-200/80">
-              sig: {signature}
-            </p>
-          ) : null}
-          <Link
-            href="/"
-            onClick={() => clear()}
-            className="inline-flex rounded-lg bg-[#f4c430] px-3 py-2 text-xs font-semibold text-[#0c2340] hover:brightness-95"
-          >
-            Return to menu
-          </Link>
+      ) : payment.status === "confirming" ? (
+        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+          {copy.loading}
         </div>
       ) : qr && url ? (
         <div className="mt-4 flex flex-col items-center gap-3">
@@ -474,9 +463,7 @@ function StatusPill({ status }: { status: string }) {
       ? "Waiting for payment"
       : status === "confirming"
         ? "Confirming"
-        : status === "success"
-          ? "Paid"
-          : status === "error"
+        : status === "error"
             ? "Error"
             : status === "timeout"
               ? "Timed out"

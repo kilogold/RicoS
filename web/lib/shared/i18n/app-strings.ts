@@ -37,6 +37,8 @@ export type AppStrings = {
   orderConfirmationPaymentFailed: string;
   orderConfirmationInvalidSession: string;
   paymentIntentLabel: string;
+  orderReferenceLabel: string;
+  transactionSignatureLabel: string;
   statusLabel: string;
   orderMore: string;
   loading: string;
@@ -119,6 +121,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     orderConfirmationInvalidSession:
       "This confirmation link is incomplete or invalid. Please return to the menu and start checkout again.",
     paymentIntentLabel: "Payment intent",
+    orderReferenceLabel: "Order reference",
+    transactionSignatureLabel: "Transaction",
     statusLabel: "Status",
     orderMore: "Order more",
     loading: "Loading…",
@@ -202,6 +206,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     orderConfirmationInvalidSession:
       "Este enlace de confirmacion esta incompleto o no es valido. Vuelve al menu e inicia el pago de nuevo.",
     paymentIntentLabel: "Intento de pago",
+    orderReferenceLabel: "Referencia de orden",
+    transactionSignatureLabel: "Transacción",
     statusLabel: "Estado",
     orderMore: "Ordenar mas",
     loading: "Cargando…",

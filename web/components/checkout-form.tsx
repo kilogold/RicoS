@@ -29,7 +29,7 @@ export function CheckoutForm({ grandTotalCents }: { grandTotalCents: number }) {
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/order/success`,
+        return_url: `${window.location.origin}/order/success?provider=stripe`,
       },
     });
 
