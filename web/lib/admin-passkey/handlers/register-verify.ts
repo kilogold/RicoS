@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { challengeFromClientDataJSON } from "@/lib/admin-passkey/challenge-from-assertion";
 import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
+import { passkeyLimitResponse } from "@/lib/admin-passkey/passkey-limit-guard";
 import type { ParsedRegisterVerifyBody } from "@/lib/admin-passkey/register-verify-payload";
 import { verifyPasskeyRegistration } from "@/lib/admin-passkey/webauthn";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {
+  countAdminPasskeys,
   deleteExpiredPasskeyChallenges,
   getPasskeyByCredentialId,
   insertPasskey,
@@ -29,6 +31,10 @@ export async function handleAdminPasskeyRegisterVerifyRequest(
 
   const db = await getWebhookDb();
   await deleteExpiredPasskeyChallenges(db);
+
+  const passkeyCount = await countAdminPasskeys(db);
+  const limitBlocked = passkeyLimitResponse(passkeyCount);
+  if (limitBlocked) return limitBlocked;
 
   const verified = await verifyPasskeyRegistration({
     client: db,

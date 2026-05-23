@@ -3,6 +3,7 @@ import { challengeFromClientDataJSON } from "@/lib/admin-passkey/challenge-from-
 import { persistRegisterChallenge } from "@/lib/admin-passkey/challenges";
 import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
+import { passkeyLimitResponse } from "@/lib/admin-passkey/passkey-limit-guard";
 import type { ParsedRegisterOptionsBody } from "@/lib/admin-passkey/register-options-payload";
 import {
   isAdminSetupConfigured,
@@ -32,6 +33,9 @@ export async function handleAdminPasskeyRegisterOptionsRequest(
   const db = await getWebhookDb();
   await deleteExpiredPasskeyChallenges(db);
   const passkeyCount = await countAdminPasskeys(db);
+
+  const limitBlocked = passkeyLimitResponse(passkeyCount);
+  if (limitBlocked) return limitBlocked;
 
   const setupSecret = body.setupSecret;
 

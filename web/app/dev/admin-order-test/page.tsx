@@ -1,6 +1,6 @@
 "use client";
 
-import { approveRefund, registerAdminPasskey } from "@/lib/admin-passkey/client";
+import { approveRefund } from "@/lib/admin-passkey/client";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
   orderServiceModeLabel,
@@ -117,7 +117,7 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
-async function requestOrders(trimmedToken: string): Promise<OrdersFetchResult> {
+async function requestOrders(): Promise<OrdersFetchResult> {
   const { from, to } = localDayBoundsMs();
   try {
     const searchParams = new URLSearchParams({
@@ -125,7 +125,7 @@ async function requestOrders(trimmedToken: string): Promise<OrdersFetchResult> {
       to: String(to),
     });
     const response = await fetch(`/api/staff/admin/orders?${searchParams}`, {
-      headers: { Authorization: `Bearer ${trimmedToken}` },
+      credentials: "include",
     });
     const responseBody = (await response.json()) as { orders?: OrderRow[]; error?: string };
     if (!response.ok) {
@@ -221,20 +221,10 @@ function OrderPayloadCartView({
   );
 }
 
-const TOKEN_KEY = "dev-admin-order-test-bearer";
-
 export default function AdminOrderTestPage() {
   const [dayLabel, setDayLabel] = useState(() =>
     new Date(localDayBoundsMs().from).toDateString(),
   );
-  const [token, setToken] = useState(() => {
-    if (typeof window === "undefined") return "";
-    try {
-      return sessionStorage.getItem(TOKEN_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  });
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -251,33 +241,11 @@ export default function AdminOrderTestPage() {
   const [refundIdempotency, setRefundIdempotency] = useState("");
   const [refundError, setRefundError] = useState<string | null>(null);
 
-  const [passkeySectionOpen, setPasskeySectionOpen] = useState(false);
-  const [passkeyName, setPasskeyName] = useState("");
-  const [passkeySetupSecret, setPasskeySetupSecret] = useState("");
-  const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
-
-  const persistToken = (nextToken: string) => {
-    setToken(nextToken);
-    if (!nextToken.trim()) {
-      setError("Set staff bearer token (same as STAFF_MENU_PUBLISH_SECRET).");
-    }
-    try {
-      sessionStorage.setItem(TOKEN_KEY, nextToken);
-    } catch {
-      /* ignore */
-    }
-  };
-
   const fetchOrders = useCallback(async () => {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) {
-      setError("Set staff bearer token (same as STAFF_MENU_PUBLISH_SECRET).");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const result = await requestOrders(trimmedToken);
+      const result = await requestOrders();
       setDayLabel(new Date(result.from).toDateString());
       if (!result.ok) {
         setError(result.error);
@@ -289,15 +257,12 @@ export default function AdminOrderTestPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) return;
-
     let cancelled = false;
     async function loadInitialOrders() {
-      const result = await requestOrders(trimmedToken);
+      const result = await requestOrders();
       if (cancelled) return;
       setDayLabel(new Date(result.from).toDateString());
       if (!result.ok) {
@@ -314,7 +279,7 @@ export default function AdminOrderTestPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -341,18 +306,13 @@ export default function AdminOrderTestPage() {
   }, [visibleOrders, selectedOrderReference]);
 
   async function postJson(requestPath: string, requestBody: Record<string, unknown>): Promise<void> {
-    const trimmedToken = token.trim();
-    if (!trimmedToken) {
-      setActionMessage("Missing bearer token.");
-      return;
-    }
     setActionBusy(true);
     setActionMessage(null);
     try {
       const response = await fetch(requestPath, {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${trimmedToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
@@ -429,103 +389,16 @@ export default function AdminOrderTestPage() {
     }
   }
 
-  async function submitPasskeyRegistration(): Promise<void> {
-    setPasskeyMessage(null);
-    setActionBusy(true);
-    try {
-      const result = await registerAdminPasskey({
-        setupSecret: passkeySetupSecret.trim() || undefined,
-        name: passkeyName.trim() || undefined,
-      });
-      if (!result.ok) {
-        setPasskeyMessage(result.message);
-        return;
-      }
-      setPasskeyMessage("Passkey registered.");
-      setPasskeySetupSecret("");
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
   return (
     <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
       <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
-        Unauthenticated page for manual UX testing. Order list, fulfill, and print receipt use the
-        staff bearer token (
-        <code className="rounded bg-slate-800 px-1 py-0.5 text-xs">STAFF_MENU_PUBLISH_SECRET</code>
-        ). Refunds require admin passkey approval when you submit inside the refund modal. Orders
-        shown use your browser&apos;s local calendar day ({dayLabel}).
+        Passkey-gated admin panel for manual UX testing. Refunds require a second passkey approval
+        in the refund modal. Orders shown use your browser&apos;s local calendar day ({dayLabel}).
       </p>
 
-      <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/40">
-        <button
-          type="button"
-          onClick={() => setPasskeySectionOpen((open) => !open)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-200"
-        >
-          Admin passkey setup
-          <span className="text-slate-500">{passkeySectionOpen ? "▾" : "▸"}</span>
-        </button>
-        {passkeySectionOpen ? (
-          <div className="space-y-3 border-t border-slate-700 px-4 py-4">
-            <p className="text-xs text-slate-400">
-              First passkey: set <code className="text-sky-400">ADMIN_SETUP_SECRET</code> in{" "}
-              <code className="text-sky-400">.env.local</code> and enter it below. Additional
-              passkeys require approving with an existing passkey.
-            </p>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-400">Label (optional)</span>
-              <input
-                type="text"
-                value={passkeyName}
-                onChange={(e) => setPasskeyName(e.target.value)}
-                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 outline-none focus:border-sky-500 sm:text-sm"
-                placeholder="e.g. MacBook Touch ID"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-400">Setup secret (bootstrap only)</span>
-              <input
-                type="password"
-                autoComplete="off"
-                value={passkeySetupSecret}
-                onChange={(e) => setPasskeySetupSecret(e.target.value)}
-                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono outline-none focus:border-sky-500 sm:text-sm"
-                placeholder="ADMIN_SETUP_SECRET"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={actionBusy}
-              onClick={() => void submitPasskeyRegistration()}
-              className="min-h-[44px] rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-600 disabled:opacity-50"
-            >
-              Register passkey
-            </button>
-            {passkeyMessage ? (
-              <p className="text-xs text-slate-400" role="status">
-                {passkeyMessage}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="flex min-h-[44px] min-w-0 flex-1 flex-col gap-1 text-sm">
-          <span className="text-slate-400">Staff bearer token</span>
-          <input
-            type="password"
-            autoComplete="off"
-            inputMode="text"
-            value={token}
-            onChange={(changeEvent) => persistToken(changeEvent.target.value)}
-            className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
-            placeholder="Bearer token…"
-          />
-        </label>
         <button
           type="button"
           onClick={() => void fetchOrders()}

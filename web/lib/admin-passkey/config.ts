@@ -16,6 +16,21 @@ export const WEBAUTHN_RP_NAME =
 
 export const ADMIN_SETUP_SECRET = process.env.ADMIN_SETUP_SECRET?.trim() ?? "";
 
+const DEFAULT_MAX_ALLOWED_PASSKEYS = 5;
+
+export function maxAllowedPasskeys(): number {
+  const raw = process.env.MAX_ALLOWED_PASSKEYS?.trim();
+  if (!raw) return DEFAULT_MAX_ALLOWED_PASSKEYS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return DEFAULT_MAX_ALLOWED_PASSKEYS;
+  }
+  return parsed;
+}
+
+/** Empty payload hash for session login challenges. */
+export const SESSION_PAYLOAD_HASH = "";
+
 function parseAllowedOrigins(): Set<string> {
   const origins = new Set<string>([
     LOCAL_ORIGIN,

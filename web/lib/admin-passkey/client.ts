@@ -59,6 +59,86 @@ function refundBusinessMessage(errorCode: string): string {
   return REFUND_ERROR_MESSAGES[errorCode] ?? errorCode;
 }
 
+export type SignInWithAdminPasskeyResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+export async function signInWithAdminPasskey(): Promise<SignInWithAdminPasskeyResult> {
+  let startResponse: Response;
+  try {
+    startResponse = await fetch("/api/staff/admin/session/start", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (networkErr) {
+    return {
+      ok: false,
+      message:
+        networkErr instanceof Error
+          ? networkErr.message
+          : "Could not reach the sign-in server.",
+    };
+  }
+
+  if (!startResponse.ok) {
+    return { ok: false, message: await readApiError(startResponse) };
+  }
+
+  let optionsJSON: PublicKeyCredentialRequestOptionsJSON;
+  try {
+    const startBody = (await startResponse.json()) as {
+      options?: PublicKeyCredentialRequestOptionsJSON;
+    };
+    if (!startBody.options) {
+      return { ok: false, message: "Sign-in failed: invalid server response." };
+    }
+    optionsJSON = startBody.options;
+  } catch {
+    return { ok: false, message: "Sign-in failed: invalid server response." };
+  }
+
+  let authenticationResponse: AuthenticationResponseJSON;
+  try {
+    authenticationResponse = await startAuthentication({ optionsJSON });
+  } catch (webAuthnErr) {
+    if (isUserCancelledWebAuthnError(webAuthnErr)) {
+      return { ok: false, message: "Sign-in was cancelled." };
+    }
+    const detail =
+      webAuthnErr instanceof Error && webAuthnErr.message
+        ? ` ${webAuthnErr.message}`
+        : "";
+    return {
+      ok: false,
+      message: `Sign-in failed. Check device settings and try again.${detail}`,
+    };
+  }
+
+  let verifyResponse: Response;
+  try {
+    verifyResponse = await fetch("/api/staff/admin/session/verify", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authenticationResponse }),
+    });
+  } catch (networkErr) {
+    return {
+      ok: false,
+      message:
+        networkErr instanceof Error
+          ? networkErr.message
+          : "Could not complete sign-in verification.",
+    };
+  }
+
+  if (!verifyResponse.ok) {
+    return { ok: false, message: await readApiError(verifyResponse) };
+  }
+
+  return { ok: true };
+}
+
 export async function approveRefund(
   payload: RefundPayloadForHash,
 ): Promise<ApproveRefundResult> {
@@ -66,6 +146,7 @@ export async function approveRefund(
   try {
     startResponse = await fetch("/api/staff/admin/refund/start", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -120,6 +201,7 @@ export async function approveRefund(
   try {
     verifyResponse = await fetch("/api/staff/admin/refund/verify-and-run", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, authenticationResponse }),
     });
