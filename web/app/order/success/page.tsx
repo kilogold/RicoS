@@ -3,7 +3,7 @@
 import {
   parseOrderConfirmationProvider,
   type OrderConfirmationProvider,
-} from "@/lib/commerce/order-confirmation-provider";
+} from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
 import { useCart } from "@/lib/cart-context";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { assertStoreOpenOr403 } from "@/lib/commerce/store-hours";
+import { assertStoreOpenOr403 } from "@/lib/commerce/domain/store-hours";
 import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import { getStripeServerClient } from "@/lib/infrastructure/stripe/server-client";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";

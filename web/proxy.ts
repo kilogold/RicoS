@@ -3,7 +3,7 @@ import {
   getStoreSession,
   shoppingEnabled,
   storeClosedResponse,
-} from "@/lib/commerce/store-hours";
+} from "@/lib/commerce/domain/store-hours";
 
 export function proxy(req: NextRequest) {
   const session = getStoreSession(new Date());

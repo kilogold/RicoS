@@ -1,6 +1,6 @@
-import { parseOrderConfirmationProvider } from "@/lib/commerce/order-confirmation-provider";
-import { verifySolanaOrderConfirmation } from "@/lib/commerce/web-api/order-maintenance/use-cases/verify-solana-order-confirmation";
-import { verifyStripeOrderConfirmation } from "@/lib/commerce/web-api/order-maintenance/use-cases/verify-stripe-order-confirmation";
+import { parseOrderConfirmationProvider } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
+import { verifySolanaOrderConfirmation } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/verify-solana-order-confirmation";
+import { verifyStripeOrderConfirmation } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/verify-stripe-order-confirmation";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

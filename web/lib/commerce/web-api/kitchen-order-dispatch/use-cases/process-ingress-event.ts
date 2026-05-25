@@ -6,7 +6,7 @@ import {
 } from "@ricos/shared";
 import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
-import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
+import type { OrderServiceMode } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import {
   fetchMenuCatalogAndDecodeIndexByVersion,
   getDecodeIndex,

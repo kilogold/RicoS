@@ -9,17 +9,17 @@ import { useCart } from "@/lib/cart-context";
 import {
   validateCustomerContact,
   type NormalizedCustomerContact,
-} from "@/lib/commerce/customer-contact";
-import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+} from "@/lib/commerce/domain/customer-contact";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/web-api/staff-order-management/lib/menu-version-policy";
 import {
   DINE_IN_UNAVAILABLE_CODE,
   STORE_CLOSED_CODE,
-} from "@/lib/commerce/store-hours";
+} from "@/lib/commerce/domain/store-hours";
 import {
   ORDER_SERVICE_MODE_DINE_IN,
   ORDER_SERVICE_MODE_TAKEOUT,
   type OrderServiceMode,
-} from "@/lib/commerce/order-service-mode";
+} from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";

@@ -1,6 +1,6 @@
 import { Providers } from "@/components/providers";
-import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
-import { getStoreSession, shoppingEnabled } from "@/lib/commerce/store-hours";
+import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
+import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

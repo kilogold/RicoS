@@ -5,7 +5,7 @@ import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
   orderServiceModeLabel,
   type OrderServiceMode,
-} from "@/lib/commerce/order-service-mode";
+} from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { useCallback, useEffect, useState } from "react";
 
 const MS_PER_SECOND = 1000;

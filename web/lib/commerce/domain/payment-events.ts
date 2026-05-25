@@ -1,5 +1,5 @@
 import type { KitchenOrderIntent, OrderTotals, PurchaseOrderLine } from "@ricos/shared";
-import type { OrderServiceMode } from "@/lib/commerce/order-service-mode";
+import type { OrderServiceMode } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 
 export type { KitchenOrderIntent, OrderTotals } from "@ricos/shared";
 export {

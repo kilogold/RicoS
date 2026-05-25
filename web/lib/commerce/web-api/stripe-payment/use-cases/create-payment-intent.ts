@@ -6,18 +6,18 @@ import {
   type CartLineInput,
 } from "@ricos/shared";
 import Stripe from "stripe";
-import { validateCustomerContact, type CustomerContactInput } from "@/lib/commerce/customer-contact";
-import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
-import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/menu-version-policy";
+import { validateCustomerContact, type CustomerContactInput } from "@/lib/commerce/domain/customer-contact";
+import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/web-api/staff-order-management/lib/menu-version-policy";
 import {
   ORDER_SERVICE_MODE_DINE_IN,
   validateOrderServiceMode,
-} from "@/lib/commerce/order-service-mode";
+} from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import {
   DINE_IN_UNAVAILABLE_CODE,
   dineInOrderingEnabled,
   getStoreSession,
-} from "@/lib/commerce/store-hours";
+} from "@/lib/commerce/domain/store-hours";
 import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
 import { insertPendingPurchaseOrderIfNew } from "@/lib/infrastructure/turso/webhook-db";
 

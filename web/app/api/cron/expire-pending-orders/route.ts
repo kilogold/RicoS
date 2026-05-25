@@ -1,5 +1,5 @@
-import { purgePendingPurchaseOrders } from "@/lib/commerce/web-api/order-maintenance/use-cases/purge-pending-purchase-orders";
-import { verifyCronAuth } from "@/lib/commerce/web-api/order-maintenance/lib/verify-cron-auth";
+import { purgePendingPurchaseOrders } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/purge-pending-purchase-orders";
+import { verifyCronAuth } from "@/lib/commerce/web-api/staff-order-management/maintenance/lib/verify-cron-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

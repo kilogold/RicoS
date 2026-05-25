@@ -1,4 +1,4 @@
-import { getLatestMenuRuntime } from "@/lib/commerce/menu-runtime";
+import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { NextResponse } from "next/server";
 
 export async function GET() {

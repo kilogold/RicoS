@@ -1,6 +1,6 @@
 "use client";
 
-import type { StoreSessionStatus } from "@/lib/commerce/store-hours";
+import type { StoreSessionStatus } from "@/lib/commerce/domain/store-hours";
 import { useCart } from "@/lib/cart-context";
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 

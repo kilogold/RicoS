@@ -1,5 +1,5 @@
 import { canonicalJson } from "@ricos/shared";
-import { revalidateMenuRuntimeCache } from "@/lib/commerce/revalidate-menu-runtime-cache";
+import { revalidateMenuRuntimeCache } from "@/lib/commerce/web-api/staff-order-management/lib/revalidate-menu-runtime-cache";
 import { fetchMenuCatalogForPublish } from "@/lib/commerce/web-api/staff-order-management/lib/fetch-menu-for-publish";
 import {
   fetchMenuRuntimeLatestCatalogJson,
