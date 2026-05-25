@@ -1,6 +1,6 @@
 {
-  "catalogVersion": 5,
-  "publishedAt": "2026-05-19T21:40:43.847Z",
+  "catalogVersion": 6,
+  "publishedAt": "2026-05-25T17:36:27.635Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -8,9 +8,6 @@
   "menuName": {
     "en": "All Day Breakfast",
     "es": "Desayuno Todo el Dia"
-  },
-  "orderFees": {
-    "serviceFeeRate": 0.05
   },
   "categories": [
     {
@@ -41,6 +38,9 @@
             "es": "Pancakes o waffles rellenos de granola crujiente con compota de frutas."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -103,10 +103,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_blueberry_sunshine",
@@ -119,6 +116,9 @@
             "es": "Pancakes o waffles rellenos de blueberries frescas con compota de frutas."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -181,10 +181,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_nutella_sensation",
@@ -197,6 +194,9 @@
             "es": "Pancakes o waffles de Nutella acompanados de compota de frutas."
           },
           "priceCents": 1199,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -259,10 +259,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_red_velvet",
@@ -275,6 +272,9 @@
             "es": "Deliciosos pancakes o waffles coronados con glaseado de queso crema y compota de frutas."
           },
           "priceCents": 1199,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -337,10 +337,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_classic_pancakes_waffles",
@@ -353,6 +350,9 @@
             "es": "Pancakes o waffles clasicos acompanados de compota de frutas."
           },
           "priceCents": 999,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -415,10 +415,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_granola_french_toast",
@@ -431,6 +428,9 @@
             "es": "Deliciosas tostadas francesas con granola crujiente acompanadas de compota de frutas."
           },
           "priceCents": 1299,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_side_choice",
@@ -466,10 +466,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_coconut_french_toast",
@@ -482,6 +479,9 @@
             "es": "Suaves tostadas francesas con hojuelas de coco y compota de frutas."
           },
           "priceCents": 1199,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_side_choice",
@@ -517,10 +517,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_classic_french_toast",
@@ -533,6 +530,9 @@
             "es": "Suaves tostadas francesas en batido de vainilla y coco."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_side_choice",
@@ -568,10 +568,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         }
       ]
     },
@@ -599,6 +596,9 @@
             "es": "Tiras de pechuga de pollo y churrasco a la parrilla salteadas con cebolla, pimiento, queso Monterey Jack, cheddar, salsa de chile dulce, sour cream y pico de gallo."
           },
           "priceCents": 1299,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_remove_ingredients",
@@ -662,10 +662,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_ricos_omelette",
@@ -678,6 +675,9 @@
             "es": "Combinacion de pernil, Virginia ham, cebolla y hash browns cubierto de queso Monterey Jack, cheddar y sour cream."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_remove_ingredients",
@@ -720,10 +720,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_big_mouth_omelette",
@@ -736,6 +733,9 @@
             "es": "Combinacion de bacon, sausage, deluxe ham, cebolla, pimientos, queso mixto y pico de gallo."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_remove_ingredients",
@@ -778,10 +778,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_western_omelette",
@@ -794,6 +791,9 @@
             "es": "Escoge jamon, bacon o pavo con queso suizo y americano, cebolla, pimientos y tomate."
           },
           "priceCents": 999,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_remove_ingredients",
@@ -836,10 +836,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         }
       ]
     },
@@ -862,6 +859,9 @@
             "es": "Tiritas de churrasco servido con dos huevos y home fries."
           },
           "priceCents": 1799,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_egg_style",
@@ -890,10 +890,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_egg_benedict",
@@ -906,9 +903,9 @@
             "es": "English muffin, jamon ahumado, poached egg y salsa holandesa acompanado de papas rostizadas."
           },
           "priceCents": 1499,
+          "station": "B",
           "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          "municipalTaxRate": 0.01
         },
         {
           "id": "item_home_fries",
@@ -921,6 +918,9 @@
             "es": "Trozos de papas rostizadas con pimientos, cebolla y huevos fritos o revueltos; escoge bacon, sausage o jamon con tostadas criollas."
           },
           "priceCents": 999,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_egg_style",
@@ -1011,10 +1011,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_any_style_eggs",
@@ -1027,6 +1024,9 @@
             "es": "(2) huevos fritos o revueltos; escoge bacon, sausage o jamon con tostadas criollas."
           },
           "priceCents": 499,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_egg_style",
@@ -1089,10 +1089,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         },
         {
           "id": "item_ricos_big_breakfast",
@@ -1105,6 +1102,9 @@
             "es": "(1) pancake o waffle acompanado de dos huevos fritos o revueltos con bacon, jamon y hash browns."
           },
           "priceCents": 1099,
+          "station": "B",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -1194,10 +1194,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "B"
+          ]
         }
       ]
     },
@@ -1220,6 +1217,9 @@
             "es": ""
           },
           "priceCents": 399,
+          "station": "A",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -1317,10 +1317,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "A"
+          ]
         },
         {
           "id": "item_hot_cereal_cornmeal",
@@ -1333,6 +1330,9 @@
             "es": ""
           },
           "priceCents": 399,
+          "station": "A",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -1430,10 +1430,7 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "A"
+          ]
         },
         {
           "id": "item_hot_cereal_farina",
@@ -1445,7 +1442,10 @@
             "en": "Cream of wheat porridge.",
             "es": ""
           },
-          "priceCents": 399,
+          "priceCents": 100,
+          "station": "A",
+          "salesTaxRate": 0.105,
+          "municipalTaxRate": 0.01,
           "modifierGroups": [
             {
               "id": "mod_base_choice",
@@ -1543,12 +1543,12 @@
                 }
               ]
             }
-          ],
-          "salesTaxRate": 0.105,
-          "municipalTaxRate": 0.01,
-          "station": "A"
+          ]
         }
       ]
     }
-  ]
+  ],
+  "orderFees": {
+    "serviceFeeRate": 0.05
+  }
 }
