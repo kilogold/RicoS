@@ -47,7 +47,7 @@ Core vars to set:
 Menu publish vars:
 
 - `MENU_PUBLISH_MENU_JSON_URL` (raw GitHub URL to `main/packages/shared/src/menu.json`)
-- `STAFF_MENU_PUBLISH_SECRET`
+- `STAFF_OPERATIONS_SECRET`
 - `GITHUB_TOKEN` (only if the menu repo is private)
 
 Optional vars are documented in `.env.example` and `.env.local.example`.
@@ -114,13 +114,13 @@ Operational flow:
 2. Merge to `main`.
 3. After production deploy success, GitHub workflow `.github/workflows/menu-publish.yml` posts to:
    - `POST /api/staff/menu/publish`
-   - `Authorization: Bearer <STAFF_MENU_PUBLISH_SECRET>`
+   - `Authorization: Bearer <STAFF_OPERATIONS_SECRET>`
 4. API validates and writes new version when content changes.
 
 Required workflow setup:
 
 - Set `PUBLISH_URL` in `.github/workflows/menu-publish.yml`
-- Add repo secret `STAFF_MENU_PUBLISH_SECRET` matching Vercel env
+- Add repo secret `STAFF_OPERATIONS_SECRET` matching Vercel env
 
 Manual fallback:
 

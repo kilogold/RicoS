@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import compare from "tsscmp";
 
 export function verifyStaffPublishAuth(authorizationHeader: string | null): boolean {
-  const secret = process.env.STAFF_MENU_PUBLISH_SECRET?.trim();
+  const secret = process.env.STAFF_OPERATIONS_SECRET?.trim();
   if (!secret) {
     return false;
   }

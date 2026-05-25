@@ -7,8 +7,8 @@ const SECONDS_PER_HOUR = 60 * 60;
 const SESSION_MAX_AGE_HOURS = 12;
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_HOURS * SECONDS_PER_HOUR * MS_PER_SECOND;
 
-function staffPublishSecret(): string | null {
-  const secret = process.env.STAFF_MENU_PUBLISH_SECRET?.trim();
+function staffOperationsSecret(): string | null {
+  const secret = process.env.STAFF_OPERATIONS_SECRET?.trim();
   return secret || null;
 }
 
@@ -24,7 +24,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function signAdminCookie(credentialId: string, now = Date.now()): string | null {
-  const secret = staffPublishSecret();
+  const secret = staffOperationsSecret();
   if (!secret) return null;
   const expiresAt = now + SESSION_MAX_AGE_MS;
   const payload = `${credentialId}.${expiresAt}`;
@@ -36,7 +36,7 @@ export function verifyAdminCookie(
   value: string | null | undefined,
   now = Date.now(),
 ): { ok: true; credentialId: string } | { ok: false } {
-  const secret = staffPublishSecret();
+  const secret = staffOperationsSecret();
   if (!secret || !value?.trim()) {
     return { ok: false };
   }

@@ -9,8 +9,8 @@
 # HTTP response from the publish endpoint.
 #
 # Required setup:
-#   - Repo Actions secret: STAFF_MENU_PUBLISH_SECRET (must match the Vercel env var
-#     STAFF_MENU_PUBLISH_SECRET on the production project).
+#   - Repo Actions secret: STAFF_OPERATIONS_SECRET (must match the Vercel env var
+#     STAFF_OPERATIONS_SECRET on the production project).
 #   - Set PUBLISH_URL below to the production publish endpoint.
 #
 # See README.md → "Menu versioning & workflow" for the full publish contract.
@@ -68,12 +68,12 @@ jobs:
       - name: POST staff publish
         if: steps.detect.outputs.should_publish == 'true'
         env:
-          STAFF_MENU_PUBLISH_SECRET: ${{ secrets.STAFF_MENU_PUBLISH_SECRET }}
+          STAFF_OPERATIONS_SECRET: ${{ secrets.STAFF_OPERATIONS_SECRET }}
         run: |
           set -euo pipefail
 
-          if [ -z "${STAFF_MENU_PUBLISH_SECRET:-}" ]; then
-            echo "::error::Repo secret STAFF_MENU_PUBLISH_SECRET is not set."
+          if [ -z "${STAFF_OPERATIONS_SECRET:-}" ]; then
+            echo "::error::Repo secret STAFF_OPERATIONS_SECRET is not set."
             exit 1
           fi
 
@@ -90,7 +90,7 @@ jobs:
             --output "${response}" \
             --write-out "%{http_code}" \
             -X POST \
-            -H "Authorization: Bearer ${STAFF_MENU_PUBLISH_SECRET}" \
+            -H "Authorization: Bearer ${STAFF_OPERATIONS_SECRET}" \
             -H "Content-Type: application/json" \
             --data "{}" \
             "${PUBLISH_URL}")
