@@ -132,7 +132,7 @@ Checkout guard:
 
 ## Architecture
 
-See [C4 Model](docs/C4/workspace.dsl) for details.
+See [C4 Model](docs/C4/workspace.dsl) for details...
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
