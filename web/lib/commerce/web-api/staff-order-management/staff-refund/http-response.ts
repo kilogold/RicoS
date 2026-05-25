@@ -10,9 +10,11 @@ export function jsonResponseForStaffRefundResult(result: StaffRefundResult): Res
       already_refunded: 409,
       cannot_refund_order_status: 409,
       refund_exceeds_order_total: 409,
-      missing_solana_signature: 400,
       server_misconfigured: 500,
       stripe_refund_failed: 502,
+      solana_refund_failed: 502,
+      payment_payer_not_found: 404,
+      missing_payment_reference: 400,
     };
     const status = statusByCode[result.code];
     const payload: Record<string, string> = { error: result.code };

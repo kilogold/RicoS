@@ -14,7 +14,9 @@ function normalizeOptionalString(value: string | undefined): string | undefined 
 }
 
 /** Canonical refund fields for challenge binding (sorted keys, trimmed strings). */
-export function canonicalRefundPayload(payload: RefundPayloadForHash): Record<string, string | number> {
+export function canonicalRefundPayload(
+  payload: RefundPayloadForHash,
+): Record<string, string | number> {
   const out: Record<string, string | number> = {
     amountCents: payload.amountCents,
     orderReference: payload.orderReference.trim(),

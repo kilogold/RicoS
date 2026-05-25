@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { persistActionChallenge } from "@/lib/admin-passkey/challenges";
 import { jsonError } from "@/lib/admin-passkey/http";
-import { hashRefundPayload } from "@/lib/admin-passkey/payload-hash";
-import type { ParsedStaffRefundPayload } from "@/lib/admin-passkey/refund-payload";
 import { generateActionAuthenticationOptions } from "@/lib/admin-passkey/webauthn";
+import { hashRefundPayload } from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload-hash";
+import type { ParsedStaffRefundPayload } from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {
   countAdminPasskeys,

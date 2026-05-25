@@ -9,11 +9,11 @@ import {
   tryInsertRefundIfWithinOrderTotal,
   updateRefundConfirmation,
 } from "@/lib/infrastructure/turso/webhook-db";
+import { executeSolanaStaffRefund } from "@/lib/commerce/web-api/staff-order-management/staff-refund/execute-solana-refund";
 
 export type StaffRefundOrderInput = {
   orderReference: string;
   amountCents: number;
-  solanaRefundTransactionSignature?: string;
   idempotencyKey?: string;
 };
 
@@ -31,9 +31,11 @@ export type StaffRefundOrderResult =
         | "already_refunded"
         | "cannot_refund_order_status"
         | "refund_exceeds_order_total"
-        | "missing_solana_signature"
         | "server_misconfigured"
-        | "stripe_refund_failed";
+        | "stripe_refund_failed"
+        | "solana_refund_failed"
+        | "payment_payer_not_found"
+        | "missing_payment_reference";
       detail?: string;
     };
 
@@ -97,15 +99,42 @@ export async function staffRefundOrder(
       stripeRefundConfirmation: stripeRefundId,
     });
   } else {
-    const sig = input.solanaRefundTransactionSignature?.trim();
-    if (!sig) return { ok: false, code: "missing_solana_signature" };
-
-    const inserted = await tryInsertRefundIfWithinOrderTotal(db, {
+    const reserved = await tryInsertRefundIfWithinOrderTotal(db, {
       orderReference,
       amountCents,
-      solanaRefundTransactionSignature: sig,
     });
-    if (!inserted) return { ok: false, code: "refund_exceeds_order_total" };
+    if (!reserved) return { ok: false, code: "refund_exceeds_order_total" };
+
+    const sent = await executeSolanaStaffRefund({ order, amountCents });
+    if (!sent.ok) {
+      try {
+        await deleteRefund(db, reserved.id);
+      } catch (rollbackErr) {
+        const rollbackMessage =
+          rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+        console.error("refund reservation rollback failed:", rollbackMessage);
+      }
+      return { ok: false, code: sent.code, detail: sent.detail };
+    }
+
+    try {
+      await updateRefundConfirmation(db, reserved.id, {
+        solanaRefundTransactionSignature: sent.transactionSignature,
+      });
+    } catch (confirmErr) {
+      const confirmMessage =
+        confirmErr instanceof Error ? confirmErr.message : String(confirmErr);
+      console.error(
+        "solana refund sent but confirmation update failed:",
+        sent.transactionSignature,
+        confirmMessage,
+      );
+      return {
+        ok: false,
+        code: "solana_refund_failed",
+        detail: `On-chain refund sent (${sent.transactionSignature}) but confirmation failed`,
+      };
+    }
   }
 
   const total = await sumConfirmedRefundsForOrder(db, orderReference);

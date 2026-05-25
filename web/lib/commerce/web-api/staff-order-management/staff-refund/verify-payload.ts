@@ -2,7 +2,7 @@ import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import {
   parseStaffRefundBody,
   type ParsedStaffRefundPayload,
-} from "@/lib/admin-passkey/refund-payload";
+} from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload";
 
 export type ParsedStaffRefundVerifyBody = {
   refund: ParsedStaffRefundPayload;

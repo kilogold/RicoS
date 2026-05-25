@@ -140,7 +140,6 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
   let body: {
     orderReference?: unknown;
     amountCents?: unknown;
-    solanaRefundTransactionSignature?: unknown;
     idempotencyKey?: unknown;
   };
   try {
@@ -164,12 +163,8 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
 
   const db = await getWebhookDb();
   const result = await staffRefundOrder(db, {
-    orderReference,
+    orderReference: orderReference.trim(),
     amountCents,
-    solanaRefundTransactionSignature:
-      typeof body.solanaRefundTransactionSignature === "string"
-        ? body.solanaRefundTransactionSignature
-        : undefined,
     idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,
   });
 
@@ -182,9 +177,11 @@ export async function handleStaffRefundRequest(req: Request): Promise<Response> 
       already_refunded: 409,
       cannot_refund_order_status: 409,
       refund_exceeds_order_total: 409,
-      missing_solana_signature: 400,
       server_misconfigured: 500,
       stripe_refund_failed: 502,
+      solana_refund_failed: 502,
+      payment_payer_not_found: 404,
+      missing_payment_reference: 400,
     };
     const status = statusByCode[result.code];
     const payload: Record<string, string> = { error: result.code };

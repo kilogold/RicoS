@@ -1,4 +1,4 @@
-import type { RefundPayloadForHash } from "@/lib/admin-passkey/payload-hash";
+import type { RefundPayloadForHash } from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload-hash";
 
 export type ParsedStaffRefundPayload = RefundPayloadForHash;
 

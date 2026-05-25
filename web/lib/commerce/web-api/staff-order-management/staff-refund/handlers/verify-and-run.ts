@@ -1,10 +1,10 @@
 import { challengeFromClientDataJSON } from "@/lib/admin-passkey/challenge-from-assertion";
 import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
-import { hashRefundPayload } from "@/lib/admin-passkey/payload-hash";
-import type { ParsedStaffRefundVerifyBody } from "@/lib/admin-passkey/refund-verify-payload";
-import { jsonResponseForStaffRefundResult } from "@/lib/admin-passkey/staff-refund-response";
 import { verifyActionAuthentication } from "@/lib/admin-passkey/webauthn";
+import { hashRefundPayload } from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload-hash";
+import type { ParsedStaffRefundVerifyBody } from "@/lib/commerce/web-api/staff-order-management/staff-refund/verify-payload";
+import { jsonResponseForStaffRefundResult } from "@/lib/commerce/web-api/staff-order-management/staff-refund/http-response";
 import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {

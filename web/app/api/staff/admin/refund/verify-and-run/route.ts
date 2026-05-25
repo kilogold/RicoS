@@ -1,6 +1,6 @@
-import { handleStaffAdminRefundVerifyAndRunRequest } from "@/lib/admin-passkey/handlers/refund-verify-and-run";
 import { readJsonBody, jsonError } from "@/lib/admin-passkey/http";
-import { parseStaffRefundVerifyBody } from "@/lib/admin-passkey/refund-verify-payload";
+import { handleStaffAdminRefundVerifyAndRunRequest } from "@/lib/commerce/web-api/staff-order-management/staff-refund/handlers/verify-and-run";
+import { parseStaffRefundVerifyBody } from "@/lib/commerce/web-api/staff-order-management/staff-refund/verify-payload";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 
 export async function POST(req: Request) {
@@ -10,7 +10,6 @@ export async function POST(req: Request) {
   const parsed = await readJsonBody<{
     orderReference?: unknown;
     amountCents?: unknown;
-    solanaRefundTransactionSignature?: unknown;
     idempotencyKey?: unknown;
     authenticationResponse?: unknown;
   }>(req);

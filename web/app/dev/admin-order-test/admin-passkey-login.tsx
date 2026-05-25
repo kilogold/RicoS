@@ -1,6 +1,6 @@
 "use client";
 
-import { signInWithAdminPasskey } from "@/lib/admin-passkey/client";
+import { signInWithAdminPasskey } from "@/lib/admin-passkey/browser-passkey-auth";
 import { useState } from "react";
 
 export function AdminPasskeyLogin() {

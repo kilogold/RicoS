@@ -1,6 +1,6 @@
 "use client";
 
-import { registerAdminPasskey } from "@/lib/admin-passkey/client";
+import { registerAdminPasskey } from "@/lib/admin-passkey/browser-passkey-auth";
 import { useState } from "react";
 
 type AdminPasskeySetupClientProps = {

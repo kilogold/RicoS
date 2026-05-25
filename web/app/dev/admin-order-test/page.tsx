@@ -1,6 +1,6 @@
 "use client";
 
-import { approveRefund } from "@/lib/admin-passkey/client";
+import { approveRefund } from "@/lib/commerce/web-api/staff-order-management/staff-refund/browser-approve-refund";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
   orderServiceModeLabel,
@@ -237,7 +237,6 @@ export default function AdminOrderTestPage() {
   const [refundOpen, setRefundOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [refundAmountCents, setRefundAmountCents] = useState("");
-  const [refundSolanaSig, setRefundSolanaSig] = useState("");
   const [refundIdempotency, setRefundIdempotency] = useState("");
   const [refundError, setRefundError] = useState<string | null>(null);
 
@@ -336,7 +335,6 @@ export default function AdminOrderTestPage() {
   function openRefundModal(): void {
     if (!selectedOrder) return;
     setRefundAmountCents(String(selectedOrder.grandTotalCents));
-    setRefundSolanaSig("");
     setRefundIdempotency("");
     setRefundError(null);
     setRefundOpen(true);
@@ -356,20 +354,11 @@ export default function AdminOrderTestPage() {
     const requestBody: {
       orderReference: string;
       amountCents: number;
-      solanaRefundTransactionSignature?: string;
       idempotencyKey?: string;
     } = {
       orderReference: selectedOrder.orderReference,
       amountCents: refundAmount,
     };
-    if (selectedOrder.paymentProvider === "helius") {
-      const solanaRefundTransactionSignature = refundSolanaSig.trim();
-      if (!solanaRefundTransactionSignature) {
-        setRefundError("Solana refund transaction signature is required for Helius orders.");
-        return;
-      }
-      requestBody.solanaRefundTransactionSignature = solanaRefundTransactionSignature;
-    }
     const idempotencyKey = refundIdempotency.trim();
     if (idempotencyKey) requestBody.idempotencyKey = idempotencyKey;
 
@@ -801,21 +790,7 @@ export default function AdminOrderTestPage() {
               />
             </label>
 
-            {selectedOrder.paymentProvider === "helius" ? (
-              <label className="mt-3 flex flex-col gap-1 text-sm">
-                <span className="text-slate-400">Solana refund tx signature</span>
-                <input
-                  type="text"
-                  value={refundSolanaSig}
-                  onChange={(changeEvent) => {
-                    setRefundSolanaSig(changeEvent.target.value);
-                    clearRefundFieldError();
-                  }}
-                  className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
-                  placeholder="Required for Helius"
-                />
-              </label>
-            ) : (
+            {selectedOrder.paymentProvider === "stripe" ? (
               <label className="mt-3 flex flex-col gap-1 text-sm">
                 <span className="text-slate-400">Stripe idempotency key (optional)</span>
                 <input
@@ -828,7 +803,7 @@ export default function AdminOrderTestPage() {
                   className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                 />
               </label>
-            )}
+            ) : null}
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
