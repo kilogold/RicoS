@@ -1,6 +1,6 @@
 {
-  "catalogVersion": 12,
-  "publishedAt": "2026-05-25T19:05:11.564Z",
+  "catalogVersion": 13,
+  "publishedAt": "2026-05-28T02:22:49.803Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -1442,7 +1442,7 @@
             "en": "Cream of wheat porridge.",
             "es": ""
           },
-          "priceCents": 100,
+          "priceCents": 500,
           "station": "A",
           "salesTaxRate": 0.105,
           "municipalTaxRate": 0.01,
@@ -1539,6 +1539,33 @@
                   "label": {
                     "en": "None",
                     "es": "Nada"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "mod_new_mpov23lz_04",
+              "title": {
+                "en": "Table",
+                "es": "Mesa"
+              },
+              "selectionType": "single",
+              "required": true,
+              "minSelections": 1,
+              "maxSelections": 1,
+              "options": [
+                {
+                  "id": "opt_new_mpov3hhe_01",
+                  "label": {
+                    "en": "Plastic",
+                    "es": "Plastico"
+                  }
+                },
+                {
+                  "id": "opt_new_mpov3ioo_02",
+                  "label": {
+                    "en": "Metal",
+                    "es": "Metal"
                   }
                 }
               ]
