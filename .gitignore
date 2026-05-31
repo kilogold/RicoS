@@ -2,7 +2,8 @@ node_modules
 .next
 dist
 .env.local
-.env
+.env.production
+.env.preview
 kitchen-print.log
 kitchen-relay/.kitchen-processed-events.json
 *.log

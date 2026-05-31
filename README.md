@@ -18,17 +18,18 @@ Monorepo for RicoS online ordering.
 - **Turso** — DB + auth token (`TURSO_DATABASE_*`)
 - **Stripe** — API keys + `STRIPE_WEBHOOK_SECRET`
 - **Solana Pay** — `HELIUS_USDC_MINT`, `HELIUS_MERCHANT_RECIPIENT`, and `NEXT_PUBLIC_SOLANA_RPC_URL` on the same cluster
-- **Solana staff refunds** — `HELIUS_MERCHANT_PRIVATE_KEY` (must match `HELIUS_MERCHANT_RECIPIENT`) and `HELIUS_API_KEY` in `.env.local` (see `.env.local.example`)
+- **Solana staff refunds** — `HELIUS_MERCHANT_PRIVATE_KEY` (must match `HELIUS_MERCHANT_RECIPIENT`) and `HELIUS_API_KEY` (see `.env.example`)
 - **Kitchen relay** — `console` only needs Bun; `lp` needs CUPS (see `.env.example`)
 
 ## Environment
 
 Copy and fill:
 
-- `.env.example` -> `.env`
-- `.env.local.example` -> `.env.local`
+- `.env.example` -> `.env.preview` (required for day-to-day dev — default for root scripts)
+- `.env.example` -> `.env.production` (only when running `:production` scripts; adjust preview vs production vars per header in `.env.example`)
+- Optionally create `.env.local` for machine-specific overrides (wins over the active suffixed file)
 
-Root scripts load env in this order: `.env` then `.env.local` (local overrides shared defaults).
+Root scripts load env in this order: `.env.preview` or `.env.production` (depending on script), then `.env.local` if present. Unsuffixed scripts use preview; append `:production` for production (e.g. `bun run dev:web:production`).
 
 Core vars to set:
 
@@ -50,7 +51,7 @@ Menu publish vars:
 - `STAFF_OPERATIONS_SECRET`
 - `GITHUB_TOKEN` (only if the menu repo is private)
 
-Optional vars are documented in `.env.example` and `.env.local.example`.
+Optional vars are documented in `.env.example`.
 
 ### Solana staff refunds
 
@@ -65,7 +66,7 @@ Optional vars are documented in `.env.example` and `.env.local.example`.
    ```bash
    bun install
    ```
-2. Configure `.env` and `.env.local` from examples.
+2. Copy `.env.example` to `.env.preview` and fill values (copy again to `.env.production` if needed).
 3. Start both processes:
    - Cursor task: `RicoS: Dev bootstrap`
    - Shell:
@@ -77,11 +78,14 @@ Optional vars are documented in `.env.example` and `.env.local.example`.
 
 ## Root Scripts
 
-- `bun run dev:bootstrap`
+Default scripts load `.env.preview`. Append `:production` for production env (e.g. `dev:web:production`).
+
 - `bun run dev:web`
 - `bun run dev:kitchen`
 - `bun run build`
 - `bun run lint`
+- `bun run db:nuke`
+- `bun run db:clear-orders`
 
 ## Deploying `web` on Vercel
 
