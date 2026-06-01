@@ -2,10 +2,12 @@ import { Providers } from "@/components/providers";
 import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +30,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   const menu = await getLatestMenuRuntime();
   const session = getStoreSession(new Date());
   const storeSession = {

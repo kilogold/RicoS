@@ -6,6 +6,7 @@ import {
   type MenuCatalogSurface,
   type MenuDocument,
 } from "@ricos/shared";
+import { unstable_noStore as noStore } from "next/cache";
 
 export type MenuRuntime = {
   version: number;
@@ -18,11 +19,10 @@ export type MenuRuntime = {
  * Active catalog from the deployment bundle (`packages/shared/src/menu.json`).
  * Used for storefront and new checkout after version gate.
  *
- * Not wrapped in `unstable_cache`: Vercel's Data Cache persists entries across
- * redeploys when the cache key is static, which previously served menu v16 after
- * menu.json was bumped to v18.
+ * Uses `noStore()` so menu reads are never stored in Next.js / Vercel Data Cache.
  */
 export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
+  noStore();
   const parsed = getPackagedMenuCatalogParsed();
   const catalog = parsed.catalog;
   return {
