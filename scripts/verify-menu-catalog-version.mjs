@@ -20,9 +20,46 @@ function runGit(command) {
   return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
+function gitOk(command) {
+  try {
+    execSync(command, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function commitExists(ref) {
+  return gitOk(`git cat-file -e ${quoteRef(ref)}^{commit}`);
+}
+
+function menuFileExistsAtRef(ref) {
+  return gitOk(`git cat-file -e ${quoteRef(ref)}:${MENU_PATH}`);
+}
+
+function quoteRef(ref) {
+  return `'${ref.replaceAll("'", "'\\''")}'`;
+}
+
+function ensureBaseRefAvailable(baseRef) {
+  if (commitExists(baseRef)) {
+    return;
+  }
+  // actions/checkout may not include github.event.before; fetch it explicitly.
+  gitOk(`git fetch --no-tags --depth=1 origin ${quoteRef(baseRef)}`);
+  if (!commitExists(baseRef)) {
+    fail(
+      `cannot resolve MENU_CATALOG_BASE_REF ${baseRef}. ` +
+        "Ensure the workflow fetches the pre-push commit (see web-lint.yml).",
+    );
+  }
+}
+
 function menuChanged(baseRef, headRef) {
   try {
-    const names = runGit(`git diff --name-only ${baseRef} ${headRef} -- ${MENU_PATH}`);
+    const names = runGit(
+      `git diff --name-only ${quoteRef(baseRef)} ${quoteRef(headRef)} -- ${MENU_PATH}`,
+    );
     return names.length > 0;
   } catch {
     return true;
@@ -30,12 +67,8 @@ function menuChanged(baseRef, headRef) {
 }
 
 function readMenuAtRef(ref) {
-  try {
-    const raw = runGit(`git show ${ref}:${MENU_PATH}`);
-    return parseMenuCatalogFile(JSON.parse(raw));
-  } catch {
-    return null;
-  }
+  const raw = runGit(`git show ${quoteRef(ref)}:${MENU_PATH}`);
+  return parseMenuCatalogFile(JSON.parse(raw));
 }
 
 function fail(message) {
@@ -51,6 +84,8 @@ if (!baseRef || baseRef === ZERO_SHA) {
   process.exit(0);
 }
 
+ensureBaseRefAvailable(baseRef);
+
 if (!menuChanged(baseRef, headRef)) {
   console.log(`${MENU_PATH} unchanged; skipping menu catalog version check.`);
   process.exit(0);
@@ -63,13 +98,23 @@ try {
   fail(err instanceof Error ? err.message : String(err));
 }
 
-const baseParsed = readMenuAtRef(baseRef);
-if (!baseParsed) {
+if (!menuFileExistsAtRef(baseRef)) {
   if (headParsed.catalogVersion !== 1) {
-    fail(`initial ${MENU_PATH} must have catalogVersion 1 (got ${headParsed.catalogVersion})`);
+    fail(
+      `initial ${MENU_PATH} must have catalogVersion 1 (got ${headParsed.catalogVersion})`,
+    );
   }
-  console.log(`Menu catalog version OK: initial catalogVersion 1`);
+  console.log("Menu catalog version OK: initial catalogVersion 1");
   process.exit(0);
+}
+
+let baseParsed;
+try {
+  baseParsed = readMenuAtRef(baseRef);
+} catch (err) {
+  fail(
+    `could not parse ${MENU_PATH} at ${baseRef}: ${err instanceof Error ? err.message : String(err)}`,
+  );
 }
 
 const expectedVersion = baseParsed.catalogVersion + 1;
