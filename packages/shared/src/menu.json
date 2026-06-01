@@ -1,6 +1,6 @@
 {
-  "catalogVersion": 20,
-  "publishedAt": "2026-06-01T06:23:15.419Z",
+  "catalogVersion": 21,
+  "publishedAt": "2026-06-01T07:01:52.128Z",
   "restaurant": {
     "en": "RicoS",
     "es": "RicoS"
@@ -1442,7 +1442,7 @@
             "en": "Cream of wheat porridge.",
             "es": ""
           },
-          "priceCents": 110,
+          "priceCents": 123,
           "station": "A",
           "salesTaxRate": 0.105,
           "municipalTaxRate": 0.01,
