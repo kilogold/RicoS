@@ -6,8 +6,6 @@ import {
   type MenuCatalogSurface,
   type MenuDocument,
 } from "@ricos/shared";
-import { unstable_cache } from "next/cache";
-import { MENU_RUNTIME_CACHE_TAG } from "./menu-runtime-tags";
 
 export type MenuRuntime = {
   version: number;
@@ -16,34 +14,21 @@ export type MenuRuntime = {
   surface: MenuCatalogSurface;
 };
 
-type MenuRuntimeSerializable = Omit<MenuRuntime, "surface">;
-
-async function loadPackagedMenuRuntimeSerializable(): Promise<MenuRuntimeSerializable> {
-  const parsed = getPackagedMenuCatalogParsed();
-  return {
-    version: parsed.catalogVersion,
-    catalog: parsed.catalog,
-    decodeIndex: buildDecodeIndex(parsed.catalogVersion, parsed.catalog),
-  };
-}
-
-const getLatestMenuRuntimeCached = unstable_cache(
-  loadPackagedMenuRuntimeSerializable,
-  ["ricos-menu-runtime-packaged-v1"],
-  { tags: [MENU_RUNTIME_CACHE_TAG] },
-);
-
 /**
  * Active catalog from the deployment bundle (`packages/shared/src/menu.json`).
  * Used for storefront and new checkout after version gate.
  *
- * `surface` holds methods and must not be stored inside `unstable_cache` — cached payloads are
- * serialized, which strips functions and breaks helpers like `getItemById`.
+ * Not wrapped in `unstable_cache`: Vercel's Data Cache persists entries across
+ * redeploys when the cache key is static, which previously served menu v16 after
+ * menu.json was bumped to v18.
  */
 export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
-  const data = await getLatestMenuRuntimeCached();
+  const parsed = getPackagedMenuCatalogParsed();
+  const catalog = parsed.catalog;
   return {
-    ...data,
-    surface: createMenuCatalogSurface(data.catalog),
+    version: parsed.catalogVersion,
+    catalog,
+    decodeIndex: buildDecodeIndex(parsed.catalogVersion, catalog),
+    surface: createMenuCatalogSurface(catalog),
   };
 }
