@@ -47,9 +47,9 @@ Core vars to set:
 
 Menu publish vars:
 
-- `MENU_PUBLISH_MENU_JSON_URL` (raw GitHub URL to `main/packages/shared/src/menu.json`)
+- `MENU_PUBLISH_MENU_JSON_URL` (raw GitHub URL to `RicoS-Menu` — `preview/menu.json` or `main/menu.json` per deployment)
 - `STAFF_OPERATIONS_SECRET`
-- `GITHUB_TOKEN` (only if the menu repo is private)
+- `GITHUB_TOKEN` (PAT with **write** access to `RicoS-Menu` for staff publish; omit for public read-only)
 
 Optional vars are documented in `.env.example`.
 
@@ -105,27 +105,18 @@ Default scripts load `.env.preview`. Append `:production` for production env (e.
 - `KITCHEN_IP_PRINTER_B_HOST` unset → single-printer mode (all items on Printer A). Same host for A and B is allowed (two separate print jobs).
 - Extend printing behavior in `kitchen-relay/src/component/ticket-printing/service.ts` as needed
 
-## Menu Publish Workflow
+## Menu catalog (`RicoS-Menu`)
 
-Source of truth:
+Source of truth: public GitHub repo **[RicoS-Menu](https://github.com/kilogold/RicoS-Menu)** with independent `main` (production) and `preview` branches, each with root `menu.json`.
 
-- Runtime menu is bundled `packages/shared/src/menu.json` per deployment (git commit = live menu after Vercel deploy)
-- Git history is the audit trail for menu edits
+- **Runtime**: storefront, checkout, and APIs load the catalog from `MENU_PUBLISH_MENU_JSON_URL` at request time (`cache: no-store`). Menu updates apply **without** redeploying the RicoS app.
+- **Publish**: staff menu editor (`POST /api/staff/admin/menu/commit-publish`) commits to the branch configured in env (preview deployments → `preview`; production → `main`).
+- **Do not** merge `RicoS-Menu/preview` into `RicoS-Menu/main` to “promote” menu content. App repo `preview` → `main` merges are code-only.
+- **Direct git pushes** to `RicoS-Menu` must bump `catalogVersion` by exactly `+1` and advance `publishedAt`.
 
-Operational flow:
+CI guard ([`RicoS-Menu/.github/workflows/menu-catalog-ci.yml`](https://github.com/kilogold/RicoS-Menu/blob/main/.github/workflows/menu-catalog-ci.yml)) runs on push to `main` / `preview`.
 
-1. Update `packages/shared/src/menu.json` and increment `catalogVersion` by exactly `+1`.
-2. Commit via staff menu editor (`POST /api/staff/admin/menu/commit-publish`) or push to the target branch.
-3. Vercel redeploys; the new deployment serves the updated bundled menu.
-
-CI guard (`.github/workflows/web-lint.yml` on push to `main` / `preview`):
-
-- If `menu.json` changed, `catalogVersion` must be exactly previous `+1` and `publishedAt` must be strictly later than the prior revision.
-- Run locally: `bun run verify:menu-catalog` (set `MENU_CATALOG_BASE_REF` to the parent commit).
-
-Checkout guard:
-
-- Clients send `menuVersionSeen`; backend returns `409` on mismatch to force refresh.
+Checkout guard: clients send `menuVersionSeen`; backend returns `409` on mismatch to force refresh.
 
 ## Architecture
 

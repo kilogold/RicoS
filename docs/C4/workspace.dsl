@@ -31,6 +31,7 @@ workspace "RicoS" "Restaurant online ordering system" {
         
         stripe = softwareSystem "Stripe" "Stripe's payment processing system" "External System"
         helius = softwareSystem "Helius" "Solana network services" "External System"
+        menuCatalog = softwareSystem "RicoS-Menu" "Public GitHub repo: menu.json on main (production) and preview branches." "External System"
     
     
         stripe -> commerce.api.stripe_payment "Send payment confirmation event"
@@ -53,7 +54,9 @@ workspace "RicoS" "Restaurant online ordering system" {
         commerce.api -> kitchen.relay "Notify newly paid order"
         commerce.api.kitchen_order_dispatch -> commerce.db "Manage kitchen dispatch queue state"
         
-        commerce.api.staff_order_management -> commerce.db "Publish menu versions; save finalized or refunded order state"
+        commerce.api.staff_order_management -> menuCatalog "Commit menu.json (catalogVersion bump)"
+        commerce.api.staff_order_management -> commerce.db "Save finalized or refunded order state"
+        commerce.web_server -> menuCatalog "Fetch menu.json at runtime (MENU_PUBLISH_MENU_JSON_URL)"
 
         // Person relationships
         c -> commerce.web_client "Orders from the web client"
@@ -102,6 +105,10 @@ workspace "RicoS" "Restaurant online ordering system" {
 
             deploymentNode "Helius Cloud" "Helius-managed Solana data and RPC runtime." {
                 softwareSystemInstance helius
+            }
+
+            deploymentNode "GitHub" "Menu catalog and raw content delivery." {
+                softwareSystemInstance menuCatalog
             }
         }
     }

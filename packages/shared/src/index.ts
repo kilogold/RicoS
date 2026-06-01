@@ -1,8 +1,8 @@
 /**
  * Public surface for `@ricos/shared`.
  *
- * Runtime menu authority is the deployment bundle (`packages/shared/src/menu.json`);
- * use `createMenuCatalogSurface` with the active catalog from the loader.
+ * Runtime menu authority is the RicoS-Menu GitHub repo (`MENU_PUBLISH_MENU_JSON_URL`);
+ * use `createMenuCatalogSurface` with the active catalog from the remote loader.
  * Codec helpers are version-agnostic.
  */
 
@@ -74,8 +74,6 @@ export {
   type MenuCatalogSurface,
 } from "./menu-catalog-surface";
 
-export { getPackagedMenuCatalogParsed } from "./packaged-menu";
-
 export type { KitchenOrderIntent } from "./kitchen-order";
 export {
   PENDING_PAYMENT_NO_SALE_INGRESS_ID,
@@ -94,7 +92,7 @@ export type KitchenCartLineFromMetadata = HydratedCartLine;
 
 /**
  * Decode cart metadata to kitchen lines using the supplied decode-index lookup
- * (e.g. bundled-menu `getLatestMenuRuntime()` in the web runtime).
+ * (e.g. remote `getLatestMenuRuntime()` in the web runtime).
  */
 export function parseKitchenLinesFromCartMetadataV1(
   metadata: Record<string, string | undefined>,
