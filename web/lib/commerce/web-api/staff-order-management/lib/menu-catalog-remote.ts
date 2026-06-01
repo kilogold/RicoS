@@ -69,8 +69,14 @@ export function parseGitHubTargetFromCatalogUrl(urlRaw?: string): GitHubCatalogT
   return { owner, repo, branch, path };
 }
 
-export async function fetchRemoteMenuCatalog(urlRaw?: string): Promise<ParsedMenuCatalogFile> {
+export async function fetchRemoteMenuCatalog(
+  urlRaw?: string,
+  options?: { cacheBust?: boolean },
+): Promise<ParsedMenuCatalogFile> {
   const url = parseMenuCatalogJsonUrl(urlRaw);
+  if (options?.cacheBust) {
+    url.searchParams.set("_", String(Date.now()));
+  }
   const headers: Record<string, string> = {
     Accept: "application/json",
     "User-Agent": "RicoS-menu-catalog",
