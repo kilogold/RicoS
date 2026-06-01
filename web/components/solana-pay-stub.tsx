@@ -62,8 +62,7 @@ function splMinorUnitsForSolanaPayUrl(
     BigInt(10) ** BigInt(SOLANA_PAY_URL_ENCODER_DECIMALS - tokenDecimals)
   );
 }
-const RPC_URL_OR_MONIKER =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "devnet";
+const SOLANA_RPC_PROXY_PATH = "/api/solana/rpc";
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
 
@@ -174,7 +173,7 @@ export function SolanaPayStub({
   const { cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot } = snapshot;
 
   const rpc = useMemo(
-    () => createSolanaClient({ urlOrMoniker: RPC_URL_OR_MONIKER }).rpc,
+    () => createSolanaClient({ urlOrMoniker: SOLANA_RPC_PROXY_PATH }).rpc,
     [],
   );
 

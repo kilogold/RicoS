@@ -17,7 +17,7 @@ Monorepo for RicoS online ordering.
 - **Bun** `>= 1.2.0` (Bun-only installs)
 - **Turso** — DB + auth token (`TURSO_DATABASE_*`)
 - **Stripe** — API keys + `STRIPE_WEBHOOK_SECRET`
-- **Solana Pay** — `HELIUS_USDC_MINT`, `HELIUS_MERCHANT_RECIPIENT`, and `NEXT_PUBLIC_SOLANA_RPC_URL` on the same cluster
+- **Solana Pay** — `HELIUS_USDC_MINT`, `HELIUS_MERCHANT_RECIPIENT`, `HELIUS_API_KEY`, and `HELIUS_SOLANA_CLUSTER` on the same cluster
 - **Solana staff refunds** — `HELIUS_MERCHANT_PRIVATE_KEY` (must match `HELIUS_MERCHANT_RECIPIENT`) and `HELIUS_API_KEY` (see `.env.example`)
 - **Kitchen relay** — `console` only needs Bun; `lp` needs CUPS (see `.env.example`)
 
@@ -55,7 +55,7 @@ Optional vars are documented in `.env.example`.
 
 ### Solana staff refunds
 
-- Merchant wallet must hold enough **USDC** (refund amounts) and **SOL** (fees) on the cluster in `NEXT_PUBLIC_SOLANA_RPC_URL`.
+- Merchant wallet must hold enough **USDC** (refund amounts) and **SOL** (fees) on the cluster in `HELIUS_SOLANA_CLUSTER`.
 - `HELIUS_MERCHANT_PRIVATE_KEY` must correspond to `HELIUS_MERCHANT_RECIPIENT`.
 - `HELIUS_API_KEY` is required to resolve the original payer via the Helius enhanced transactions API.
 - Refund transactions include the order’s Solana Pay reference pubkey (same as checkout) for on-chain traceability.

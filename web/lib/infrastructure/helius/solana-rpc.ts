@@ -1,6 +1,7 @@
 import { createSolanaRpc } from "@solana/kit";
 
-const DEFAULT_RPC_URL = "https://api.devnet.solana.com";
+import { getHeliusRpcUrl } from "@/lib/infrastructure/helius/config";
+
 let cachedRpcUrl: string | null = null;
 let cachedRpcClient: ReturnType<typeof createSolanaRpc> | null = null;
 
@@ -11,7 +12,7 @@ export function parsePositiveInt(raw: string | undefined, fallback: number): num
 }
 
 export function solanaRpcUrl(): string {
-  return process.env.NEXT_PUBLIC_SOLANA_RPC_URL?.trim() || DEFAULT_RPC_URL;
+  return getHeliusRpcUrl();
 }
 
 export function getSolanaRpcClient() {
@@ -43,4 +44,25 @@ export async function rpcCall<T>(method: string, params: unknown[]): Promise<T> 
     throw new Error(`RPC ${method} error: ${json.error.message ?? "unknown_error"}`);
   }
   return json.result as T;
+}
+
+export type JsonRpcRequest = {
+  jsonrpc?: string;
+  id?: unknown;
+  method: string;
+  params?: unknown;
+};
+
+export async function forwardJsonRpcToHelius(body: JsonRpcRequest): Promise<Response> {
+  const res = await fetch(solanaRpcUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const text = await res.text();
+  return new Response(text, {
+    status: res.status,
+    headers: { "Content-Type": "application/json" },
+  });
 }

@@ -1,20 +1,15 @@
-import { getHeliusApiKey } from "@/lib/infrastructure/helius/config";
-import { solanaRpcUrl } from "@/lib/infrastructure/helius/solana-rpc";
+import {
+  getHeliusApiKey,
+  getHeliusEnhancedApiBase,
+} from "@/lib/infrastructure/helius/config";
 
 type UnknownRecord = Record<string, unknown>;
-
-function heliusEnhancedApiBase(): string {
-  const rpc = solanaRpcUrl().toLowerCase();
-  return rpc.includes("devnet")
-    ? "https://api-devnet.helius-rpc.com"
-    : "https://api-mainnet.helius-rpc.com";
-}
 
 export async function fetchHeliusEnhancedTransaction(
   signature: string,
 ): Promise<UnknownRecord | null> {
   const apiKey = getHeliusApiKey();
-  const url = `${heliusEnhancedApiBase()}/v0/transactions?api-key=${encodeURIComponent(apiKey)}`;
+  const url = `${getHeliusEnhancedApiBase()}/v0/transactions?api-key=${encodeURIComponent(apiKey)}`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
