@@ -639,7 +639,7 @@ export function AdminMenuEditor({
                   Before publishing, make sure every item has a clear name, description, price,
                   tax, and kitchen station. Review choice groups and extra prices, then press
                   <span className="font-medium"> Commit & publish</span> once. The live menu updates
-                  after the publish finishes.
+                  after Vercel finishes deploying the commit.
                 </p>
               </div>
             </div>

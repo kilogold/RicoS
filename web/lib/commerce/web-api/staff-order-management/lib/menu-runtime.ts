@@ -1,16 +1,13 @@
 import {
+  buildDecodeIndex,
   createMenuCatalogSurface,
+  getPackagedMenuCatalogParsed,
   type DecodeIndex,
   type MenuCatalogSurface,
   type MenuDocument,
 } from "@ricos/shared";
 import { unstable_cache } from "next/cache";
 import { MENU_RUNTIME_CACHE_TAG } from "./menu-runtime-tags";
-import {
-  fetchMenuCatalogAndDecodeIndexByVersion,
-  fetchMenuRuntimeLatest,
-} from "@/lib/infrastructure/turso/webhook-db";
-import { getCommerceDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 export type MenuRuntime = {
   version: number;
@@ -21,27 +18,24 @@ export type MenuRuntime = {
 
 type MenuRuntimeSerializable = Omit<MenuRuntime, "surface">;
 
-async function loadLatestMenuRuntimeSerializable(): Promise<MenuRuntimeSerializable> {
-  const db = await getCommerceDb();
-  const row = await fetchMenuRuntimeLatest(db);
-  if (!row) {
-    throw new Error("menu_versions is empty; bootstrap or publish a catalog first");
-  }
+async function loadPackagedMenuRuntimeSerializable(): Promise<MenuRuntimeSerializable> {
+  const parsed = getPackagedMenuCatalogParsed();
   return {
-    version: row.version,
-    catalog: row.catalog,
-    decodeIndex: row.decodeIndex,
+    version: parsed.catalogVersion,
+    catalog: parsed.catalog,
+    decodeIndex: buildDecodeIndex(parsed.catalogVersion, parsed.catalog),
   };
 }
 
 const getLatestMenuRuntimeCached = unstable_cache(
-  loadLatestMenuRuntimeSerializable,
-  ["ricos-menu-runtime-latest-v1"],
+  loadPackagedMenuRuntimeSerializable,
+  ["ricos-menu-runtime-packaged-v1"],
   { tags: [MENU_RUNTIME_CACHE_TAG] },
 );
 
 /**
- * Active catalog: row with `MAX(version)`. Used for storefront and new checkout after version gate.
+ * Active catalog from the deployment bundle (`packages/shared/src/menu.json`).
+ * Used for storefront and new checkout after version gate.
  *
  * `surface` holds methods and must not be stored inside `unstable_cache` — cached payloads are
  * serialized, which strips functions and breaks helpers like `getItemById`.
@@ -51,20 +45,5 @@ export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
   return {
     ...data,
     surface: createMenuCatalogSurface(data.catalog),
-  };
-}
-
-/**
- * Exact version row — decode, webhooks, kitchen enrichment only. Do not use for new checkout when stale.
- */
-export async function getMenuRuntimeByVersion(version: number): Promise<MenuRuntime | null> {
-  const db = await getCommerceDb();
-  const row = await fetchMenuCatalogAndDecodeIndexByVersion(db, version);
-  if (!row) return null;
-  return {
-    version,
-    catalog: row.catalog,
-    decodeIndex: row.decodeIndex,
-    surface: createMenuCatalogSurface(row.catalog),
   };
 }

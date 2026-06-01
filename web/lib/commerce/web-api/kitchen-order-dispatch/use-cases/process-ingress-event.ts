@@ -1,16 +1,11 @@
 import {
   computeOrderTotalsFromHydratedCart,
-  createMenuCatalogSurface,
   decodeCartFromMetadataV1,
   type HydratedCart,
 } from "@ricos/shared";
-import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
+import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import type { OrderServiceMode } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
-import {
-  fetchMenuCatalogAndDecodeIndexByVersion,
-  getDecodeIndex,
-} from "@/lib/infrastructure/turso/webhook-db";
 
 export class IngressProcessError extends Error {
   constructor(
@@ -30,32 +25,37 @@ export class IngressProcessError extends Error {
 }
 
 /**
- * Validate cart metadata against the persisted menu version and produce the
+ * Validate cart metadata against the bundled menu version and produce the
  * ticket-ready `KitchenOrderPayload`. Pure builder — no DB writes, no broadcast.
  */
 export async function buildKitchenOrderPayload(
-  db: Client,
   event: NormalizedIngressEvent,
   serviceMode: OrderServiceMode,
   customerName: string,
 ): Promise<KitchenOrderPayload> {
+  const runtime = await getLatestMenuRuntime();
+  const lookupDecodeIndex = (version: number) =>
+    version === runtime.version ? runtime.decodeIndex : undefined;
+
   let decodedCart: HydratedCart;
   try {
-    decodedCart = decodeCartFromMetadataV1(event.metadata, getDecodeIndex);
+    decodedCart = decodeCartFromMetadataV1(event.metadata, lookupDecodeIndex);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new IngressProcessError("invalid_cart_metadata", message);
   }
 
-  const decodeIndex = getDecodeIndex(decodedCart.menuVersion);
-  if (!decodeIndex) {
+  if (decodedCart.menuVersion !== runtime.version) {
     throw new IngressProcessError(
       "invalid_cart_metadata",
-      `Unknown menu version ${decodedCart.menuVersion} for order totals`,
+      `Cart menu version ${decodedCart.menuVersion} does not match active version ${runtime.version}`,
     );
   }
 
-  const orderTotals = computeOrderTotalsFromHydratedCart(decodedCart.lines, decodeIndex);
+  const orderTotals = computeOrderTotalsFromHydratedCart(
+    decodedCart.lines,
+    runtime.decodeIndex,
+  );
   if (orderTotals.grandTotalCents !== Number(event.grandTotalCents)) {
     throw new IngressProcessError(
       "cart_total_mismatch",
@@ -63,25 +63,16 @@ export async function buildKitchenOrderPayload(
     );
   }
 
-  const row = await fetchMenuCatalogAndDecodeIndexByVersion(db, decodedCart.menuVersion);
-  if (!row) {
-    throw new IngressProcessError(
-      "invalid_cart_metadata",
-      `Unknown menu version ${decodedCart.menuVersion} for kitchen payload`,
-    );
-  }
-  const surface = createMenuCatalogSurface(row.catalog);
-
   const lines: KitchenOrderPayload["lines"] = decodedCart.lines.map((line) => {
-    const item = surface.getItemById(line.id);
+    const item = runtime.surface.getItemById(line.id);
     if (!item) {
       throw new IngressProcessError("invalid_cart_metadata", `Unknown menu item ${line.id}`);
     }
     return {
       ...line,
       station: item.station,
-      itemLabel: surface.resolveLocalizedText(item.name, "en"),
-      selectionLines: surface.getSelectionDisplayLines(line.id, line.selections, "en"),
+      itemLabel: runtime.surface.resolveLocalizedText(item.name, "en"),
+      selectionLines: runtime.surface.getSelectionDisplayLines(line.id, line.selections, "en"),
     };
   });
 

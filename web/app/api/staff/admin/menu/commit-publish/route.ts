@@ -1,4 +1,3 @@
-import { handleStaffMenuPublishRequest } from "@/lib/commerce/web-api/staff-order-management/adapters/http";
 import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import {
@@ -132,16 +131,6 @@ function buildNextMenu(submittedMenu: MenuCatalogFile, currentMenu: MenuCatalogF
   };
 }
 
-async function readJsonResponse(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (!text.trim()) return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return { error: text };
-  }
-}
-
 export async function POST(req: Request) {
   const unauthorized = requireStaffPublishAuth(req);
   if (unauthorized) return unauthorized;
@@ -237,16 +226,6 @@ export async function POST(req: Request) {
     return jsonError(commitResponse.message, status);
   }
 
-  const publishResponse = await handleStaffMenuPublishRequest();
-  const publishBody = await readJsonResponse(publishResponse);
-  if (!publishResponse.ok) {
-    const message =
-      publishBody && typeof publishBody === "object" && "error" in publishBody
-        ? String((publishBody as { error: unknown }).error)
-        : `Publish failed with HTTP ${publishResponse.status}`;
-    return jsonError(message, publishResponse.status);
-  }
-
   return NextResponse.json({
     committedVersion: nextMenu.catalogVersion,
     publishedAt: nextMenu.publishedAt,
@@ -254,6 +233,5 @@ export async function POST(req: Request) {
     commitSha: commitResponse.body.commit?.sha,
     commitUrl: commitResponse.body.commit?.html_url,
     contentUrl: commitResponse.body.content?.html_url,
-    publish: publishBody,
   });
 }

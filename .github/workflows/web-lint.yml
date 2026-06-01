@@ -1,10 +1,10 @@
 name: Web Lint
 
 on:
-  pull_request:
   push:
     branches:
       - main
+      - preview
 
 jobs:
   web-lint:
@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -20,6 +22,11 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Verify menu catalog version bump
+        env:
+          MENU_CATALOG_BASE_REF: ${{ github.event.before }}
+        run: bun scripts/verify-menu-catalog-version.mjs
 
       - name: Run architecture lint
         run: bun --cwd web eslint "app/api/**/*.{ts,tsx}" "lib/commerce/**/*.{ts,tsx}" "lib/infrastructure/**/*.{ts,tsx}"

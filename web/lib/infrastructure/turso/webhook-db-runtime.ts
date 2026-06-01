@@ -1,12 +1,6 @@
 import type { Client } from "@libsql/client";
 import { requiredEnv } from "@/lib/shared/config/server-env";
-import {
-  bootstrapMenuFromPackagedFileIfEmpty,
-  hydrateMenuCachesFromDb,
-  isDecodeIndexCacheEmpty,
-  migrate,
-  openDb,
-} from "./webhook-db";
+import { migrate, openDb } from "./webhook-db";
 
 type WebhookDbRuntimeState = {
   dbPromise: Promise<Client> | null;
@@ -22,22 +16,14 @@ if (!state.__ricosWebhookDbRuntime) {
 
 const runtime = state.__ricosWebhookDbRuntime;
 
-async function ensureDecodeIndexCachesHydrated(db: Client): Promise<void> {
-  if (isDecodeIndexCacheEmpty()) {
-    await hydrateMenuCachesFromDb(db);
-  }
-}
-
-/** Turso client for commerce + menu state (web + webhook). */
+/** Turso client for commerce state (web + webhook). */
 export async function getCommerceDb(): Promise<Client> {
   return getWebhookDb();
 }
 
 export async function getWebhookDb(): Promise<Client> {
   if (runtime.dbPromise) {
-    const db = await runtime.dbPromise;
-    await ensureDecodeIndexCachesHydrated(db);
-    return db;
+    return runtime.dbPromise;
   }
 
   runtime.dbPromise = (async () => {
@@ -52,15 +38,11 @@ export async function getWebhookDb(): Promise<Client> {
 
     const db = openDb(databaseUrl, databaseAuthToken);
     await migrate(db);
-    await bootstrapMenuFromPackagedFileIfEmpty(db);
-    await hydrateMenuCachesFromDb(db);
     return db;
   })().catch((err) => {
     runtime.dbPromise = null;
     throw err;
   });
 
-  const db = await runtime.dbPromise;
-  await ensureDecodeIndexCachesHydrated(db);
-  return db;
+  return runtime.dbPromise;
 }

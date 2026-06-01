@@ -319,7 +319,6 @@ export async function handleSolanaReferenceRegistrationRequest(req: Request): Pr
       [CART_B64_KEY]: cartB64,
     };
     const pendingPayload = await buildKitchenOrderPayload(
-      db,
       {
         provider: "helius",
         paymentIngressEventId: "",

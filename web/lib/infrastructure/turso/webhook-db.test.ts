@@ -99,7 +99,8 @@ describe("webhook-db payment persistence", () => {
     `);
 
     expect((result.rows ?? []).map((row) => String(row.name))).toEqual([
-      "menu_versions",
+      "admin_passkeys",
+      "passkey_challenges",
       "print_queue",
       "purchase_orders",
       "refunds",

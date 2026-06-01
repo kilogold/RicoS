@@ -26,7 +26,8 @@
     "build": "bun --env-file=../.env.preview --env-file=../.env.local run --cwd web build",
     "build:production": "bun --env-file=../.env.production --env-file=../.env.local run --cwd web build",
     "lint": "bun --env-file=../.env.preview --env-file=../.env.local run --cwd web lint",
-    "lint:production": "bun --env-file=../.env.production --env-file=../.env.local run --cwd web lint"
+    "lint:production": "bun --env-file=../.env.production --env-file=../.env.local run --cwd web lint",
+    "verify:menu-catalog": "bun scripts/verify-menu-catalog-version.mjs"
   },
   "packageManager": "bun@1.2.0",
   "dependencies": {

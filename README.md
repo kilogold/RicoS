@@ -109,26 +109,19 @@ Default scripts load `.env.preview`. Append `:production` for production env (e.
 
 Source of truth:
 
-- Runtime menu is stored in Turso `menu_versions` (active version = max `version`)
-- Git canonical file is `packages/shared/src/menu.json`
+- Runtime menu is bundled `packages/shared/src/menu.json` per deployment (git commit = live menu after Vercel deploy)
+- Git history is the audit trail for menu edits
 
 Operational flow:
 
 1. Update `packages/shared/src/menu.json` and increment `catalogVersion` by exactly `+1`.
-2. Merge to `main`.
-3. After production deploy success, GitHub workflow `.github/workflows/menu-publish.yml` posts to:
-   - `POST /api/staff/menu/publish`
-   - `Authorization: Bearer <STAFF_OPERATIONS_SECRET>`
-4. API validates and writes new version when content changes.
+2. Commit via staff menu editor (`POST /api/staff/admin/menu/commit-publish`) or push to the target branch.
+3. Vercel redeploys; the new deployment serves the updated bundled menu.
 
-Required workflow setup:
+CI guard (`.github/workflows/web-lint.yml` on push to `main` / `preview`):
 
-- Set `PUBLISH_URL` in `.github/workflows/menu-publish.yml`
-- Add repo secret `STAFF_OPERATIONS_SECRET` matching Vercel env
-
-Manual fallback:
-
-- Call `POST /api/staff/menu/publish` directly with bearer secret.
+- If `menu.json` changed, `catalogVersion` must be exactly previous `+1` and `publishedAt` must be strictly later than the prior revision.
+- Run locally: `bun run verify:menu-catalog` (set `MENU_CATALOG_BASE_REF` to the parent commit).
 
 Checkout guard:
 
