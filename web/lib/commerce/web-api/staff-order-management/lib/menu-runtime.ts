@@ -1,12 +1,12 @@
 import {
   buildDecodeIndex,
   createMenuCatalogSurface,
-  getPackagedMenuCatalogParsed,
   type DecodeIndex,
   type MenuCatalogSurface,
   type MenuDocument,
 } from "@ricos/shared";
 import { unstable_noStore as noStore } from "next/cache";
+import { fetchRemoteMenuCatalog } from "./menu-catalog-remote";
 
 export type MenuRuntime = {
   version: number;
@@ -16,14 +16,14 @@ export type MenuRuntime = {
 };
 
 /**
- * Active catalog from the deployment bundle (`packages/shared/src/menu.json`).
+ * Active catalog from `MENU_PUBLISH_MENU_JSON_URL` (RicoS-Menu repo per deployment).
  * Used for storefront and new checkout after version gate.
  *
  * Uses `noStore()` so menu reads are never stored in Next.js / Vercel Data Cache.
  */
 export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
   noStore();
-  const parsed = getPackagedMenuCatalogParsed();
+  const parsed = await fetchRemoteMenuCatalog();
   const catalog = parsed.catalog;
   return {
     version: parsed.catalogVersion,

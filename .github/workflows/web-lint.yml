@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -22,15 +20,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      - name: Fetch pre-push commit
-        if: github.event.before != '0000000000000000000000000000000000000000'
-        run: git fetch --no-tags --depth=1 origin ${{ github.event.before }}
-
-      - name: Verify menu catalog version bump
-        env:
-          MENU_CATALOG_BASE_REF: ${{ github.event.before }}
-        run: bun scripts/verify-menu-catalog-version.mjs
 
       - name: Run architecture lint
         run: bun --cwd web eslint "app/api/**/*.{ts,tsx}" "lib/commerce/**/*.{ts,tsx}" "lib/infrastructure/**/*.{ts,tsx}"

@@ -1,3 +1,4 @@
+import { parseGitHubTargetFromCatalogUrl } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-remote";
 import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
 import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
@@ -13,7 +14,6 @@ export const runtime = "nodejs";
 const GITHUB_API_VERSION = "2026-03-10";
 const JSON_INDENT_SPACES = 2;
 const HTTP_CONFLICT = 409;
-const MENU_JSON_PATH_PARTS = ["packages", "shared", "src", "menu.json"];
 
 type GitHubContentResponse = {
   sha?: string;
@@ -59,54 +59,6 @@ const FAILURE_CONCLUSIONS = new Set(["failure", "cancelled", "timed_out", "actio
 
 function jsonError(message: string, status: number): Response {
   return NextResponse.json({ error: message }, { status });
-}
-
-function splitRawGitHubRefAndPath(parts: string[]): { branch: string; path: string } {
-  const suffixStart = parts.findIndex((_, index) =>
-    MENU_JSON_PATH_PARTS.every((part, partIndex) => parts[index + partIndex] === part),
-  );
-  if (suffixStart === -1) {
-    const [branch, ...pathParts] = parts;
-    if (!branch || pathParts.length === 0) {
-      throw new Error("MENU_PUBLISH_MENU_JSON_URL must include branch and path");
-    }
-    return { branch, path: pathParts.join("/") };
-  }
-
-  const refParts = parts.slice(0, suffixStart);
-  if (refParts.length === 0) {
-    throw new Error("MENU_PUBLISH_MENU_JSON_URL must include a branch before packages/shared/src/menu.json");
-  }
-
-  if (refParts[0] === "refs" && refParts[1] === "heads" && refParts.length > 2) {
-    return {
-      branch: refParts.slice(2).join("/"),
-      path: parts.slice(suffixStart).join("/"),
-    };
-  }
-
-  return {
-    branch: refParts.join("/"),
-    path: parts.slice(suffixStart).join("/"),
-  };
-}
-
-function parseGitHubTarget(): { owner: string; repo: string; branch: string; path: string } {
-  const rawUrl = process.env.MENU_PUBLISH_MENU_JSON_URL?.trim();
-  if (!rawUrl) {
-    throw new Error("MENU_PUBLISH_MENU_JSON_URL is required");
-  }
-  const url = new URL(rawUrl);
-  if (url.hostname !== "raw.githubusercontent.com") {
-    throw new Error("MENU_PUBLISH_MENU_JSON_URL must use raw.githubusercontent.com");
-  }
-  const parts = url.pathname.split("/").filter(Boolean);
-  const [owner, repo, ...refAndPathParts] = parts;
-  if (!owner || !repo || refAndPathParts.length < 2) {
-    throw new Error("MENU_PUBLISH_MENU_JSON_URL must include owner, repo, branch, and path");
-  }
-  const { branch, path } = splitRawGitHubRefAndPath(refAndPathParts);
-  return { owner, repo, branch, path };
 }
 
 function githubHeaders(token: string): HeadersInit {
@@ -201,7 +153,7 @@ export async function GET(req: Request) {
 
   let target: { owner: string; repo: string; branch: string; path: string };
   try {
-    target = parseGitHubTarget();
+    target = parseGitHubTargetFromCatalogUrl();
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 500);
   }
@@ -257,7 +209,7 @@ export async function POST(req: Request) {
 
   let target: { owner: string; repo: string; branch: string; path: string };
   try {
-    target = parseGitHubTarget();
+    target = parseGitHubTargetFromCatalogUrl();
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 500);
   }
