@@ -10,7 +10,7 @@ Group=ricos
 WorkingDirectory=/home/ricos/RicoS
 Environment=HOME=/home/ricos
 Environment=PATH=/home/ricos/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/home/ricos/.bun/bin/bun run start:kitchen
+ExecStart=/home/ricos/.bun/bin/bun run start:kitchen:production
 Restart=always
 RestartSec=5
 StandardOutput=journal
