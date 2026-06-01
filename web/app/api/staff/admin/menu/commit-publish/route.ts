@@ -1,3 +1,4 @@
+import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
 import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import {
@@ -31,6 +32,30 @@ type GitHubCommitResponse = {
   };
   message?: string;
 };
+
+type GitHubCheckRun = {
+  name?: string;
+  status?: string;
+  conclusion?: string | null;
+  html_url?: string;
+};
+
+type GitHubCheckRunsResponse = {
+  total_count?: number;
+  check_runs?: GitHubCheckRun[];
+};
+
+export type CommitChecksCheck = {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  detailsUrl?: string;
+};
+
+export type CommitChecksState = "pending" | "success" | "failure";
+
+const SUCCESS_CONCLUSIONS = new Set(["success", "skipped", "neutral"]);
+const FAILURE_CONCLUSIONS = new Set(["failure", "cancelled", "timed_out", "action_required"]);
 
 function jsonError(message: string, status: number): Response {
   return NextResponse.json({ error: message }, { status });
@@ -131,6 +156,84 @@ function buildNextMenu(submittedMenu: MenuCatalogFile, currentMenu: MenuCatalogF
   };
 }
 
+function mapCheckRuns(runs: GitHubCheckRun[]): CommitChecksCheck[] {
+  return runs.map((run) => ({
+    name: run.name ?? "Check",
+    status: run.status ?? "queued",
+    conclusion: run.conclusion ?? null,
+    detailsUrl: run.html_url,
+  }));
+}
+
+export function aggregateCommitChecksState(runs: GitHubCheckRun[]): CommitChecksState {
+  if (runs.length === 0) return "pending";
+
+  for (const run of runs) {
+    const status = run.status ?? "queued";
+    if (status === "queued" || status === "in_progress") return "pending";
+  }
+
+  for (const run of runs) {
+    const conclusion = run.conclusion ?? null;
+    if (conclusion && FAILURE_CONCLUSIONS.has(conclusion)) return "failure";
+  }
+
+  for (const run of runs) {
+    const status = run.status ?? "queued";
+    const conclusion = run.conclusion ?? null;
+    if (status === "completed" && (!conclusion || !SUCCESS_CONCLUSIONS.has(conclusion))) {
+      return "failure";
+    }
+  }
+
+  return "success";
+}
+
+export async function GET(req: Request) {
+  const unauthorized = requireStaffPublishAuth(req);
+  if (unauthorized) return unauthorized;
+
+  const sha = new URL(req.url).searchParams.get("sha")?.trim();
+  if (!sha) return jsonError("sha is required", 400);
+
+  const token = process.env.GITHUB_TOKEN?.trim();
+  if (!token) return jsonError("GITHUB_TOKEN is required", 500);
+
+  let target: { owner: string; repo: string; branch: string; path: string };
+  try {
+    target = parseGitHubTarget();
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : String(err), 500);
+  }
+
+  const headers = githubHeaders(token);
+  const checkRunsUrl = `https://api.github.com/repos/${target.owner}/${target.repo}/commits/${encodeURIComponent(sha)}/check-runs?per_page=100`;
+  const checkRunsResponse = await githubJson<GitHubCheckRunsResponse>(checkRunsUrl, {
+    headers,
+    cache: "no-store",
+  });
+  if (!checkRunsResponse.ok) {
+    return jsonError(checkRunsResponse.message, checkRunsResponse.status);
+  }
+
+  const runs = checkRunsResponse.body.check_runs ?? [];
+  const checks = mapCheckRuns(runs);
+  const state = aggregateCommitChecksState(runs);
+
+  const commitResponse = await githubJson<{ html_url?: string }>(
+    `https://api.github.com/repos/${target.owner}/${target.repo}/commits/${encodeURIComponent(sha)}`,
+    { headers, cache: "no-store" },
+  );
+  const commitUrl = commitResponse.ok ? commitResponse.body.html_url : undefined;
+
+  return NextResponse.json({
+    sha,
+    state,
+    commitUrl,
+    checks,
+  });
+}
+
 export async function POST(req: Request) {
   const unauthorized = requireStaffPublishAuth(req);
   if (unauthorized) return unauthorized;
@@ -202,9 +305,21 @@ export async function POST(req: Request) {
     );
   }
 
+  let submittedMenu: MenuCatalogFile;
+  try {
+    submittedMenu = normalizeMenuCatalogFile(body.menu);
+    parseMenuCatalogFile(submittedMenu);
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : String(err), 400);
+  }
+
+  if (!hasMenuCatalogChanges(submittedMenu, currentMenu)) {
+    return jsonError("No catalog changes to publish.", 400);
+  }
+
   let nextMenu: MenuCatalogFile;
   try {
-    nextMenu = buildNextMenu(body.menu as MenuCatalogFile, currentMenu);
+    nextMenu = buildNextMenu(submittedMenu, currentMenu);
     parseMenuCatalogFile(nextMenu);
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 400);

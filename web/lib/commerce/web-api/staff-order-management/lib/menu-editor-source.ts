@@ -5,6 +5,8 @@ import {
 } from "@ricos/shared";
 import { requiredEnv } from "@/lib/shared/config/server-env";
 
+export { hasMenuCatalogChanges, menuCatalogBody } from "./menu-editor-catalog";
+
 const ALLOWED_MENU_PUBLISH_HOSTS = new Set(["raw.githubusercontent.com"]);
 
 export type MenuEditorSource = {
