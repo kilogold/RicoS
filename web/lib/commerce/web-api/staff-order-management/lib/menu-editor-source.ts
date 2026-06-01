@@ -2,6 +2,7 @@ import {
   computeMenuContentHash,
   parseMenuCatalogFile,
   type MenuCatalogFile,
+  type ParsedMenuCatalogFile,
 } from "@ricos/shared";
 import { fetchRemoteMenuCatalog } from "./menu-catalog-remote";
 
@@ -21,9 +22,17 @@ export function normalizeMenuCatalogFile(raw: unknown): MenuCatalogFile {
   };
 }
 
+export function menuCatalogFileFromParsed(parsed: ParsedMenuCatalogFile): MenuCatalogFile {
+  return {
+    catalogVersion: parsed.catalogVersion,
+    publishedAt: parsed.publishedAtIso,
+    ...parsed.catalog,
+  };
+}
+
 export async function fetchCurrentGitMenuForEditor(): Promise<MenuEditorSource> {
   const parsed = await fetchRemoteMenuCatalog();
-  const menu = normalizeMenuCatalogFile(parsed);
+  const menu = menuCatalogFileFromParsed(parsed);
   const contentHash = await computeMenuContentHash(menu);
   return { menu, contentHash };
 }
