@@ -138,7 +138,6 @@ export async function createPaymentIntentFromCart(
   }
 
   const pendingPayload = await buildKitchenOrderPayload(
-    db,
     {
       provider: "stripe",
       paymentIngressEventId: "",

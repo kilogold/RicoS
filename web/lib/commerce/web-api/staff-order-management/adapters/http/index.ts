@@ -1,4 +1,3 @@
-import { publishMenuFromRepoFile } from "@/lib/commerce/web-api/staff-order-management/use-cases/publish-menu-from-repo-file";
 import { fulfillPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/fulfill-purchase-order";
 import { manualPrintPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/manual-print-purchase-order";
 import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-management/use-cases/recover-solana-pending-payment";
@@ -9,16 +8,6 @@ import {
   listRefundsForOrders,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
-
-export async function handleStaffMenuPublishRequest(): Promise<Response> {
-  try {
-    const out = await publishMenuFromRepoFile();
-    return NextResponse.json(out);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 400 });
-  }
-}
 
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;

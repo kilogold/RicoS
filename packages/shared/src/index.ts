@@ -1,8 +1,9 @@
 /**
  * Public surface for `@ricos/shared`.
  *
- * Runtime menu authority is the DB (`menu_versions`); use `createMenuCatalogSurface`
- * with the active catalog from the loader. Codec helpers are version-agnostic.
+ * Runtime menu authority is the deployment bundle (`packages/shared/src/menu.json`);
+ * use `createMenuCatalogSurface` with the active catalog from the loader.
+ * Codec helpers are version-agnostic.
  */
 
 import {
@@ -93,7 +94,7 @@ export type KitchenCartLineFromMetadata = HydratedCartLine;
 
 /**
  * Decode cart metadata to kitchen lines using the supplied decode-index lookup
- * (e.g. DB-backed `getDecodeIndex` in the webhook runtime).
+ * (e.g. bundled-menu `getLatestMenuRuntime()` in the web runtime).
  */
 export function parseKitchenLinesFromCartMetadataV1(
   metadata: Record<string, string | undefined>,

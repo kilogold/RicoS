@@ -1,6 +1,6 @@
 /**
  * Decode index construction and canonical JSON for menu manifests.
- * Runtime decode-index lookup for DB-backed versions lives in the webhook/DB layer.
+ * Runtime decode-index lookup uses the bundled menu for the active deployment version.
  */
 
 import type {

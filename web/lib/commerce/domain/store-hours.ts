@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   ORDER_SERVICE_MODE_DINE_IN,
   type OrderServiceMode,
-} from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
+} from "@/lib/commerce/domain/order-service-mode";
 
 /** RicoS store wall clock (IANA). Used only for “what time is it at the store?”. */
 const STORE_ZONE = "America/Puerto_Rico";

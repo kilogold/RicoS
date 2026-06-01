@@ -63,7 +63,6 @@ try {
   }
 
   console.log("Done. Cleared purchase_orders, status_history, and refunds.");
-  console.log("(menu_versions untouched)");
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);
