@@ -8,7 +8,6 @@ import {
   listPrintJobs,
   markStripePurchaseOrderPaidIfNew,
   migrate,
-  markPurchaseOrderAcknowledged,
 } from "@/lib/infrastructure/turso/webhook-db";
 
 mock.module("@/lib/infrastructure/turso/webhook-db-runtime", () => ({

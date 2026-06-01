@@ -10,7 +10,7 @@ import type {
   PrintStation,
   SelectionType,
 } from "@ricos/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type CommitPublishResult = {
   commitSha?: string;
@@ -287,12 +287,6 @@ function DeferredNumberField({
 }) {
   const [draft, setDraft] = useState(() => format(numericValue));
   const [isEditing, setIsEditing] = useState(false);
-
-  useEffect(() => {
-    if (!isEditing) {
-      setDraft(format(numericValue));
-    }
-  }, [numericValue, isEditing]);
 
   function commitDraft() {
     const parsed = parse(draft);

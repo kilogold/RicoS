@@ -31,10 +31,10 @@ import {
   STORE_CLOSED_CODE,
   StoreClosedError,
 } from "@/lib/commerce/domain/store-hours";
-import type { OrderServiceMode } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
+import type { OrderServiceMode } from "@/lib/commerce/domain/order-service-mode";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/web-api/staff-order-management/lib/menu-version-policy";
+import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/domain/menu-version-policy";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { fullRedirect } from "@/lib/navigation/full-redirect";
 import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";

@@ -297,13 +297,6 @@ export default function AdminOrderTestPage() {
   const selectedOrder =
     visibleOrders.find((order) => order.orderReference === selectedOrderReference) ?? null;
 
-  useEffect(() => {
-    if (!selectedOrderReference) return;
-    if (!visibleOrders.some((order) => order.orderReference === selectedOrderReference)) {
-      setSelectedOrderReference(null);
-    }
-  }, [visibleOrders, selectedOrderReference]);
-
   async function postJson(requestPath: string, requestBody: Record<string, unknown>): Promise<void> {
     setActionBusy(true);
     setActionMessage(null);
@@ -489,7 +482,7 @@ export default function AdminOrderTestPage() {
           </div>
         ) : null}
         {visibleOrders.map((order) => {
-          const isSelected = selectedOrderReference === order.orderReference;
+          const isSelected = selectedOrder?.orderReference === order.orderReference;
           const refundBlocks =
             isRefundOrderStatus(order.status) && order.refunds.length > 0
               ? order.refunds.map((refund) => {
@@ -591,7 +584,7 @@ export default function AdminOrderTestPage() {
               </tr>
             ) : null}
             {visibleOrders.flatMap((order) => {
-              const isSelected = selectedOrderReference === order.orderReference;
+              const isSelected = selectedOrder?.orderReference === order.orderReference;
               const refundExtras =
                 isRefundOrderStatus(order.status) && order.refunds.length > 0
                   ? order.refunds.map((refund) => {

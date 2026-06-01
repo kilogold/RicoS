@@ -27,6 +27,8 @@ import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { getHeliusIngressConfig, isHeliusWebhookDebugEnabled } from "../../config";
 import { parseHeliusIngressPayload } from "../ingress/parse-helius-ingress-payload";
 
+export { handleSolanaRpcProxyRequest } from "@/lib/infrastructure/helius/solana-rpc-proxy";
+
 const HELIUS_INGRESS_EVENT_PREFIX = "evt_helius_";
 
 function heliusTransactionSignatureFromIngressEvent(event: NormalizedIngressEvent): string | null {
