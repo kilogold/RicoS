@@ -4,6 +4,7 @@ import type {
   MenuCategory,
   MenuDocument,
   MenuItem,
+  MenuThemes,
   ModifierGroup,
   OrderFeeRates,
 } from "./menu-types";
@@ -24,6 +25,7 @@ export type MenuCatalogFileOnDisk = {
   publishedAt: string;
   restaurant: LocalizedText;
   menuName: LocalizedText;
+  themes: MenuThemes;
   categories: MenuCategoryOnDisk[];
   orderFees: OrderFeeRates;
   modifierGroups?: Record<string, ModifierGroup>;
@@ -179,6 +181,7 @@ export function compactMenuCatalogForDisk(file: ExpandedMenuCatalogFile): MenuCa
     publishedAt: file.publishedAt,
     restaurant: deepClone(file.restaurant),
     menuName: deepClone(file.menuName),
+    themes: deepClone(file.themes),
     categories: categoriesWithRefs,
     orderFees: deepClone(file.orderFees),
   };

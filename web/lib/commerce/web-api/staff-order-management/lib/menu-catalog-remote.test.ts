@@ -8,7 +8,13 @@ mock.module("./menu-catalog-github", () => ({
       return {
         catalogVersion: 3,
         publishedAtIso: "2026-01-01T00:00:00.000Z",
-        catalog: { restaurant: "r", menuName: { en: "m", es: "m" }, categories: [] },
+        catalog: {
+          restaurant: { en: "r", es: "r" },
+          menuName: { en: "m", es: "m" },
+          themes: {},
+          categories: [],
+          orderFees: { serviceFeeRate: 0.05 },
+        },
       };
     }
     throw new Error("unexpected branch");

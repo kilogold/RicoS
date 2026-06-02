@@ -11,12 +11,15 @@ const minimalItem = {
   municipalTaxRate: 0.01,
 };
 
+const defaultThemes = { T: ["cat_1"] };
+
 function catalogWithItem(item: Record<string, unknown>) {
   return {
     catalogVersion: 1,
     publishedAt: "2026-01-01T00:00:00.000Z",
     restaurant: { en: "R", es: "R" },
     menuName: { en: "M", es: "M" },
+    themes: defaultThemes,
     orderFees: { serviceFeeRate: 0.05 },
     categories: [
       {
@@ -80,6 +83,7 @@ function catalogWithRegistry(
     publishedAt: "2026-01-01T00:00:00.000Z",
     restaurant: { en: "R", es: "R" },
     menuName: { en: "M", es: "M" },
+    themes: defaultThemes,
     orderFees: { serviceFeeRate: 0.05 },
     modifierGroups: registry,
     categories: [
@@ -254,6 +258,7 @@ const expandedCatalogBase = {
   publishedAt: "2026-01-01T00:00:00.000Z",
   restaurant: { en: "R", es: "R" },
   menuName: { en: "M", es: "M" },
+  themes: { T: ["cat"] },
   orderFees: { serviceFeeRate: 0.05 },
 };
 
@@ -317,5 +322,62 @@ describe("compactMenuCatalogForDisk", () => {
         ],
       });
     expect(run).toThrow(/id collision/);
+  });
+
+  test("preserves themes on disk", () => {
+    const source = {
+      ...expandedCatalogBase,
+      themes: { Breakfast: ["cat"], Lunch: ["cat_other"] },
+      categories: [
+        {
+          id: "cat",
+          title: { en: "C", es: "C" },
+          notes: [],
+          items: [expandedItem],
+        },
+        {
+          id: "cat_other",
+          title: { en: "O", es: "O" },
+          notes: [],
+          items: [{ ...expandedItem, id: "item_other" }],
+        },
+      ],
+    };
+    const compact = compactMenuCatalogForDisk(source);
+    expect(compact.themes).toEqual({ Breakfast: ["cat"], Lunch: ["cat_other"] });
+  });
+});
+
+describe("parseMenuCatalogFile themes", () => {
+  test("rejects missing themes", () => {
+    const { themes: _, ...withoutThemes } = catalogWithItem({ ...minimalItem, station: "B" });
+    expect(() => parseMenuCatalogFile(withoutThemes)).toThrow(/themes/);
+  });
+
+  test("rejects duplicate category in themes", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        themes: { A: ["cat_1"], B: ["cat_1"] },
+      }),
+    ).toThrow(/duplicate category/);
+  });
+
+  test("rejects unknown category id in themes", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        themes: { T: ["cat_missing"] },
+      }),
+    ).toThrow(/unknown category/);
+  });
+
+  test("rejects category not assigned to any theme", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        themes: { T: [] },
+      }),
+    ).toThrow(/themes missing category/);
   });
 });
