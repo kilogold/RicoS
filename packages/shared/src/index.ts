@@ -75,6 +75,12 @@ export {
 } from "./menu-catalog-file";
 
 export {
+  compactMenuCatalogForDisk,
+  resolveMenuCatalogRaw,
+  type MenuCatalogFileOnDisk,
+} from "./menu-catalog-compact";
+
+export {
   createMenuCatalogSurface,
   normalizeSelections,
   selectionSignature,
