@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseMenuCatalogFile } from "./menu-catalog-file";
+import { compactMenuCatalogForDisk } from "./menu-catalog-compact";
 
 const minimalItem = {
   id: "item_test",
@@ -69,14 +70,37 @@ const sideGroup = {
   options: [{ id: "opt_fries", label: { en: "Fries", es: "Papas" } }],
 };
 
+function catalogWithRegistry(
+  item: Record<string, unknown>,
+  registry: Record<string, unknown>,
+  refs: string[],
+) {
+  return {
+    catalogVersion: 1,
+    publishedAt: "2026-01-01T00:00:00.000Z",
+    restaurant: { en: "R", es: "R" },
+    menuName: { en: "M", es: "M" },
+    orderFees: { serviceFeeRate: 0.05 },
+    modifierGroups: registry,
+    categories: [
+      {
+        id: "cat_1",
+        title: { en: "C", es: "C" },
+        notes: [],
+        items: [{ ...item, modifierGroupRefs: refs }],
+      },
+    ],
+  };
+}
+
 describe("parseMenuCatalogFile visibleWhen", () => {
-  test("accepts modifier group with visibleWhen", () => {
+  test("accepts modifier group with visibleWhen via registry", () => {
     const parsed = parseMenuCatalogFile(
-      catalogWithItem({
-        ...minimalItem,
-        station: "B",
-        modifierGroups: [formatGroup, sideGroup],
-      }),
+      catalogWithRegistry(
+        { ...minimalItem, station: "B" },
+        { mod_format: formatGroup, mod_combo_side: sideGroup },
+        ["mod_format", "mod_combo_side"],
+      ),
     );
     const groups = parsed.catalog.categories[0]?.items[0]?.modifierGroups ?? [];
     expect(groups[1]?.visibleWhen).toEqual({
@@ -88,16 +112,11 @@ describe("parseMenuCatalogFile visibleWhen", () => {
   test("rejects visibleWhen with empty optionIds", () => {
     expect(() =>
       parseMenuCatalogFile(
-        catalogWithItem({
-          ...minimalItem,
-          station: "B",
-          modifierGroups: [
-            {
-              ...sideGroup,
-              visibleWhen: { groupId: "mod_format", optionIds: [] },
-            },
-          ],
-        }),
+        catalogWithRegistry(
+          { ...minimalItem, station: "B" },
+          { mod_combo_side: { ...sideGroup, visibleWhen: { groupId: "mod_format", optionIds: [] } } },
+          ["mod_combo_side"],
+        ),
       ),
     ).toThrow(/visibleWhen optionIds/);
   });
@@ -105,17 +124,198 @@ describe("parseMenuCatalogFile visibleWhen", () => {
   test("rejects visibleWhen with missing groupId", () => {
     expect(() =>
       parseMenuCatalogFile(
-        catalogWithItem({
-          ...minimalItem,
-          station: "B",
-          modifierGroups: [
-            {
-              ...sideGroup,
-              visibleWhen: { optionIds: ["opt_combo"] },
-            },
-          ],
-        }),
+        catalogWithRegistry(
+          { ...minimalItem, station: "B" },
+          { mod_combo_side: { ...sideGroup, visibleWhen: { optionIds: ["opt_combo"] } } },
+          ["mod_combo_side"],
+        ),
       ),
     ).toThrow(/visibleWhen groupId/);
+  });
+
+  test("rejects inline modifierGroups on item", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({ ...minimalItem, station: "B", modifierGroups: [formatGroup] }),
+      ),
+    ).toThrow(/inline modifierGroups are not allowed/);
+  });
+});
+
+describe("parseMenuCatalogFile compact refs", () => {
+  test("resolves category-level modifierGroupRefs", () => {
+    const parsed = parseMenuCatalogFile({
+      ...catalogWithItem({ ...minimalItem, station: "B" }),
+      modifierGroups: {
+        mod_format: formatGroup,
+      },
+      categories: [
+        {
+          id: "cat_1",
+          title: { en: "C", es: "C" },
+          notes: [],
+          modifierGroupRefs: ["mod_format"],
+          items: [{ ...minimalItem, station: "B" }, { ...minimalItem, id: "item_2", station: "B" }],
+        },
+      ],
+    });
+    const item1Groups = parsed.catalog.categories[0]?.items[0]?.modifierGroups ?? [];
+    const item2Groups = parsed.catalog.categories[0]?.items[1]?.modifierGroups ?? [];
+    expect(item1Groups.map((g) => g.id)).toEqual(["mod_format"]);
+    expect(item2Groups.map((g) => g.id)).toEqual(["mod_format"]);
+  });
+
+  test("item refs override category refs", () => {
+    const parsed = parseMenuCatalogFile({
+      ...catalogWithItem({ ...minimalItem, station: "B" }),
+      modifierGroups: {
+        mod_format: formatGroup,
+        mod_combo_side: sideGroup,
+      },
+      categories: [
+        {
+          id: "cat_1",
+          title: { en: "C", es: "C" },
+          notes: [],
+          modifierGroupRefs: ["mod_format"],
+          items: [
+            { ...minimalItem, station: "B" },
+            { ...minimalItem, id: "item_2", station: "B", modifierGroupRefs: ["mod_combo_side"] },
+          ],
+        },
+      ],
+    });
+    const item1Groups = parsed.catalog.categories[0]?.items[0]?.modifierGroups ?? [];
+    const item2Groups = parsed.catalog.categories[0]?.items[1]?.modifierGroups ?? [];
+    expect(item1Groups.map((g) => g.id)).toEqual(["mod_format"]);
+    expect(item2Groups.map((g) => g.id)).toEqual(["mod_combo_side"]);
+  });
+
+  test("rejects inline modifierGroups on item (no refs needed)", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        modifierGroups: { mod_format: formatGroup },
+        categories: [
+          {
+            id: "cat_1",
+            title: { en: "C", es: "C" },
+            notes: [],
+            items: [{ ...minimalItem, station: "B", modifierGroups: [formatGroup] }],
+          },
+        ],
+      }),
+    ).toThrow(/inline modifierGroups are not allowed/);
+  });
+
+  test("rejects unknown modifier ref", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        modifierGroups: { mod_format: formatGroup },
+        categories: [
+          {
+            id: "cat_1",
+            title: { en: "C", es: "C" },
+            notes: [],
+            items: [{ ...minimalItem, station: "B", modifierGroupRefs: ["mod_missing"] }],
+          },
+        ],
+      }),
+    ).toThrow(/unknown modifier group/);
+  });
+
+  test("rejects duplicate ref id", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...catalogWithItem({ ...minimalItem, station: "B" }),
+        modifierGroups: { mod_format: formatGroup },
+        categories: [
+          {
+            id: "cat_1",
+            title: { en: "C", es: "C" },
+            notes: [],
+            items: [{ ...minimalItem, station: "B", modifierGroupRefs: ["mod_format", "mod_format"] }],
+          },
+        ],
+      }),
+    ).toThrow(/duplicate id/);
+  });
+});
+
+const expandedItem = {
+  ...minimalItem,
+  station: "B" as const,
+  modifierGroups: [formatGroup, sideGroup],
+};
+
+const expandedCatalogBase = {
+  catalogVersion: 1,
+  publishedAt: "2026-01-01T00:00:00.000Z",
+  restaurant: { en: "R", es: "R" },
+  menuName: { en: "M", es: "M" },
+  orderFees: { serviceFeeRate: 0.05 },
+};
+
+describe("compactMenuCatalogForDisk", () => {
+  test("hoists shared refs to category and omits item refs", () => {
+    const source = {
+      ...expandedCatalogBase,
+      categories: [
+        {
+          id: "cat",
+          title: { en: "C", es: "C" },
+          notes: [],
+          items: [expandedItem, { ...expandedItem, id: "item_2" }],
+        },
+      ],
+    };
+    const compact = compactMenuCatalogForDisk(source);
+    expect(Object.keys(compact.modifierGroups ?? {})).toEqual(["mod_format", "mod_combo_side"]);
+    expect(compact.categories[0]?.modifierGroupRefs).toEqual(["mod_format", "mod_combo_side"]);
+    expect(compact.categories[0]?.items[0]?.modifierGroupRefs).toBeUndefined();
+    expect(compact.categories[0]?.items[1]?.modifierGroupRefs).toBeUndefined();
+  });
+
+  test("round-trips compact → parse → same group ids", () => {
+    const source = {
+      ...expandedCatalogBase,
+      categories: [
+        {
+          id: "cat",
+          title: { en: "C", es: "C" },
+          notes: [],
+          items: [expandedItem],
+        },
+      ],
+    };
+    const compact = compactMenuCatalogForDisk(source);
+    const parsed = parseMenuCatalogFile(compact);
+    const groups = parsed.catalog.categories[0]?.items[0]?.modifierGroups ?? [];
+    expect(groups.map((g) => g.id)).toEqual(["mod_format", "mod_combo_side"]);
+  });
+
+  test("throws on id collision with different bodies", () => {
+    const run = () =>
+      compactMenuCatalogForDisk({
+        ...expandedCatalogBase,
+        categories: [
+          {
+            id: "cat",
+            title: { en: "C", es: "C" },
+            notes: [],
+            items: [
+              { ...minimalItem, station: "B" as const, modifierGroups: [formatGroup] },
+              {
+                ...minimalItem,
+                id: "item_2",
+                station: "B" as const,
+                modifierGroups: [{ ...formatGroup, options: [{ id: "x", label: { en: "X", es: "X" } }] }],
+              },
+            ],
+          },
+        ],
+      });
+    expect(run).toThrow(/id collision/);
   });
 });

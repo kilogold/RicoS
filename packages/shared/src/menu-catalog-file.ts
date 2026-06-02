@@ -4,6 +4,7 @@
  */
 
 import { canonicalJson } from "./menu-versions/index";
+import { resolveMenuCatalogRaw } from "./menu-catalog-compact";
 import type {
   LocalizedText,
   MenuCategory,
@@ -213,7 +214,8 @@ export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
     throw new Error("Invalid menu catalog: publishedAt is not a valid date");
   }
   const publishedAtIso = new Date(publishedAtMs).toISOString();
-  const catalog = parseMenuDocumentFromRoot(o);
+  const resolved = resolveMenuCatalogRaw(o);
+  const catalog = parseMenuDocumentFromRoot(resolved);
   return { catalogVersion: cv, publishedAtIso, catalog };
 }
 
