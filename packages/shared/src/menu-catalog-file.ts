@@ -5,6 +5,7 @@
 
 import { canonicalJson } from "./menu-versions/index";
 import { resolveMenuCatalogRaw } from "./menu-catalog-compact";
+import { parseThemeAvailability } from "./menu-theme-availability-parse";
 import type {
   LocalizedText,
   MenuCategory,
@@ -234,12 +235,15 @@ function parseMenuDocumentFromRoot(raw: Record<string, unknown>): MenuDocument {
   const categories = raw.categories.map((cat, i) => parseMenuCategory(cat, `categories[${i}]`));
   const categoryIds = new Set(categories.map((category) => category.id));
   const themes = parseThemes(raw.themes, categoryIds);
+  const themeKeys = new Set(Object.keys(themes));
+  const themeAvailability = parseThemeAvailability(raw.themeAvailability, themeKeys);
   return {
     restaurant: raw.restaurant,
     menuName: raw.menuName,
     themes,
     categories,
     orderFees: parseOrderFees(raw.orderFees),
+    ...(themeAvailability !== undefined ? { themeAvailability } : {}),
   };
 }
 
@@ -286,6 +290,9 @@ export function buildManifestForHash(params: {
     themes: catalog.themes,
     categories: catalog.categories,
     orderFees: catalog.orderFees,
+    ...(catalog.themeAvailability !== undefined
+      ? { themeAvailability: catalog.themeAvailability }
+      : {}),
   };
 }
 

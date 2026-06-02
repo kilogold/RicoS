@@ -381,3 +381,78 @@ describe("parseMenuCatalogFile themes", () => {
     ).toThrow(/themes missing category/);
   });
 });
+
+describe("parseMenuCatalogFile themeAvailability", () => {
+  const base = catalogWithItem({ ...minimalItem, station: "B" });
+
+  test("parses valid themeAvailability", () => {
+    const parsed = parseMenuCatalogFile({
+      ...base,
+      themeAvailability: {
+        T: { days: ["mon"], windows: [{ start: "11:00", end: "15:00" }] },
+      },
+    });
+    expect(parsed.catalog.themeAvailability?.T?.days).toEqual(["mon"]);
+  });
+
+  test("rejects unknown theme in themeAvailability", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...base,
+        themeAvailability: {
+          Unknown: { days: ["mon"], windows: [{ start: "11:00", end: "15:00" }] },
+        },
+      }),
+    ).toThrow(/unknown theme/);
+  });
+
+  test("rejects invalid weekday", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...base,
+        themeAvailability: {
+          T: { days: ["monday"], windows: [{ start: "11:00", end: "15:00" }] },
+        },
+      }),
+    ).toThrow(/days\[0\]/);
+  });
+
+  test("rejects start >= end", () => {
+    expect(() =>
+      parseMenuCatalogFile({
+        ...base,
+        themeAvailability: {
+          T: { days: ["mon"], windows: [{ start: "15:00", end: "11:00" }] },
+        },
+      }),
+    ).toThrow(/start must be before end/);
+  });
+
+  test("round-trips themeAvailability via compact", () => {
+    const source = {
+      ...expandedCatalogBase,
+      themeAvailability: {
+        Lunch: { days: ["fri"], windows: [{ start: "11:00", end: "15:00" }] },
+      },
+      themes: { Breakfast: ["cat"], Lunch: ["cat_other"] },
+      categories: [
+        {
+          id: "cat",
+          title: { en: "C", es: "C" },
+          notes: [],
+          items: [expandedItem],
+        },
+        {
+          id: "cat_other",
+          title: { en: "O", es: "O" },
+          notes: [],
+          items: [{ ...expandedItem, id: "item_other" }],
+        },
+      ],
+    };
+    const compact = compactMenuCatalogForDisk(source);
+    expect(compact.themeAvailability).toEqual(source.themeAvailability);
+    const parsed = parseMenuCatalogFile(compact);
+    expect(parsed.catalog.themeAvailability).toEqual(source.themeAvailability);
+  });
+});

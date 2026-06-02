@@ -28,6 +28,10 @@ export type {
   OrderFeeRates,
   PrintStation,
   SelectionType,
+  ThemeAvailability,
+  ThemeAvailabilityMap,
+  ThemeTimeWindow,
+  Weekday,
 } from "./menu-types";
 
 export {
@@ -90,8 +94,18 @@ export {
 
 export {
   buildThemedMenuSections,
+  type BuildThemedMenuSectionsOptions,
   type ThemedMenuSection,
 } from "./menu-themes";
+
+export {
+  MENU_STORE_TIMEZONE,
+  formatThemeAvailabilityLabel,
+  getThemeScheduleStatus,
+  isThemeScheduleActive,
+  parseThemeTimeHHMM,
+  type ThemeScheduleStatus,
+} from "./menu-theme-availability";
 
 export type { KitchenOrderIntent } from "./kitchen-order";
 export {
