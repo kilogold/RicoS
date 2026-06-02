@@ -10,6 +10,7 @@ import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-manage
 import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import {
+  compactMenuCatalogForDisk,
   computeMenuContentHash,
   parseMenuCatalogFile,
   type MenuCatalogFile,
@@ -133,7 +134,8 @@ export async function POST(req: Request) {
   }
 
   const nextContentHash = await computeMenuContentHash(nextMenu);
-  const content = `${JSON.stringify(nextMenu, null, JSON_INDENT_SPACES)}\n`;
+  const compactNextMenu = compactMenuCatalogForDisk(nextMenu);
+  const content = `${JSON.stringify(compactNextMenu, null, JSON_INDENT_SPACES)}\n`;
   const commitResponse = await githubJson<GitHubCommitResponse>(contentsUrl, {
     method: "PUT",
     headers,
