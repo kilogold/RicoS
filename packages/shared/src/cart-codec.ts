@@ -1,4 +1,5 @@
-import type { OrderFeeRates } from "./menu-types";
+import type { ModifierVisibilityRule, OrderFeeRates } from "./menu-types";
+import { isModifierGroupActive } from "./modifier-visibility";
 
 /**
  * Cart metadata codec v1.
@@ -51,6 +52,7 @@ export type DecodeIndexGroup = {
   minSelections: number;
   maxSelections: number;
   options: DecodeIndexOption[];
+  visibleWhen?: ModifierVisibilityRule;
 };
 
 /** Menu item entry in the decode index. */
@@ -246,7 +248,7 @@ export function decodeCartFromMetadataV1(
           selectedIndices.push(bit);
         }
       }
-      validateSelectionCountForGroup(group, selectedIndices.length);
+      validateSelectionCountForGroup(group, selectedIndices.length, selections);
 
       const groupOptionIds: string[] = [];
       for (const optIdx of selectedIndices) {
@@ -308,7 +310,15 @@ function assertNoStraySelectionBits(
 function validateSelectionCountForGroup(
   group: DecodeIndexGroup,
   count: number,
+  selections: Record<string, string[]>,
 ): void {
+  const active = isModifierGroupActive(group, selections);
+  if (!active) {
+    if (count > 0) {
+      throw new Error(`Group ${group.id} is inactive but has selections`);
+    }
+    return;
+  }
   if (group.selectionType === "single" && count > 1) {
     throw new Error(`Group ${group.id} allows only one selection`);
   }
@@ -379,7 +389,7 @@ function encodeLineAgainstIndex(
       mask[idx >> 3] |= 1 << (idx & 7);
       selectedIndices.push(idx);
     }
-    validateSelectionCountForGroup(group, selectedIndices.length);
+    validateSelectionCountForGroup(group, selectedIndices.length, inputSelections);
 
     for (let byteIdx = 0; byteIdx < maskBytes; byteIdx += 1) {
       writer.writeByte(mask[byteIdx]);

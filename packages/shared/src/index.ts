@@ -22,11 +22,18 @@ export type {
   MenuItem,
   ModifierGroup,
   ModifierOption,
+  ModifierVisibilityRule,
   ItemTaxRates,
   OrderFeeRates,
   PrintStation,
   SelectionType,
 } from "./menu-types";
+
+export {
+  hasStaleInactiveSelections,
+  isModifierGroupActive,
+  pruneInactiveSelections,
+} from "./modifier-visibility";
 
 export type { PurchaseOrderLine } from "./purchase-order-line";
 

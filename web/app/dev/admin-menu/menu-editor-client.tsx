@@ -1101,6 +1101,64 @@ export function AdminMenuEditor({
                           </div>
                         </div>
 
+                        <div className={`mt-4 grid gap-4 md:grid-cols-2 ${theme.nestedPanel} rounded-md border p-3`}>
+                          <TextField
+                            label="Show only when group ID"
+                            value={group.visibleWhen?.groupId ?? ""}
+                            onChange={(value) =>
+                              updateModifierGroup(groupIndex, (current) => {
+                                const trimmed = value.trim();
+                                const optionIds = current.visibleWhen?.optionIds ?? [];
+                                if (!trimmed && optionIds.length === 0) {
+                                  const { visibleWhen: _removed, ...rest } = current;
+                                  return rest;
+                                }
+                                return {
+                                  ...current,
+                                  visibleWhen: {
+                                    groupId: trimmed,
+                                    optionIds,
+                                  },
+                                };
+                              })
+                            }
+                            theme={theme}
+                            changed={fieldChanged(
+                              buildFieldPath(groupPath, "visibleWhen", "groupId"),
+                              group.visibleWhen?.groupId ?? "",
+                            )}
+                          />
+                          <TextField
+                            label="Show only when option IDs (comma-separated)"
+                            value={(group.visibleWhen?.optionIds ?? []).join(", ")}
+                            onChange={(value) =>
+                              updateModifierGroup(groupIndex, (current) => {
+                                const optionIds = value
+                                  .split(",")
+                                  .map((part) => part.trim())
+                                  .filter(Boolean);
+                                const groupId = current.visibleWhen?.groupId ?? "";
+                                if (!groupId && optionIds.length === 0) {
+                                  const { visibleWhen: _removed, ...rest } = current;
+                                  return rest;
+                                }
+                                return {
+                                  ...current,
+                                  visibleWhen: {
+                                    groupId,
+                                    optionIds,
+                                  },
+                                };
+                              })
+                            }
+                            theme={theme}
+                            changed={fieldChanged(
+                              buildFieldPath(groupPath, "visibleWhen", "optionIds"),
+                              group.visibleWhen?.optionIds ?? [],
+                            )}
+                          />
+                        </div>
+
                         <div className="mt-5 space-y-3">
                           {group.options.map((option, optionIndex) => {
                             const optionPath = buildFieldPath(groupPath, "options", optionIndex);
