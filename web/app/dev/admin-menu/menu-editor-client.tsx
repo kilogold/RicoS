@@ -1,6 +1,7 @@
 "use client";
 
 import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
+import { pollUntilActiveMenuVersion } from "@/lib/commerce/web-api/staff-order-management/lib/poll-active-menu-version";
 import type {
   LocalizedText,
   MenuCatalogFile,
@@ -11,7 +12,7 @@ import type {
   PrintStation,
   SelectionType,
 } from "@ricos/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 type CommitPublishResult = {
   commitSha?: string;
@@ -22,31 +23,7 @@ type CommitPublishResult = {
   error?: string;
 };
 
-type CommitChecksCheck = {
-  name: string;
-  status: string;
-  conclusion: string | null;
-  detailsUrl?: string;
-};
-
-type CommitChecksResult = {
-  sha: string;
-  state: "pending" | "success" | "failure";
-  commitUrl?: string;
-  checks: CommitChecksCheck[];
-};
-
-type PendingCommitPersisted = {
-  sha: string;
-  commitUrl?: string;
-  committedVersion?: number;
-  startedAt: string;
-};
-
 const HTTP_CONFLICT = 409;
-const PENDING_COMMIT_STORAGE_KEY = "ricos-menu-editor-pending-commit";
-const PENDING_COMMIT_TTL_MS = 2 * 60 * 60 * 1000;
-const CI_POLL_INTERVAL_MS = 5000;
 const CENTS_PER_DOLLAR = 100;
 const DOLLAR_STEP = "0.05";
 const TAX_PERCENT_MULTIPLIER = 100;
@@ -223,89 +200,11 @@ async function readCommitPublishResponse(response: Response): Promise<CommitPubl
   }
 }
 
-function readPendingCommitFromSession(): PendingCommitPersisted | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(PENDING_COMMIT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingCommitPersisted;
-    if (!parsed.sha || !parsed.startedAt) {
-      sessionStorage.removeItem(PENDING_COMMIT_STORAGE_KEY);
-      return null;
-    }
-    const startedMs = Date.parse(parsed.startedAt);
-    if (!Number.isFinite(startedMs) || Date.now() - startedMs > PENDING_COMMIT_TTL_MS) {
-      sessionStorage.removeItem(PENDING_COMMIT_STORAGE_KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    sessionStorage.removeItem(PENDING_COMMIT_STORAGE_KEY);
-    return null;
-  }
-}
-
-function writePendingCommitToSession(payload: PendingCommitPersisted): void {
-  try {
-    sessionStorage.setItem(PENDING_COMMIT_STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // Quota or private mode — in-memory state still tracks the pending commit.
-  }
-}
-
-function clearPendingCommitFromSession(): void {
-  try {
-    sessionStorage.removeItem(PENDING_COMMIT_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
-}
-
-async function fetchCommitChecks(
-  sha: string,
-): Promise<CommitChecksResult | { error: string }> {
-  const response = await fetch(
-    `/api/staff/admin/menu/commit-publish?sha=${encodeURIComponent(sha)}`,
-    { credentials: "include", cache: "no-store" },
-  );
-  const text = await response.text();
-  if (!response.ok) {
-    try {
-      const body = JSON.parse(text) as { error?: string };
-      return { error: body.error ?? `HTTP ${response.status}` };
-    } catch {
-      return { error: text || `HTTP ${response.status}` };
-    }
-  }
-  try {
-    return JSON.parse(text) as CommitChecksResult;
-  } catch {
-    return { error: "Invalid commit checks response" };
-  }
-}
-
-function formatChecksNames(checks: CommitChecksCheck[]): string {
-  if (checks.length === 0) return "";
-  return checks.map((check) => check.name).join(", ");
-}
-
-function formatCiSuccessMessage(committedVersion: number | undefined, checks: CommitChecksCheck[]): string {
-  const names = formatChecksNames(checks);
+function formatPublishSuccessMessage(committedVersion: number | undefined, commitSha?: string): string {
   const versionPart =
-    committedVersion !== undefined ? ` Catalog v${committedVersion} is committed.` : "";
-  return `GitHub Actions passed${names ? ` (${names})` : ""}.${versionPart}`;
-}
-
-function formatCiFailureMessage(checks: CommitChecksCheck[]): string {
-  const failed = checks.filter(
-    (check) =>
-      check.conclusion === "failure" ||
-      check.conclusion === "cancelled" ||
-      check.conclusion === "timed_out" ||
-      check.conclusion === "action_required",
-  );
-  const names = formatChecksNames(failed.length > 0 ? failed : checks);
-  return `GitHub Actions failed${names ? `: ${names}` : ""}. See workflow logs on GitHub.`;
+    committedVersion !== undefined ? `Catalog v${committedVersion} is live.` : "Catalog is live.";
+  if (!commitSha) return versionPart;
+  return `${versionPart} Commit ${commitSha.slice(0, 7)}.`;
 }
 
 function StatusBanner({
@@ -523,13 +422,6 @@ export function AdminMenuEditor({
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [pendingCommit, setPendingCommit] = useState<PendingCommitPersisted | null>(
-    () => readPendingCommitFromSession(),
-  );
-  const resumedPendingRef = useRef(false);
-
-  const pendingCommitSha = pendingCommit?.sha ?? null;
-  const waitingForCi = pendingCommitSha !== null;
   const hasChanges = useMemo(() => hasMenuCatalogChanges(menu, baselineMenu), [menu, baselineMenu]);
 
   const selected = useMemo(
@@ -541,7 +433,7 @@ export function AdminMenuEditor({
     [baselineMenu, selectedCategoryId, selectedItemId],
   );
 
-  const publishDisabled = busy || !selected.item || waitingForCi;
+  const publishDisabled = busy || !selected.item;
 
   const itemCount = menu.categories.reduce((total, category) => total + category.items.length, 0);
   const theme = THEME_CLASSES[themeMode];
@@ -682,63 +574,6 @@ export function AdminMenuEditor({
     setSelectedItemId(copy.id);
   }
 
-  const clearPendingCommit = useCallback(() => {
-    setPendingCommit(null);
-    clearPendingCommitFromSession();
-  }, []);
-
-  const persistPendingCommit = useCallback((payload: PendingCommitPersisted) => {
-    setPendingCommit(payload);
-    writePendingCommitToSession(payload);
-  }, []);
-
-  const finishCiWait = useCallback(
-    (result: CommitChecksResult, committedVersion?: number) => {
-      clearPendingCommit();
-      if (result.state === "success") {
-        setError(null);
-        setStatus(formatCiSuccessMessage(committedVersion, result.checks));
-      } else {
-        setStatus(null);
-        setError(formatCiFailureMessage(result.checks));
-      }
-    },
-    [clearPendingCommit],
-  );
-
-  useEffect(() => {
-    if (!pendingCommit || resumedPendingRef.current) return;
-    resumedPendingRef.current = true;
-    const shortSha = pendingCommit.sha.slice(0, 7);
-    setStatus(`Resuming check for commit ${shortSha}…`);
-    setError(null);
-  }, [pendingCommit]);
-
-  useEffect(() => {
-    if (!pendingCommit?.sha) return;
-    const commitSha = pendingCommit.sha;
-    const committedVersion = pendingCommit.committedVersion;
-
-    let cancelled = false;
-
-    async function poll() {
-      const result = await fetchCommitChecks(commitSha);
-      if (cancelled) return;
-      if ("error" in result) return;
-
-      if (result.state === "pending") return;
-
-      finishCiWait(result, committedVersion);
-    }
-
-    void poll();
-    const intervalId = window.setInterval(() => void poll(), CI_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [pendingCommit, finishCiWait]);
-
   async function commitAndPublish() {
     if (!hasMenuCatalogChanges(menu, baselineMenu)) {
       setError("No catalog changes to publish.");
@@ -750,7 +585,7 @@ export function AdminMenuEditor({
     setBusy(true);
     setError(null);
     setConflict(false);
-    setStatus("Checking the catalog before publishing...");
+    setStatus("Committing to menu repository...");
     try {
       const response = await fetch("/api/staff/admin/menu/commit-publish", {
         method: "POST",
@@ -774,7 +609,16 @@ export function AdminMenuEditor({
 
       const committedVersion = body.committedVersion;
       const publishedAt = body.publishedAt;
-      if (committedVersion && publishedAt) {
+      if (committedVersion === undefined) {
+        setError("Publish succeeded but committedVersion was missing.");
+        setStatus(null);
+        return;
+      }
+
+      setStatus(`Waiting for live menu (v${committedVersion})...`);
+      await pollUntilActiveMenuVersion(committedVersion);
+
+      if (publishedAt) {
         const updatedMenu = {
           ...menu,
           catalogVersion: committedVersion,
@@ -785,20 +629,8 @@ export function AdminMenuEditor({
       }
       if (body.baseContentHash) setBaseContentHash(body.baseContentHash);
 
-      if (body.commitSha) {
-        persistPendingCommit({
-          sha: body.commitSha,
-          commitUrl: body.commitUrl,
-          committedVersion,
-          startedAt: new Date().toISOString(),
-        });
-        const shortSha = body.commitSha.slice(0, 7);
-        setStatus(`Commit ${shortSha} pushed. Waiting for GitHub Actions…`);
-      } else {
-        setStatus(
-          `Published catalog version ${body.committedVersion ?? "unknown"}.`,
-        );
-      }
+      setError(null);
+      setStatus(formatPublishSuccessMessage(committedVersion, body.commitSha));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
       setStatus(null);
@@ -807,11 +639,7 @@ export function AdminMenuEditor({
     }
   }
 
-  const publishButtonLabel = busy
-    ? "Publishing..."
-    : waitingForCi
-      ? "Waiting for GitHub Actions..."
-      : "Commit & publish";
+  const publishButtonLabel = busy ? "Publishing..." : "Commit & publish";
 
   return (
     <main className={`min-h-dvh px-4 py-6 sm:px-6 lg:px-8 ${theme.page}`}>
@@ -837,7 +665,7 @@ export function AdminMenuEditor({
                   Before publishing, make sure every item has a clear name, description, price,
                   tax, and kitchen station. Review choice groups and extra prices, then press
                   <span className="font-medium"> Commit & publish</span> once. The live menu updates
-                  after Vercel finishes deploying the commit.
+                  after RicoS-Menu CI revalidates the catalog cache (usually under a minute).
                 </p>
               </div>
             </div>
