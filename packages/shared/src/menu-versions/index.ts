@@ -28,6 +28,7 @@ export function buildDecodeIndex(version: number, catalog: MenuDocument): Decode
           id: opt.id,
           surchargeCents: opt.priceDeltaCents ?? 0,
         })),
+        visibleWhen: g.visibleWhen,
       }));
       items.push({
         id: item.id,

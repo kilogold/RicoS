@@ -11,6 +11,7 @@ import type {
   MenuItem,
   ModifierGroup,
   ModifierOption,
+  ModifierVisibilityRule,
   OrderFeeRates,
   PrintStation,
 } from "./menu-types";
@@ -51,6 +52,26 @@ function parseModifierOption(raw: unknown, ctx: string): ModifierOption {
   return out;
 }
 
+function parseModifierVisibilityRule(raw: unknown, ctx: string): ModifierVisibilityRule {
+  if (!raw || typeof raw !== "object") throw new Error(`Invalid menu: ${ctx} visibleWhen`);
+  const v = raw as Record<string, unknown>;
+  if (typeof v.groupId !== "string" || !v.groupId) {
+    throw new Error(`Invalid menu: ${ctx} visibleWhen groupId`);
+  }
+  if (!Array.isArray(v.optionIds) || v.optionIds.length === 0) {
+    throw new Error(`Invalid menu: ${ctx} visibleWhen optionIds`);
+  }
+  const optionIds: string[] = [];
+  for (let i = 0; i < v.optionIds.length; i++) {
+    const optionId = v.optionIds[i];
+    if (typeof optionId !== "string" || !optionId) {
+      throw new Error(`Invalid menu: ${ctx} visibleWhen optionIds[${i}]`);
+    }
+    optionIds.push(optionId);
+  }
+  return { groupId: v.groupId, optionIds };
+}
+
 function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
   if (!raw || typeof raw !== "object") throw new Error(`Invalid menu: ${ctx} group`);
   const g = raw as Record<string, unknown>;
@@ -67,7 +88,7 @@ function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
     throw new Error(`Invalid menu: ${ctx} group maxSelections`);
   }
   if (!Array.isArray(g.options)) throw new Error(`Invalid menu: ${ctx} group options`);
-  return {
+  const group: ModifierGroup = {
     id: g.id,
     title: g.title,
     selectionType: g.selectionType,
@@ -76,6 +97,10 @@ function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
     maxSelections: g.maxSelections,
     options: g.options.map((opt, i) => parseModifierOption(opt, `${ctx}[${i}]`)),
   };
+  if (g.visibleWhen !== undefined) {
+    group.visibleWhen = parseModifierVisibilityRule(g.visibleWhen, `${ctx}.visibleWhen`);
+  }
+  return group;
 }
 
 function parsePrintStation(raw: unknown, ctx: string): PrintStation {

@@ -8,6 +8,7 @@ import { useStoreSession } from "@/app/_client/store-session-context";
 import { formatUsd, lineTotalCents, subtotalCents } from "@/lib/pricing";
 import {
   normalizeSelections,
+  pruneInactiveSelections,
   selectionSignature,
   type LineSelections,
   type MenuCatalogSurface,
@@ -21,8 +22,8 @@ function mergeRequiredSelectionDefaults(
   itemId: string,
   raw: LineSelections | undefined,
 ): LineSelections {
-  const groups = surface.getModifierGroupsForItem(itemId);
   const base = normalizeSelections(raw ?? {});
+  const groups = surface.getActiveModifierGroupsForItem(itemId, base);
   const next: LineSelections = { ...base };
   for (const group of groups) {
     if (!group.required || group.options.length === 0) continue;
@@ -38,7 +39,8 @@ function mergeRequiredSelectionDefaults(
     }
     next[group.id] = picked;
   }
-  return normalizeSelections(next);
+  const allGroups = surface.getModifierGroupsForItem(itemId);
+  return pruneInactiveSelections(allGroups, normalizeSelections(next));
 }
 
 export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
@@ -66,7 +68,9 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
     mergeRequiredSelectionDefaults(surface, itemId, draftSelections[itemId]);
 
   const updateDraft = (itemId: string, next: LineSelections) => {
-    setDraftSelections((prev) => ({ ...prev, [itemId]: normalizeSelections(next) }));
+    const groups = surface.getModifierGroupsForItem(itemId);
+    const pruned = pruneInactiveSelections(groups, normalizeSelections(next));
+    setDraftSelections((prev) => ({ ...prev, [itemId]: pruned }));
   };
 
   return (
@@ -96,6 +100,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
               const hasModifiers = modifierGroups.length > 0;
               const itemLines = linesByItem.get(item.id) ?? [];
               const draft = getDraft(item.id);
+              const activeModifierGroups = surface.getActiveModifierGroupsForItem(item.id, draft);
               const plainLine = itemLines.find(
                 (line) => selectionSignature(line.selections) === "",
               );
@@ -121,7 +126,7 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
 
                     {modifierGroups.length > 0 ? (
                       <div className="mt-4 space-y-3 rounded-lg border border-white/10 bg-black/15 p-3">
-                        {modifierGroups.map((group) => {
+                        {activeModifierGroups.map((group) => {
                           const picked = draft[group.id] ?? [];
                           return (
                             <div key={group.id}>
@@ -285,7 +290,11 @@ export function MenuBoard({ categories }: { categories: MenuCategory[] }) {
                         type="button"
                         disabled={browseOnly}
                         aria-disabled={browseOnly}
-                        onClick={() => addItem(item.id, draft)}
+                        onClick={() => {
+                          const validation = surface.validateSelectionsForItem(item.id, draft);
+                          if (!validation.ok) return;
+                          addItem(item.id, validation.normalized);
+                        }}
                         className="rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] shadow hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
                       >
                         {copy.addConfigured}

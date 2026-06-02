@@ -20,6 +20,11 @@ export type ModifierOption = {
   priceDeltaCents?: number;
 };
 
+export type ModifierVisibilityRule = {
+  groupId: string;
+  optionIds: string[];
+};
+
 export type ModifierGroup = {
   id: string;
   title: LocalizedText;
@@ -28,6 +33,7 @@ export type ModifierGroup = {
   minSelections: number;
   maxSelections: number;
   options: ModifierOption[];
+  visibleWhen?: ModifierVisibilityRule;
 };
 
 /** Kitchen print routing: A/default → Printer A; B → Printer B. */

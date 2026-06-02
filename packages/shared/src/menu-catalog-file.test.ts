@@ -44,3 +44,78 @@ describe("parseMenuCatalogFile station", () => {
     expect(parsed.catalog.categories[0]?.items[0]?.station).toBe("B");
   });
 });
+
+const formatGroup = {
+  id: "mod_format",
+  title: { en: "Format", es: "Formato" },
+  selectionType: "single",
+  required: true,
+  minSelections: 1,
+  maxSelections: 1,
+  options: [
+    { id: "opt_individual", label: { en: "Individual", es: "Individual" } },
+    { id: "opt_combo", label: { en: "Combo", es: "Combo" }, priceDeltaCents: 399 },
+  ],
+};
+
+const sideGroup = {
+  id: "mod_combo_side",
+  title: { en: "Side", es: "Lado" },
+  selectionType: "single",
+  required: true,
+  minSelections: 1,
+  maxSelections: 1,
+  visibleWhen: { groupId: "mod_format", optionIds: ["opt_combo"] },
+  options: [{ id: "opt_fries", label: { en: "Fries", es: "Papas" } }],
+};
+
+describe("parseMenuCatalogFile visibleWhen", () => {
+  test("accepts modifier group with visibleWhen", () => {
+    const parsed = parseMenuCatalogFile(
+      catalogWithItem({
+        ...minimalItem,
+        station: "B",
+        modifierGroups: [formatGroup, sideGroup],
+      }),
+    );
+    const groups = parsed.catalog.categories[0]?.items[0]?.modifierGroups ?? [];
+    expect(groups[1]?.visibleWhen).toEqual({
+      groupId: "mod_format",
+      optionIds: ["opt_combo"],
+    });
+  });
+
+  test("rejects visibleWhen with empty optionIds", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({
+          ...minimalItem,
+          station: "B",
+          modifierGroups: [
+            {
+              ...sideGroup,
+              visibleWhen: { groupId: "mod_format", optionIds: [] },
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/visibleWhen optionIds/);
+  });
+
+  test("rejects visibleWhen with missing groupId", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({
+          ...minimalItem,
+          station: "B",
+          modifierGroups: [
+            {
+              ...sideGroup,
+              visibleWhen: { optionIds: ["opt_combo"] },
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/visibleWhen groupId/);
+  });
+});
