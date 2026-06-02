@@ -5,7 +5,8 @@ import {
   type MenuCatalogSurface,
   type MenuDocument,
 } from "@ricos/shared";
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { getMenuCatalogCacheScope } from "./menu-catalog-cache-scope";
 import { fetchRemoteMenuCatalog } from "./menu-catalog-remote";
 
 export type MenuRuntime = {
@@ -15,20 +16,55 @@ export type MenuRuntime = {
   surface: MenuCatalogSurface;
 };
 
-/**
- * Active catalog from `MENU_PUBLISH_MENU_JSON_URL` (RicoS-Menu repo per deployment).
- * Used for storefront and new checkout after version gate.
- *
- * Uses `noStore()` so menu reads are never stored in Next.js / Vercel Data Cache.
- */
-export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
-  noStore();
+type CachedMenuPayload = {
+  version: number;
+  catalog: MenuDocument;
+  decodeIndex: DecodeIndex;
+};
+
+/** Safety net if tag invalidation is missed (e.g. direct RicoS-Menu push without CI). */
+const MENU_CACHE_SAFETY_REVALIDATE_SECONDS = 86_400;
+
+async function loadMenuPayloadFromRemote(): Promise<CachedMenuPayload> {
   const parsed = await fetchRemoteMenuCatalog();
   const catalog = parsed.catalog;
   return {
     version: parsed.catalogVersion,
     catalog,
     decodeIndex: buildDecodeIndex(parsed.catalogVersion, catalog),
-    surface: createMenuCatalogSurface(catalog),
   };
+}
+
+function createCachedMenuLoader(): () => Promise<CachedMenuPayload> {
+  const { cacheKey, tag } = getMenuCatalogCacheScope();
+  return unstable_cache(loadMenuPayloadFromRemote, ["menu-catalog", cacheKey], {
+    tags: [tag],
+    revalidate: MENU_CACHE_SAFETY_REVALIDATE_SECONDS,
+  });
+}
+
+let cachedMenuLoader: (() => Promise<CachedMenuPayload>) | null = null;
+
+function getCachedMenuLoader(): () => Promise<CachedMenuPayload> {
+  cachedMenuLoader ??= createCachedMenuLoader();
+  return cachedMenuLoader;
+}
+
+/**
+ * Active catalog from `MENU_PUBLISH_MENU_JSON_URL` (RicoS-Menu repo per deployment).
+ * Parsed menu is cached in Next Data Cache; invalidate via `invalidateAndWarmMenuCache`.
+ */
+export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
+  const payload = await getCachedMenuLoader()();
+  return {
+    version: payload.version,
+    catalog: payload.catalog,
+    decodeIndex: payload.decodeIndex,
+    surface: createMenuCatalogSurface(payload.catalog),
+  };
+}
+
+/** @internal Test hook to reset lazy loader between cases. */
+export function resetMenuRuntimeCacheLoaderForTests(): void {
+  cachedMenuLoader = null;
 }

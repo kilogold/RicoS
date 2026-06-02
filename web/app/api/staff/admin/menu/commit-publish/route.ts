@@ -1,4 +1,5 @@
 import { parseGitHubTargetFromCatalogUrl } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-remote";
+import { invalidateAndWarmMenuCache } from "@/lib/commerce/web-api/staff-order-management/lib/menu-cache-invalidation";
 import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
 import {
   normalizeMenuCatalogFile,
@@ -197,6 +198,12 @@ export async function POST(req: Request) {
 
   try {
     await waitForPublishedMenuOnRawUrl(nextContentHash);
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : String(err), 502);
+  }
+
+  try {
+    await invalidateAndWarmMenuCache({ expectedCatalogVersion: nextMenu.catalogVersion });
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 502);
   }
