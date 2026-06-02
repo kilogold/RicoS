@@ -7,6 +7,7 @@ import type { MenuDocument } from "./menu-types";
 const sandwichCatalog: MenuDocument = {
   restaurant: { en: "R", es: "R" },
   menuName: { en: "M", es: "M" },
+  themes: { Sandwiches: ["cat_sandwiches"] },
   orderFees: { serviceFeeRate: 0.05 },
   categories: [
     {

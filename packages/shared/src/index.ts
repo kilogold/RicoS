@@ -20,6 +20,7 @@ export type {
   MenuCategory,
   MenuDocument,
   MenuItem,
+  MenuThemes,
   ModifierGroup,
   ModifierOption,
   ModifierVisibilityRule,
@@ -86,6 +87,11 @@ export {
   selectionSignature,
   type MenuCatalogSurface,
 } from "./menu-catalog-surface";
+
+export {
+  buildThemedMenuSections,
+  type ThemedMenuSection,
+} from "./menu-themes";
 
 export type { KitchenOrderIntent } from "./kitchen-order";
 export {

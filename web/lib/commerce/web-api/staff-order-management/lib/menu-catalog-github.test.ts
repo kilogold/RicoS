@@ -43,6 +43,7 @@ describe("fetchGitHubMenuCatalogContents", () => {
       restaurant: { en: "RicoS", es: "RicoS" },
       menuName: { en: "Menu", es: "Menu" },
       orderFees: { serviceFeeRate: 0.05 },
+      themes: {},
       categories: [],
     };
     const content = Buffer.from(JSON.stringify(menu), "utf8").toString("base64");

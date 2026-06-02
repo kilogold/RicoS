@@ -412,11 +412,14 @@ export function AdminMenuEditor({
   const [baselineMenu, setBaselineMenu] = useState<MenuCatalogFile>(initialMenu);
   const [baseContentHash, setBaseContentHash] = useState(initialBaseContentHash);
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    () => initialMenu.categories[0]?.id ?? "",
-  );
+  const firstCategoryId =
+    Object.values(initialMenu.themes)[0]?.[0] ?? initialMenu.categories[0]?.id ?? "";
+  const firstCategory =
+    initialMenu.categories.find((category) => category.id === firstCategoryId) ??
+    initialMenu.categories[0];
+  const [selectedCategoryId, setSelectedCategoryId] = useState(() => firstCategoryId);
   const [selectedItemId, setSelectedItemId] = useState(
-    () => initialMenu.categories[0]?.items[0]?.id ?? "",
+    () => firstCategory?.items[0]?.id ?? "",
   );
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -61,6 +61,9 @@ export type MenuCategory = {
   items: MenuItem[];
 };
 
+/** Theme name → ordered category ids (storefront grouping and sort). */
+export type MenuThemes = Record<string, string[]>;
+
 /** Menu-wide fee rates applied at checkout (e.g. 0.05 = 5%). */
 export type OrderFeeRates = {
   serviceFeeRate: number;
@@ -69,6 +72,7 @@ export type OrderFeeRates = {
 export type MenuDocument = {
   restaurant: LocalizedText;
   menuName: LocalizedText;
+  themes: MenuThemes;
   categories: MenuCategory[];
   orderFees: OrderFeeRates;
 };
