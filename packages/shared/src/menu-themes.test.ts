@@ -30,5 +30,25 @@ describe("buildThemedMenuSections", () => {
     expect(sections.map((s) => s.theme)).toEqual(["Breakfast", "Lunch"]);
     expect(sections[0]?.categories.map((c) => c.id)).toEqual(["cat_a", "cat_b"]);
     expect(sections[1]?.categories.map((c) => c.id)).toEqual(["cat_c"]);
+    expect(sections.every((s) => s.scheduleActive)).toBe(true);
+  });
+
+  test("sets scheduleActive from themeAvailability and now", () => {
+    const doc = catalog(
+      { Lunch: ["cat_c"] },
+      [{ id: "cat_c", title: { en: "C", es: "C" }, notes: [], items: [] }],
+    );
+    doc.themeAvailability = {
+      Lunch: {
+        days: ["mon"],
+        windows: [{ start: "11:00", end: "15:00" }],
+      },
+    };
+
+    const active = buildThemedMenuSections(doc, { now: new Date("2026-06-01T16:00:00.000Z") });
+    expect(active[0]?.scheduleActive).toBe(true);
+
+    const inactive = buildThemedMenuSections(doc, { now: new Date("2026-06-06T16:00:00.000Z") });
+    expect(inactive[0]?.scheduleActive).toBe(false);
   });
 });

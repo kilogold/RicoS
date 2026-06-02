@@ -7,6 +7,7 @@ import type {
   MenuThemes,
   ModifierGroup,
   OrderFeeRates,
+  ThemeAvailabilityMap,
 } from "./menu-types";
 
 type ModifierGroupRegistryRaw = Record<string, Record<string, unknown>>;
@@ -28,6 +29,7 @@ export type MenuCatalogFileOnDisk = {
   themes: MenuThemes;
   categories: MenuCategoryOnDisk[];
   orderFees: OrderFeeRates;
+  themeAvailability?: ThemeAvailabilityMap;
   modifierGroups?: Record<string, ModifierGroup>;
 };
 
@@ -184,6 +186,9 @@ export function compactMenuCatalogForDisk(file: ExpandedMenuCatalogFile): MenuCa
     themes: deepClone(file.themes),
     categories: categoriesWithRefs,
     orderFees: deepClone(file.orderFees),
+    ...(file.themeAvailability !== undefined
+      ? { themeAvailability: deepClone(file.themeAvailability) }
+      : {}),
   };
   if (registry.size > 0) {
     compact.modifierGroups = Object.fromEntries(registry.entries());

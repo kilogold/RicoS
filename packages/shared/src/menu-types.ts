@@ -64,6 +64,15 @@ export type MenuCategory = {
 /** Theme name → ordered category ids (storefront grouping and sort). */
 export type MenuThemes = Record<string, string[]>;
 
+export type Weekday = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
+
+export type ThemeTimeWindow = { start: string; end: string };
+
+export type ThemeAvailability = { days: Weekday[]; windows: ThemeTimeWindow[] };
+
+/** Theme name → schedule when that theme is orderable on the storefront. */
+export type ThemeAvailabilityMap = Record<string, ThemeAvailability>;
+
 /** Menu-wide fee rates applied at checkout (e.g. 0.05 = 5%). */
 export type OrderFeeRates = {
   serviceFeeRate: number;
@@ -75,6 +84,7 @@ export type MenuDocument = {
   themes: MenuThemes;
   categories: MenuCategory[];
   orderFees: OrderFeeRates;
+  themeAvailability?: ThemeAvailabilityMap;
 };
 
 /** Per line: modifier group id → selected option ids. */

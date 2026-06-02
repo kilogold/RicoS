@@ -8,6 +8,7 @@ import { useStoreSession } from "@/app/_client/store-session-context";
 import { formatUsd, lineTotalCents, subtotalCents } from "@/lib/pricing";
 import {
   buildThemedMenuSections,
+  formatThemeAvailabilityLabel,
   normalizeSelections,
   pruneInactiveSelections,
   selectionSignature,
@@ -16,6 +17,7 @@ import {
   type MenuCategory,
   type MenuDocument,
 } from "@ricos/shared";
+import { useStoreLocalNow } from "@/lib/use-store-local-now";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -307,7 +309,11 @@ export function MenuBoard({ catalog }: { catalog: MenuDocument }) {
     Record<string, LineSelections>
   >({});
 
-  const themedSections = useMemo(() => buildThemedMenuSections(catalog), [catalog]);
+  const now = useStoreLocalNow();
+  const themedSections = useMemo(
+    () => buildThemedMenuSections(catalog, { now }),
+    [catalog, now],
+  );
 
   const linesByItem = useMemo(() => {
     const map = new Map<string, typeof lines>();
@@ -343,19 +349,44 @@ export function MenuBoard({ catalog }: { catalog: MenuDocument }) {
 
   return (
     <div className="space-y-16">
-      {themedSections.map(({ theme, categories }) => (
-        <section key={theme} aria-labelledby={`theme-${theme}`} className="space-y-2">
-          <h2
-            id={`theme-${theme}`}
-            className="text-2xl font-extrabold uppercase tracking-[0.2em] text-[#f4c430] md:text-3xl"
-          >
-            {theme}
-          </h2>
-          {categories.map((cat) => (
-            <CategorySection key={cat.id} cat={cat} {...categorySectionProps} />
-          ))}
-        </section>
-      ))}
+      {themedSections.map(({ theme, categories, scheduleActive }) => {
+        const themeBrowseOnly = browseOnly || !scheduleActive;
+        const availability = catalog.themeAvailability?.[theme];
+        const scheduleLabel =
+          availability !== undefined
+            ? formatThemeAvailabilityLabel(availability, language)
+            : null;
+
+        return (
+          <section key={theme} aria-labelledby={`theme-${theme}`} className="space-y-2">
+            <h2
+              id={`theme-${theme}`}
+              className="text-2xl font-extrabold uppercase tracking-[0.2em] text-[#f4c430] md:text-3xl"
+            >
+              {theme}
+            </h2>
+            {!scheduleActive && scheduleLabel ? (
+              <p
+                className="rounded-lg border border-amber-400/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-100"
+                role="status"
+              >
+                {copy.themeScheduleUnavailable}{" "}
+                <span className="font-medium text-amber-50">
+                  {copy.themeScheduleAvailableWhen} {scheduleLabel}
+                </span>
+              </p>
+            ) : null}
+            {categories.map((cat) => (
+              <CategorySection
+                key={cat.id}
+                cat={cat}
+                {...categorySectionProps}
+                browseOnly={themeBrowseOnly}
+              />
+            ))}
+          </section>
+        );
+      })}
     </div>
   );
 }
