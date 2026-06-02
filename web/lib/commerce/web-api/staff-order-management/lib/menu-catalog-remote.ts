@@ -1,5 +1,6 @@
-import { parseMenuCatalogFile, type ParsedMenuCatalogFile } from "@ricos/shared";
+import type { ParsedMenuCatalogFile } from "@ricos/shared";
 import { requiredEnv } from "@/lib/shared/config/server-env";
+import { fetchGitHubMenuCatalogContents } from "./menu-catalog-github";
 
 const ALLOWED_MENU_CATALOG_HOSTS = new Set(["raw.githubusercontent.com"]);
 const DEFAULT_MENU_JSON_PATH = "menu.json";
@@ -70,29 +71,6 @@ export function parseGitHubTargetFromCatalogUrl(urlRaw?: string): GitHubCatalogT
 }
 
 export async function fetchRemoteMenuCatalog(urlRaw?: string): Promise<ParsedMenuCatalogFile> {
-  const url = parseMenuCatalogJsonUrl(urlRaw);
-  // raw.githubusercontent.com CDN caches public responses for ~5 minutes (max-age=300).
-  // Vercel cache purges do not affect this layer; bust on every read so publishes show promptly.
-  url.searchParams.set("_", String(Date.now()));
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "User-Agent": "RicoS-menu-catalog",
-    "Cache-Control": "no-cache",
-  };
-  const token = process.env.GITHUB_TOKEN?.trim();
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const response = await fetch(url, { headers, cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Menu JSON fetch failed: HTTP ${response.status} ${response.statusText}`);
-  }
-
-  let raw: unknown;
-  try {
-    raw = await response.json();
-  } catch {
-    throw new Error("Menu JSON fetch returned a body that is not valid JSON");
-  }
-
-  return parseMenuCatalogFile(raw);
+  const target = parseGitHubTargetFromCatalogUrl(urlRaw);
+  return fetchGitHubMenuCatalogContents(target);
 }

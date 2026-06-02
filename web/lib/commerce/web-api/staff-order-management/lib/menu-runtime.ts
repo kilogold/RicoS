@@ -52,7 +52,7 @@ function getCachedMenuLoader(): () => Promise<CachedMenuPayload> {
 
 /**
  * Active catalog from `MENU_PUBLISH_MENU_JSON_URL` (RicoS-Menu repo per deployment).
- * Parsed menu is cached in Next Data Cache; invalidate via `invalidateAndWarmMenuCache`.
+ * Parsed menu is cached in Next Data Cache; invalidate via `invalidateMenuCatalogCache` (RicoS-Menu CI).
  */
 export async function getLatestMenuRuntime(): Promise<MenuRuntime> {
   const payload = await getCachedMenuLoader()();

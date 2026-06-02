@@ -1,6 +1,7 @@
 "use client";
 
 import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
+import { pollUntilActiveMenuVersion } from "@/lib/commerce/web-api/staff-order-management/lib/poll-active-menu-version";
 import type {
   LocalizedText,
   MenuCatalogFile,
@@ -584,7 +585,7 @@ export function AdminMenuEditor({
     setBusy(true);
     setError(null);
     setConflict(false);
-    setStatus("Committing and verifying the live catalog...");
+    setStatus("Committing to menu repository...");
     try {
       const response = await fetch("/api/staff/admin/menu/commit-publish", {
         method: "POST",
@@ -608,7 +609,16 @@ export function AdminMenuEditor({
 
       const committedVersion = body.committedVersion;
       const publishedAt = body.publishedAt;
-      if (committedVersion && publishedAt) {
+      if (committedVersion === undefined) {
+        setError("Publish succeeded but committedVersion was missing.");
+        setStatus(null);
+        return;
+      }
+
+      setStatus(`Waiting for live menu (v${committedVersion})...`);
+      await pollUntilActiveMenuVersion(committedVersion);
+
+      if (publishedAt) {
         const updatedMenu = {
           ...menu,
           catalogVersion: committedVersion,
@@ -620,7 +630,7 @@ export function AdminMenuEditor({
       if (body.baseContentHash) setBaseContentHash(body.baseContentHash);
 
       setError(null);
-      setStatus(formatPublishSuccessMessage(body.committedVersion, body.commitSha));
+      setStatus(formatPublishSuccessMessage(committedVersion, body.commitSha));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
       setStatus(null);
@@ -655,7 +665,7 @@ export function AdminMenuEditor({
                   Before publishing, make sure every item has a clear name, description, price,
                   tax, and kitchen station. Review choice groups and extra prices, then press
                   <span className="font-medium"> Commit & publish</span> once. The live menu updates
-                  after Vercel finishes deploying the commit.
+                  after RicoS-Menu CI revalidates the catalog cache (usually under a minute).
                 </p>
               </div>
             </div>

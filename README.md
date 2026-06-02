@@ -109,9 +109,9 @@ Default scripts load `.env.preview`. Append `:production` for production env (e.
 
 Source of truth: public GitHub repo **[RicoS-Menu](https://github.com/kilogold/RicoS-Menu)** with independent `main` (production) and `preview` branches, each with root `menu.json`.
 
-- **Runtime**: storefront, checkout, and APIs load the catalog from a **Next Data Cache** entry keyed by `MENU_PUBLISH_MENU_JSON_URL`. GitHub raw is fetched on cache miss (CDN-bust) or after invalidation. Menu updates apply **without** redeploying the RicoS app.
-- **Publish**: staff menu editor (`POST /api/staff/admin/menu/commit-publish`) commits to the branch configured in env, verifies raw GitHub, then invalidates and warms the menu cache before returning success.
-- **Cache revalidate (backup)**: RicoS-Menu CI should `POST` to `https://<your-ricos-host>/api/menu/revalidate` with body `{"catalogVersion": <n>}` after `verify-menu-catalog-version.mjs`. Covers direct git pushes. Store preview/production URLs in RicoS-Menu GitHub Actions secrets (`RICOS_PREVIEW_REVALIDATE_URL`, `RICOS_PRODUCTION_REVALIDATE_URL`).
+- **Runtime**: storefront, checkout, and APIs load the catalog from a **Next Data Cache** entry keyed by `MENU_PUBLISH_MENU_JSON_URL`. Cache miss refills via the **GitHub Contents API** (same repo/branch/path as the raw URL). Menu updates apply **without** redeploying the RicoS app.
+- **Publish**: staff menu editor (`POST /api/staff/admin/menu/commit-publish`) commits to the branch configured in env, then the editor polls `GET /api/menu/active-version` until the customer cache shows the new `catalogVersion` (after RicoS-Menu CI revalidates).
+- **Cache invalidation**: RicoS-Menu CI runs `scripts/trigger-menu-revalidate.mjs` after `verify-menu-catalog-version.mjs`, posting to `https://<your-ricos-host>/api/menu/revalidate` with `{"catalogVersion": <n>}`. Store preview/production URLs in RicoS-Menu GitHub Actions secrets (`RICOS_PREVIEW_REVALIDATE_URL`, `RICOS_PRODUCTION_REVALIDATE_URL`). Append a Vercel protection bypass query param to the secret URL when preview is protected.
 - **Do not** merge `RicoS-Menu/preview` into `RicoS-Menu/main` to “promote” menu content. App repo `preview` → `main` merges are code-only.
 - **Direct git pushes** to `RicoS-Menu` must bump `catalogVersion` by exactly `+1` and advance `publishedAt`.
 

@@ -1,10 +1,13 @@
-import { parseGitHubTargetFromCatalogUrl } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-remote";
-import { invalidateAndWarmMenuCache } from "@/lib/commerce/web-api/staff-order-management/lib/menu-cache-invalidation";
-import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
 import {
-  normalizeMenuCatalogFile,
-  waitForPublishedMenuOnRawUrl,
-} from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
+  decodeGitHubBase64,
+  githubContentsUrl,
+  githubHeaders,
+  githubJson,
+  type GitHubContentResponse,
+} from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-github";
+import { parseGitHubTargetFromCatalogUrl } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-remote";
+import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
+import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import {
   computeMenuContentHash,
@@ -15,15 +18,8 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const GITHUB_API_VERSION = "2026-03-10";
 const JSON_INDENT_SPACES = 2;
 const HTTP_CONFLICT = 409;
-
-type GitHubContentResponse = {
-  sha?: string;
-  content?: string;
-  encoding?: string;
-};
 
 type GitHubCommitResponse = {
   commit?: {
@@ -39,45 +35,6 @@ type GitHubCommitResponse = {
 
 function jsonError(message: string, status: number): Response {
   return NextResponse.json({ error: message }, { status });
-}
-
-function githubHeaders(token: string): HeadersInit {
-  return {
-    accept: "application/vnd.github+json",
-    authorization: `Bearer ${token}`,
-    "content-type": "application/json",
-    "user-agent": "RicoS-menu-editor",
-    "x-github-api-version": GITHUB_API_VERSION,
-  };
-}
-
-async function githubJson<T>(
-  url: string,
-  init: RequestInit,
-): Promise<{ ok: true; body: T } | { ok: false; status: number; message: string }> {
-  let response: Response;
-  try {
-    response = await fetch(url, init);
-  } catch (err) {
-    return {
-      ok: false,
-      status: 502,
-      message: `GitHub request failed: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-  const body = (await response.json().catch(() => ({}))) as { message?: string };
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      message: body.message ?? `GitHub request failed with HTTP ${response.status}`,
-    };
-  }
-  return { ok: true, body: body as T };
-}
-
-function decodeGitHubBase64(content: string): string {
-  return Buffer.from(content.replaceAll("\n", ""), "base64").toString("utf8");
 }
 
 function buildNextMenu(submittedMenu: MenuCatalogFile, currentMenu: MenuCatalogFile): MenuCatalogFile {
@@ -116,11 +73,7 @@ export async function POST(req: Request) {
     return jsonError(err instanceof Error ? err.message : String(err), 500);
   }
 
-  const encodedPath = target.path
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  const contentsUrl = `https://api.github.com/repos/${target.owner}/${target.repo}/contents/${encodedPath}`;
+  const contentsUrl = githubContentsUrl(target);
   const headers = githubHeaders(token);
 
   const currentResponse = await githubJson<GitHubContentResponse>(
@@ -194,18 +147,6 @@ export async function POST(req: Request) {
   if (!commitResponse.ok) {
     const status = commitResponse.status === HTTP_CONFLICT ? HTTP_CONFLICT : commitResponse.status;
     return jsonError(commitResponse.message, status);
-  }
-
-  try {
-    await waitForPublishedMenuOnRawUrl(nextContentHash);
-  } catch (err) {
-    return jsonError(err instanceof Error ? err.message : String(err), 502);
-  }
-
-  try {
-    await invalidateAndWarmMenuCache({ expectedCatalogVersion: nextMenu.catalogVersion });
-  } catch (err) {
-    return jsonError(err instanceof Error ? err.message : String(err), 502);
   }
 
   return NextResponse.json({
