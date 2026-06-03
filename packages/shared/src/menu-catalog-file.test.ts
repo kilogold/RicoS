@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { parseMenuCatalogFile } from "./menu-catalog-file";
+import {
+  buildManifestForHash,
+  parseExpandedMenuCatalogFile,
+  parseMenuCatalogFile,
+} from "./menu-catalog-file";
 import { compactMenuCatalogForDisk } from "./menu-catalog-compact";
 
 const minimalItem = {
@@ -261,6 +265,36 @@ const expandedCatalogBase = {
   themes: { T: ["cat"] },
   orderFees: { serviceFeeRate: 0.05 },
 };
+
+describe("parseExpandedMenuCatalogFile", () => {
+  test("accepts editor manifest after compact GitHub load", () => {
+    const compact = {
+      ...expandedCatalogBase,
+      modifierGroups: { mod_format: formatGroup, mod_combo_side: sideGroup },
+      categories: [
+        {
+          id: "cat",
+          title: { en: "C", es: "C" },
+          notes: [],
+          modifierGroupRefs: ["mod_format", "mod_combo_side"],
+          items: [{ ...minimalItem, station: "B" }],
+        },
+      ],
+    };
+    const fromGit = parseMenuCatalogFile(compact);
+    const editorManifest = buildManifestForHash({
+      catalogVersion: fromGit.catalogVersion,
+      publishedAtMs: Date.parse(fromGit.publishedAtIso),
+      catalog: fromGit.catalog,
+    });
+    expect(() => parseMenuCatalogFile(editorManifest)).toThrow(/inline modifierGroups are not allowed/);
+    const expanded = parseExpandedMenuCatalogFile(editorManifest);
+    expect(expanded.catalog.categories[0]?.items[0]?.modifierGroups?.map((g) => g.id)).toEqual([
+      "mod_format",
+      "mod_combo_side",
+    ]);
+  });
+});
 
 describe("compactMenuCatalogForDisk", () => {
   test("hoists shared refs to category and omits item refs", () => {

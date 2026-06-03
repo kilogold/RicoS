@@ -74,6 +74,7 @@ export { buildDecodeIndex, canonicalJson } from "./menu-versions/index";
 export {
   buildManifestForHash,
   computeMenuContentHash,
+  parseExpandedMenuCatalogFile,
   parseMenuCatalogFile,
   type MenuCatalogFile,
   type ParsedMenuCatalogFile,
