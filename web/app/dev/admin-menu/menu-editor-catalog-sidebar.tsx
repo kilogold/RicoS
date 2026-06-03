@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import { useMenuEditor } from "./menu-editor-context";
-import { formatDollars, itemDisplayName, valuesEqual } from "./menu-editor-utils";
+import { formatDollars, itemDisplayName, orderCategoriesByThemes, valuesEqual } from "./menu-editor-utils";
 
 export function MenuEditorCatalogSidebar() {
   const {
@@ -15,6 +16,8 @@ export function MenuEditorCatalogSidebar() {
     chooseCategory,
     addItem,
   } = useMenuEditor();
+
+  const categories = useMemo(() => orderCategoriesByThemes(menu), [menu]);
 
   return (
     <aside className={`min-w-0 rounded-lg border p-4 ${theme.panel}`}>
@@ -38,7 +41,7 @@ export function MenuEditorCatalogSidebar() {
       </div>
 
       <div className="mt-4 space-y-3">
-        {menu.categories.map((category) => {
+        {categories.map((category) => {
           const baselineCategory = baselineMenu.categories.find(
             (candidate) => candidate.id === category.id,
           );
