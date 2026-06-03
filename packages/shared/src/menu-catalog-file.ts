@@ -247,14 +247,10 @@ function parseMenuDocumentFromRoot(raw: Record<string, unknown>): MenuDocument {
   };
 }
 
-/**
- * Validate and parse the on-disk catalog file (e.g. root `menu.json`).
- */
-export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Invalid menu catalog: expected object");
-  }
-  const o = raw as Record<string, unknown>;
+function parseMenuCatalogReleaseFields(o: Record<string, unknown>): {
+  catalogVersion: number;
+  publishedAtIso: string;
+} {
   const cv = o.catalogVersion;
   if (typeof cv !== "number" || !Number.isInteger(cv) || cv < 1) {
     throw new Error("Invalid menu catalog: catalogVersion must be a positive integer");
@@ -267,10 +263,34 @@ export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
   if (!Number.isFinite(publishedAtMs)) {
     throw new Error("Invalid menu catalog: publishedAt is not a valid date");
   }
-  const publishedAtIso = new Date(publishedAtMs).toISOString();
+  return { catalogVersion: cv, publishedAtIso: new Date(publishedAtMs).toISOString() };
+}
+
+/**
+ * Validate and parse an expanded catalog (inline item.modifierGroups), e.g. editor publish payload.
+ */
+export function parseExpandedMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid menu catalog: expected object");
+  }
+  const o = raw as Record<string, unknown>;
+  const { catalogVersion, publishedAtIso } = parseMenuCatalogReleaseFields(o);
+  const catalog = parseMenuDocumentFromRoot(o);
+  return { catalogVersion, publishedAtIso, catalog };
+}
+
+/**
+ * Validate and parse the on-disk catalog file (e.g. root `menu.json`).
+ */
+export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid menu catalog: expected object");
+  }
+  const o = raw as Record<string, unknown>;
+  const { catalogVersion, publishedAtIso } = parseMenuCatalogReleaseFields(o);
   const resolved = resolveMenuCatalogRaw(o);
   const catalog = parseMenuDocumentFromRoot(resolved);
-  return { catalogVersion: cv, publishedAtIso, catalog };
+  return { catalogVersion, publishedAtIso, catalog };
 }
 
 /**

@@ -7,12 +7,14 @@ import {
 } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-github";
 import { parseGitHubTargetFromCatalogUrl } from "@/lib/commerce/web-api/staff-order-management/lib/menu-catalog-remote";
 import { hasMenuCatalogChanges } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-catalog";
-import { normalizeMenuCatalogFile } from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
+import {
+  normalizeExpandedMenuCatalogFile,
+  normalizeMenuCatalogFile,
+} from "@/lib/commerce/web-api/staff-order-management/lib/menu-editor-source";
 import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-management/lib/verify-staff-publish-auth";
 import {
   compactMenuCatalogForDisk,
   computeMenuContentHash,
-  parseMenuCatalogFile,
   type MenuCatalogFile,
 } from "@ricos/shared";
 import { NextResponse } from "next/server";
@@ -93,7 +95,6 @@ export async function POST(req: Request) {
   let currentContentHash: string;
   try {
     currentMenu = normalizeMenuCatalogFile(JSON.parse(decodeGitHubBase64(currentFile.content)));
-    parseMenuCatalogFile(currentMenu);
     currentContentHash = await computeMenuContentHash(currentMenu);
   } catch (err) {
     return jsonError(
@@ -115,8 +116,7 @@ export async function POST(req: Request) {
 
   let submittedMenu: MenuCatalogFile;
   try {
-    submittedMenu = normalizeMenuCatalogFile(body.menu);
-    parseMenuCatalogFile(submittedMenu);
+    submittedMenu = normalizeExpandedMenuCatalogFile(body.menu);
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 400);
   }
@@ -128,7 +128,6 @@ export async function POST(req: Request) {
   let nextMenu: MenuCatalogFile;
   try {
     nextMenu = buildNextMenu(submittedMenu, currentMenu);
-    parseMenuCatalogFile(nextMenu);
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : String(err), 400);
   }

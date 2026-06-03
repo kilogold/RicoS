@@ -1,5 +1,6 @@
 import {
   computeMenuContentHash,
+  parseExpandedMenuCatalogFile,
   parseMenuCatalogFile,
   type MenuCatalogFile,
   type ParsedMenuCatalogFile,
@@ -15,6 +16,16 @@ export type MenuEditorSource = {
 
 export function normalizeMenuCatalogFile(raw: unknown): MenuCatalogFile {
   const parsed = parseMenuCatalogFile(raw);
+  return {
+    catalogVersion: parsed.catalogVersion,
+    publishedAt: parsed.publishedAtIso,
+    ...parsed.catalog,
+  };
+}
+
+/** Editor/runtime manifest with inline item modifier groups (not on-disk refs). */
+export function normalizeExpandedMenuCatalogFile(raw: unknown): MenuCatalogFile {
+  const parsed = parseExpandedMenuCatalogFile(raw);
   return {
     catalogVersion: parsed.catalogVersion,
     publishedAt: parsed.publishedAtIso,
