@@ -3,8 +3,49 @@
 import type { EditorTheme } from "./menu-editor-theme";
 import type { EditorTab, ReadinessIssue } from "./menu-editor-readiness";
 import { getUnassignedCategories } from "./menu-editor-readiness";
-import type { MenuCatalogFile, ModifierGroup } from "@ricos/shared";
+import type { LocalizedText, MenuCatalogFile, MenuCategory, ModifierGroup } from "@ricos/shared";
 import { useState } from "react";
+
+function CategoryOrganizeTitles({
+  category,
+  theme,
+  onTitleChange,
+  titleChanged,
+}: {
+  category: MenuCategory;
+  theme: EditorTheme;
+  onTitleChange: (language: keyof LocalizedText, value: string) => void;
+  titleChanged: (language: keyof LocalizedText, value: string) => boolean;
+}) {
+  const fields: { language: keyof LocalizedText; label: string }[] = [
+    { language: "en", label: "English" },
+    { language: "es", label: "Spanish" },
+  ];
+
+  return (
+    <div className="min-w-0 flex-1 grid gap-2 sm:grid-cols-2">
+      {fields.map(({ language, label }) => {
+        const changed = titleChanged(language, category.title[language]);
+        return (
+          <label key={language} className="block min-w-0">
+            <span className={`text-xs ${changed ? theme.changedText : theme.mutedText}`}>
+              {label}
+              {changed ? <span className="ml-1 font-semibold">Edited</span> : null}
+            </span>
+            <input
+              type="text"
+              value={category.title[language]}
+              onChange={(event) => onTitleChange(language, event.target.value)}
+              className={`mt-1 h-10 w-full rounded-md border px-3 text-sm outline-none transition focus:ring-2 ${
+                changed ? theme.changedField : theme.fieldControl
+              }`}
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 function groupDisplayTitle(group: ModifierGroup): string {
   return group.title.en.trim() || group.title.es.trim() || group.id;
@@ -254,6 +295,14 @@ export function MenuStructurePane({
   selectedTheme,
   onSelectTheme,
   onUpdateThemes,
+  onAddCategory,
+  onUpdateCategoryTitle,
+  categoryTitleChanged,
+  onAddTheme,
+  onRemoveTheme,
+  canDeleteTheme,
+  onDeleteCategory,
+  canDeleteCategory,
   onGoToDailyPricing,
 }: {
   menu: MenuCatalogFile;
@@ -261,8 +310,18 @@ export function MenuStructurePane({
   selectedTheme: string;
   onSelectTheme: (themeName: string) => void;
   onUpdateThemes: (updater: (themes: MenuCatalogFile["themes"]) => MenuCatalogFile["themes"]) => void;
+  onAddCategory: (themeName: string) => void;
+  onUpdateCategoryTitle: (categoryId: string, language: keyof LocalizedText, value: string) => void;
+  categoryTitleChanged: (categoryId: string, language: keyof LocalizedText, value: string) => boolean;
+  onAddTheme: (themeName: string) => string | null;
+  onRemoveTheme: (themeName: string) => void;
+  canDeleteTheme: (themeName: string) => boolean;
+  onDeleteCategory: (categoryId: string) => void;
+  canDeleteCategory: (categoryId: string) => boolean;
   onGoToDailyPricing?: () => void;
 }) {
+  const [newThemeName, setNewThemeName] = useState("");
+  const [addThemeError, setAddThemeError] = useState<string | null>(null);
   const themeNames = Object.keys(menu.themes);
   const unassigned = getUnassignedCategories(menu);
   const categoryById = new Map(menu.categories.map((c) => [c.id, c]));
@@ -287,16 +346,6 @@ export function MenuStructurePane({
         next[name] = ids.filter((id) => id !== categoryId);
       }
       next[targetTheme] = [...(next[targetTheme] ?? []), categoryId];
-      return next;
-    });
-  }
-
-  function removeFromTheme(categoryId: string) {
-    onUpdateThemes((themes) => {
-      const next: MenuCatalogFile["themes"] = {};
-      for (const [name, ids] of Object.entries(themes)) {
-        next[name] = ids.filter((id) => id !== categoryId);
-      }
       return next;
     });
   }
@@ -326,6 +375,13 @@ export function MenuStructurePane({
   }
 
   const otherThemes = themeNames.filter((t) => t !== selectedTheme);
+  const selectedCategoryCount = (menu.themes[selectedTheme] ?? []).length;
+  const selectedThemeDeletable = canDeleteTheme(selectedTheme);
+  const deleteSelectedThemeTitle = selectedThemeDeletable
+    ? `Delete empty theme "${selectedTheme}"`
+    : selectedCategoryCount > 0
+      ? "Remove all categories from this theme first"
+      : "Cannot delete the only theme while categories exist";
 
   return (
     <div className={`rounded-lg border p-5 ${theme.panel}`}>
@@ -339,7 +395,9 @@ export function MenuStructurePane({
           <p className={`mb-2 text-xs font-medium uppercase tracking-wide ${theme.mutedText}`}>
             Themes
           </p>
-          {themeNames.map((name, themeIndex) => (
+          {themeNames.map((name, themeIndex) => {
+            const categoryCount = (menu.themes[name] ?? []).length;
+            return (
             <div
               key={name}
               className={`flex items-stretch gap-1 rounded-md ${
@@ -355,7 +413,7 @@ export function MenuStructurePane({
               >
                 {name}
                 <span className={`mt-0.5 block text-xs ${theme.mutedText}`}>
-                  {(menu.themes[name] ?? []).length} categories
+                  {categoryCount} {categoryCount === 1 ? "category" : "categories"}
                 </span>
               </button>
               <div className="flex shrink-0 flex-col gap-1 py-1">
@@ -379,26 +437,89 @@ export function MenuStructurePane({
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
+          <div className={`mt-3 space-y-2 rounded-md border p-3 ${theme.nestedPanel}`}>
+            <p className={`text-xs font-medium ${theme.fieldLabel}`}>Add empty theme</p>
+            <input
+              type="text"
+              value={newThemeName}
+              placeholder="Theme name"
+              onChange={(event) => {
+                setNewThemeName(event.target.value);
+                setAddThemeError(null);
+              }}
+              className={`h-10 w-full rounded-md border px-3 text-sm outline-none focus:ring-2 ${theme.fieldControl}`}
+            />
+            {addThemeError ? (
+              <p className="text-xs text-red-300" role="alert">
+                {addThemeError}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const error = onAddTheme(newThemeName);
+                  if (error) {
+                    setAddThemeError(error);
+                    return;
+                  }
+                  setNewThemeName("");
+                  setAddThemeError(null);
+                }}
+                className={`min-h-9 w-full rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
+              >
+                Add theme
+              </button>
+              <button
+                type="button"
+                disabled={!selectedTheme || !selectedThemeDeletable}
+                title={deleteSelectedThemeTitle}
+                onClick={() => onRemoveTheme(selectedTheme)}
+                className={`min-h-9 w-full rounded-md border px-3 text-sm font-medium disabled:opacity-30 ${theme.dangerButton}`}
+              >
+                Delete selected theme
+              </button>
+            </div>
+          </div>
         </div>
 
         <div>
-          <p className={`text-sm font-medium ${theme.strongText}`}>
-            Categories in <span className="capitalize">{selectedTheme}</span>
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className={`text-sm font-medium ${theme.strongText}`}>
+              Categories in <span className="capitalize">{selectedTheme}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => onAddCategory(selectedTheme)}
+              className={`min-h-9 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
+            >
+              Add category
+            </button>
+          </div>
           <ul className="mt-3 space-y-2">
             {selectedIds.map((categoryId) => {
               const category = categoryById.get(categoryId);
               if (!category) return null;
+              const deletable = canDeleteCategory(categoryId);
+              const itemCount = category.items.length;
               return (
                 <li
                   key={categoryId}
-                  className={`flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 ${theme.nestedPanel}`}
+                  className={`flex flex-col gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-center ${theme.nestedPanel}`}
                 >
-                  <span className="min-w-0 flex-1 text-sm font-medium">
-                    {category.title.en || category.id}
-                  </span>
-                  <div className="flex flex-wrap gap-1">
+                  <CategoryOrganizeTitles
+                    category={category}
+                    theme={theme}
+                    onTitleChange={(language, value) =>
+                      onUpdateCategoryTitle(categoryId, language, value)
+                    }
+                    titleChanged={(language, value) =>
+                      categoryTitleChanged(categoryId, language, value)
+                    }
+                  />
+                  <div className="flex flex-wrap gap-1 sm:shrink-0">
                     <button
                       type="button"
                       aria-label="Move up"
@@ -436,10 +557,16 @@ export function MenuStructurePane({
                     ) : null}
                     <button
                       type="button"
-                      onClick={() => removeFromTheme(categoryId)}
-                      className={`min-h-9 rounded-md border px-2 text-sm ${theme.dangerButton}`}
+                      disabled={!deletable}
+                      title={
+                        deletable
+                          ? "Delete empty category from menu"
+                          : `Remove all ${itemCount} item${itemCount === 1 ? "" : "s"} before deleting`
+                      }
+                      onClick={() => onDeleteCategory(categoryId)}
+                      className={`min-h-9 rounded-md border px-2 text-sm disabled:opacity-30 ${theme.dangerButton}`}
                     >
-                      Remove
+                      Delete
                     </button>
                   </div>
                 </li>
@@ -459,30 +586,58 @@ export function MenuStructurePane({
             Every category must belong to exactly one theme before you can publish.
           </p>
           <ul className="mt-3 space-y-2">
-            {unassigned.map((category) => (
+            {unassigned.map((category) => {
+              const deletable = canDeleteCategory(category.id);
+              const itemCount = category.items.length;
+              return (
               <li
                 key={category.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-slate-950/40 px-3 py-2"
+                className="flex flex-col gap-3 rounded-md border border-amber-500/30 bg-slate-950/40 px-3 py-3 sm:flex-row sm:items-center"
               >
-                <span className="text-sm">{category.title.en || category.id}</span>
-                <select
-                  className={`min-h-9 rounded-md border px-2 text-sm ${theme.fieldControl}`}
-                  defaultValue=""
-                  onChange={(event) => {
-                    const target = event.target.value;
-                    if (target) assignToTheme(category.id, target);
-                    event.target.value = "";
-                  }}
-                >
-                  <option value="">Add to theme…</option>
-                  {themeNames.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                <CategoryOrganizeTitles
+                  category={category}
+                  theme={theme}
+                  onTitleChange={(language, value) =>
+                    onUpdateCategoryTitle(category.id, language, value)
+                  }
+                  titleChanged={(language, value) =>
+                    categoryTitleChanged(category.id, language, value)
+                  }
+                />
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <select
+                    className={`min-h-9 rounded-md border px-2 text-sm ${theme.fieldControl}`}
+                    defaultValue=""
+                    onChange={(event) => {
+                      const target = event.target.value;
+                      if (target) assignToTheme(category.id, target);
+                      event.target.value = "";
+                    }}
+                  >
+                    <option value="">Add to theme…</option>
+                    {themeNames.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!deletable}
+                    title={
+                      deletable
+                        ? "Delete empty category from menu"
+                        : `Remove all ${itemCount} item${itemCount === 1 ? "" : "s"} before deleting`
+                    }
+                    onClick={() => onDeleteCategory(category.id)}
+                    className={`min-h-9 rounded-md border px-3 text-sm disabled:opacity-30 ${theme.dangerButton}`}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       ) : null}

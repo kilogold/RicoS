@@ -31,6 +31,9 @@ import {
   findSelectedItem,
   initialEditorSelection,
   makeNewItem,
+  canDeleteCategory as canDeleteCategoryFromMenu,
+  canDeleteTheme as canDeleteThemeFromMenu,
+  makeNewCategory,
   slugifyId,
   valuesEqual,
 } from "./menu-editor-utils";
@@ -64,6 +67,8 @@ type MenuEditorContextValue = {
   jumpToIssue: (issue: ReadinessIssue) => void;
   commitAndPublish: () => Promise<void>;
   updateThemes: (updater: (themes: MenuCatalogFile["themes"]) => MenuCatalogFile["themes"]) => void;
+  updateCategoryTitle: (categoryId: string, language: keyof LocalizedText, value: string) => void;
+  categoryTitleChanged: (categoryId: string, language: keyof LocalizedText, value: string) => boolean;
   updateSelectedItem: (updater: (item: MenuItem) => MenuItem) => void;
   updateSelectedItemLocalized: (
     field: "name" | "description",
@@ -77,6 +82,12 @@ type MenuEditorContextValue = {
     updater: (option: ModifierOption) => ModifierOption,
   ) => void;
   addItem: () => void;
+  addCategoryToTheme: (themeName: string) => void;
+  addTheme: (themeName: string) => string | null;
+  removeTheme: (themeName: string) => void;
+  canDeleteTheme: (themeName: string) => boolean;
+  deleteCategory: (categoryId: string) => void;
+  canDeleteCategory: (categoryId: string) => boolean;
   removeItem: () => void;
   duplicateItem: () => void;
 };
@@ -162,6 +173,28 @@ export function MenuEditorProvider({
       updateMenu((current) => ({ ...current, themes: updater(current.themes) }));
     },
     [updateMenu],
+  );
+
+  const updateCategoryTitle = useCallback(
+    (categoryId: string, language: keyof LocalizedText, value: string) => {
+      updateMenu((current) => ({
+        ...current,
+        categories: current.categories.map((category) =>
+          category.id === categoryId
+            ? { ...category, title: { ...category.title, [language]: value } }
+            : category,
+        ),
+      }));
+    },
+    [updateMenu],
+  );
+
+  const categoryTitleChanged = useCallback(
+    (categoryId: string, language: keyof LocalizedText, value: string): boolean => {
+      const baselineCategory = baselineMenu.categories.find((c) => c.id === categoryId);
+      return baselineCategory?.title[language] !== value;
+    },
+    [baselineMenu.categories],
   );
 
   const updateSelectedItem = useCallback(
@@ -263,6 +296,99 @@ export function MenuEditorProvider({
       setEditorTab("advanced-setup");
     }
   }, [selectedCategoryId, updateMenu]);
+
+  const addCategoryToTheme = useCallback(
+    (themeName: string) => {
+      if (!themeName) return;
+      let newCategoryId = "";
+      updateMenu((current) => {
+        const newCategory = makeNewCategory(current.categories);
+        newCategoryId = newCategory.id;
+        return {
+          ...current,
+          categories: [...current.categories, newCategory],
+          themes: {
+            ...current.themes,
+            [themeName]: [...(current.themes[themeName] ?? []), newCategory.id],
+          },
+        };
+      });
+      if (newCategoryId) {
+        setSelectedCategoryId(newCategoryId);
+        setSelectedItemId("");
+      }
+    },
+    [updateMenu],
+  );
+
+  const canDeleteTheme = useCallback(
+    (themeName: string) => canDeleteThemeFromMenu(menu, themeName),
+    [menu],
+  );
+
+  const addTheme = useCallback(
+    (themeName: string): string | null => {
+      const key = themeName.trim();
+      if (!key) return "Theme name is required.";
+      if (menu.themes[key] !== undefined) return "A theme with this name already exists.";
+      updateMenu((current) => ({
+        ...current,
+        themes: { ...current.themes, [key]: [] },
+      }));
+      setStructureTheme(key);
+      return null;
+    },
+    [menu.themes, updateMenu],
+  );
+
+  const removeTheme = useCallback(
+    (themeName: string) => {
+      if (!canDeleteThemeFromMenu(menu, themeName)) return;
+      if (structureTheme === themeName) {
+        const remaining = Object.keys(menu.themes).filter((name) => name !== themeName);
+        setStructureTheme(remaining[0] ?? "");
+      }
+      updateMenu((current) => {
+        const { [themeName]: _removed, ...restThemes } = current.themes;
+        let themeAvailability = current.themeAvailability;
+        if (themeAvailability && themeName in themeAvailability) {
+          const { [themeName]: _removedAvailability, ...restAvailability } = themeAvailability;
+          themeAvailability =
+            Object.keys(restAvailability).length > 0 ? restAvailability : undefined;
+        }
+        return { ...current, themes: restThemes, themeAvailability };
+      });
+    },
+    [menu.themes, structureTheme, updateMenu],
+  );
+
+  const canDeleteCategory = useCallback(
+    (categoryId: string) => canDeleteCategoryFromMenu(menu, categoryId),
+    [menu],
+  );
+
+  const deleteCategory = useCallback(
+    (categoryId: string) => {
+      if (!canDeleteCategoryFromMenu(menu, categoryId)) return;
+
+      if (selectedCategoryId === categoryId) {
+        const remaining = menu.categories.filter((c) => c.id !== categoryId);
+        const nextCategory = remaining[0];
+        setSelectedCategoryId(nextCategory?.id ?? "");
+        setSelectedItemId(nextCategory?.items[0]?.id ?? "");
+      }
+
+      updateMenu((current) => {
+        const categories = current.categories.filter((c) => c.id !== categoryId);
+        const themes: MenuCatalogFile["themes"] = {};
+        for (const [name, ids] of Object.entries(current.themes)) {
+          themes[name] = ids.filter((id) => id !== categoryId);
+        }
+        return { ...current, categories, themes };
+      });
+    },
+    [menu, selectedCategoryId, updateMenu],
+  );
 
   const removeItem = useCallback(() => {
     if (!selectedCategoryId || !selectedItemId) return;
@@ -370,16 +496,30 @@ export function MenuEditorProvider({
       jumpToIssue,
       commitAndPublish,
       updateThemes,
+      updateCategoryTitle,
+      categoryTitleChanged,
       updateSelectedItem,
       updateSelectedItemLocalized,
       updateModifierGroup,
       updateModifierOption,
       addItem,
+      addCategoryToTheme,
+      addTheme,
+      canDeleteCategory,
+      canDeleteTheme,
+      deleteCategory,
+      removeTheme,
       removeItem,
       duplicateItem,
     }),
     [
       addItem,
+      addCategoryToTheme,
+      addTheme,
+      canDeleteCategory,
+      canDeleteTheme,
+      deleteCategory,
+      removeTheme,
       baselineMenu,
       busy,
       commitAndPublish,
@@ -408,6 +548,7 @@ export function MenuEditorProvider({
       updateModifierOption,
       updateSelectedItem,
       updateSelectedItemLocalized,
+      updateCategoryTitle,
       updateThemes,
     ],
   );
