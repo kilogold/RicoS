@@ -12,7 +12,24 @@ import type {
   PrintStation,
   SelectionType,
 } from "@ricos/shared";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  collectMenuReadinessIssues,
+  type EditorTab,
+  type ReadinessIssue,
+} from "./menu-editor-readiness";
+import { EDITOR_THEME } from "./menu-editor-theme";
+import {
+  DeferredNumberField,
+  MenuStructurePane,
+  PublishReadinessBar,
+  SelectField,
+  StatusBanner,
+  TextAreaField,
+  TextField,
+  VisibilityRuleBuilder,
+  WorkAreaTabs,
+} from "./menu-editor-panels";
 
 type CommitPublishResult = {
   commitSha?: string;
@@ -29,84 +46,6 @@ const DOLLAR_STEP = "0.05";
 const TAX_PERCENT_MULTIPLIER = 100;
 const STATIONS: PrintStation[] = ["default", "A", "B"];
 const SELECTION_TYPES: SelectionType[] = ["single", "multiple"];
-
-type ThemeMode = "light" | "dark";
-
-type ThemeClasses = {
-  page: string;
-  panel: string;
-  nestedPanel: string;
-  fieldLabel: string;
-  fieldControl: string;
-  mutedText: string;
-  strongText: string;
-  regularText: string;
-  cardBorder: string;
-  softButton: string;
-  neutralButton: string;
-  dangerButton: string;
-  itemButton: string;
-  itemButtonActive: string;
-  categoryButton: string;
-  categoryButtonActive: string;
-  divider: string;
-  checkboxShell: string;
-  changedField: string;
-  changedPanel: string;
-  changedText: string;
-};
-
-const THEME_CLASSES: Record<ThemeMode, ThemeClasses> = {
-  light: {
-    page: "bg-[#f8fafd] text-slate-950",
-    panel: "border-slate-200 bg-white shadow-sm",
-    nestedPanel: "border-slate-200 bg-slate-50",
-    fieldLabel: "text-slate-700",
-    fieldControl:
-      "border-slate-300 bg-white text-slate-950 focus:border-violet-600 focus:ring-violet-100",
-    mutedText: "text-slate-500",
-    strongText: "text-slate-950",
-    regularText: "text-slate-700",
-    cardBorder: "border-slate-200",
-    softButton: "border-violet-200 text-violet-700 hover:bg-violet-50 disabled:text-slate-400",
-    neutralButton: "border-slate-300 text-slate-700 hover:bg-slate-50",
-    dangerButton: "border-red-200 text-red-700 hover:bg-red-50",
-    itemButton: "text-slate-600 hover:bg-slate-50",
-    itemButtonActive: "bg-slate-100 text-slate-950",
-    categoryButton: "text-slate-700 hover:bg-slate-50",
-    categoryButtonActive: "border-l-4 border-violet-600 bg-violet-50 text-violet-950",
-    divider: "border-slate-200",
-    checkboxShell: "border-slate-300 text-slate-700",
-    changedField: "border-amber-400 bg-amber-50 focus:border-amber-500 focus:ring-amber-100",
-    changedPanel: "border-amber-300 bg-amber-50/60",
-    changedText: "text-amber-700",
-  },
-  dark: {
-    page: "bg-slate-950 text-slate-100",
-    panel: "border-slate-700 bg-slate-900 shadow-sm shadow-black/20",
-    nestedPanel: "border-slate-700 bg-slate-950/60",
-    fieldLabel: "text-slate-200",
-    fieldControl:
-      "border-slate-600 bg-slate-950 text-slate-100 focus:border-violet-400 focus:ring-violet-500/20",
-    mutedText: "text-slate-400",
-    strongText: "text-slate-50",
-    regularText: "text-slate-300",
-    cardBorder: "border-slate-700",
-    softButton: "border-violet-500/50 text-violet-200 hover:bg-violet-500/10 disabled:text-slate-500",
-    neutralButton: "border-slate-600 text-slate-200 hover:bg-slate-800",
-    dangerButton: "border-red-500/50 text-red-200 hover:bg-red-500/10",
-    itemButton: "text-slate-300 hover:bg-slate-800",
-    itemButtonActive: "bg-slate-800 text-slate-50",
-    categoryButton: "text-slate-300 hover:bg-slate-800",
-    categoryButtonActive: "border-l-4 border-violet-400 bg-violet-500/15 text-violet-100",
-    divider: "border-slate-700",
-    checkboxShell: "border-slate-600 text-slate-200",
-    changedField:
-      "border-amber-400 bg-amber-950/40 text-amber-50 focus:border-amber-300 focus:ring-amber-400/20",
-    changedPanel: "border-amber-400/70 bg-amber-950/20",
-    changedText: "text-amber-200",
-  },
-};
 
 function formatDollars(cents: number): string {
   return (cents / CENTS_PER_DOLLAR).toFixed(2);
@@ -207,200 +146,6 @@ function formatPublishSuccessMessage(committedVersion: number | undefined, commi
   return `${versionPart} Commit ${commitSha.slice(0, 7)}.`;
 }
 
-function StatusBanner({
-  tone,
-  theme,
-  children,
-}: {
-  tone: "error" | "success" | "neutral";
-  theme: ThemeMode;
-  children: React.ReactNode;
-}) {
-  const className = {
-    light: {
-      error: "border-red-200 bg-red-50 text-red-800",
-      success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-      neutral: "border-blue-200 bg-blue-50 text-blue-800",
-    },
-    dark: {
-      error: "border-red-500/40 bg-red-950/40 text-red-100",
-      success: "border-emerald-500/40 bg-emerald-950/40 text-emerald-100",
-      neutral: "border-blue-500/40 bg-blue-950/40 text-blue-100",
-    },
-  }[theme][tone];
-  return (
-    <p
-      className={`rounded-md border px-4 py-3 text-sm ${className}`}
-      role={tone === "error" ? "alert" : undefined}
-    >
-      {children}
-    </p>
-  );
-}
-
-function TextField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  theme,
-  changed = false,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  theme: ThemeClasses;
-  changed?: boolean;
-  type?: "text" | "number";
-}) {
-  return (
-    <label className="block">
-      <span className={`text-sm font-medium ${changed ? theme.changedText : theme.fieldLabel}`}>
-        {label}
-        {changed ? <span className="ml-2 text-xs font-semibold">Edited</span> : null}
-      </span>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className={`mt-2 h-12 w-full rounded-md border px-3 text-[15px] outline-none transition focus:ring-2 ${
-          changed ? theme.changedField : theme.fieldControl
-        }`}
-      />
-    </label>
-  );
-}
-
-function DeferredNumberField({
-  label,
-  numericValue,
-  format,
-  parse,
-  onChange,
-  placeholder,
-  theme,
-  changed = false,
-  step,
-}: {
-  label: string;
-  numericValue: number;
-  format: (value: number) => string;
-  parse: (value: string) => number;
-  onChange: (value: number) => void;
-  placeholder?: string;
-  theme: ThemeClasses;
-  changed?: boolean;
-  step?: string;
-}) {
-  const [draft, setDraft] = useState(() => format(numericValue));
-  const [isEditing, setIsEditing] = useState(false);
-
-  function commitDraft() {
-    const parsed = parse(draft);
-    onChange(parsed);
-    setDraft(format(parsed));
-  }
-
-  return (
-    <label className="block">
-      <span className={`text-sm font-medium ${changed ? theme.changedText : theme.fieldLabel}`}>
-        {label}
-        {changed ? <span className="ml-2 text-xs font-semibold">Edited</span> : null}
-      </span>
-      <input
-        type="number"
-        step={step}
-        value={isEditing ? draft : format(numericValue)}
-        placeholder={placeholder}
-        onFocus={() => {
-          setIsEditing(true);
-          setDraft(format(numericValue));
-        }}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          setIsEditing(false);
-          commitDraft();
-        }}
-        className={`mt-2 h-12 w-full rounded-md border px-3 text-[15px] outline-none transition focus:ring-2 ${
-          changed ? theme.changedField : theme.fieldControl
-        }`}
-      />
-    </label>
-  );
-}
-
-function TextAreaField({
-  label,
-  value,
-  onChange,
-  theme,
-  changed = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  theme: ThemeClasses;
-  changed?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className={`text-sm font-medium ${changed ? theme.changedText : theme.fieldLabel}`}>
-        {label}
-        {changed ? <span className="ml-2 text-xs font-semibold">Edited</span> : null}
-      </span>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        rows={3}
-        className={`mt-2 w-full resize-y rounded-md border px-3 py-3 text-[15px] leading-6 outline-none transition focus:ring-2 ${
-          changed ? theme.changedField : theme.fieldControl
-        }`}
-      />
-    </label>
-  );
-}
-
-function SelectField<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  theme,
-  changed = false,
-}: {
-  label: string;
-  value: T;
-  options: T[];
-  onChange: (value: T) => void;
-  theme: ThemeClasses;
-  changed?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className={`text-sm font-medium ${changed ? theme.changedText : theme.fieldLabel}`}>
-        {label}
-        {changed ? <span className="ml-2 text-xs font-semibold">Edited</span> : null}
-      </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className={`mt-2 h-12 w-full rounded-md border px-3 text-[15px] outline-none transition focus:ring-2 ${
-          changed ? theme.changedField : theme.fieldControl
-        }`}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 export function AdminMenuEditor({
   initialMenu,
   initialBaseContentHash,
@@ -411,7 +156,9 @@ export function AdminMenuEditor({
   const [menu, setMenu] = useState<MenuCatalogFile>(initialMenu);
   const [baselineMenu, setBaselineMenu] = useState<MenuCatalogFile>(initialMenu);
   const [baseContentHash, setBaseContentHash] = useState(initialBaseContentHash);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
+  const themeNames = Object.keys(initialMenu.themes);
+  const [structureTheme, setStructureTheme] = useState(() => themeNames[0] ?? "");
+  const [editorTab, setEditorTab] = useState<EditorTab>("basic-edit");
   const firstCategoryId =
     Object.values(initialMenu.themes)[0]?.[0] ?? initialMenu.categories[0]?.id ?? "";
   const firstCategory =
@@ -425,7 +172,10 @@ export function AdminMenuEditor({
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
+  const mainPanelRef = useRef<HTMLElement>(null);
+
   const hasChanges = useMemo(() => hasMenuCatalogChanges(menu, baselineMenu), [menu, baselineMenu]);
+  const readinessIssues = useMemo(() => collectMenuReadinessIssues(menu), [menu]);
 
   const selected = useMemo(
     () => findSelectedItem(menu, selectedCategoryId, selectedItemId),
@@ -436,11 +186,12 @@ export function AdminMenuEditor({
     [baselineMenu, selectedCategoryId, selectedItemId],
   );
 
-  const publishDisabled = busy || !selected.item;
+  const isSeasonalMode = editorTab === "organize-edit";
+  const publishDisabled = busy || (!isSeasonalMode && !selected.item);
 
   const itemCount = menu.categories.reduce((total, category) => total + category.items.length, 0);
-  const theme = THEME_CLASSES[themeMode];
-  const editedFieldCount = useMemo(() => {
+  const theme = EDITOR_THEME;
+  const editedItemCount = useMemo(() => {
     let count = 0;
     for (const category of menu.categories) {
       const baselineCategory = baselineMenu.categories.find((candidate) => candidate.id === category.id);
@@ -452,6 +203,11 @@ export function AdminMenuEditor({
     return count;
   }, [baselineMenu, menu]);
 
+  const themesChanged = useMemo(
+    () => !valuesEqual(menu.themes, baselineMenu.themes),
+    [menu.themes, baselineMenu.themes],
+  );
+
   function fieldChanged(path: string, currentValue: unknown): boolean {
     const baselineValue = path.split(".").reduce<unknown>((value, part) => {
       if (value === null || value === undefined) return undefined;
@@ -462,8 +218,18 @@ export function AdminMenuEditor({
     return !valuesEqual(currentValue, baselineValue);
   }
 
+  function updateMenu(updater: (current: MenuCatalogFile) => MenuCatalogFile) {
+    setMenu(updater);
+    setError(null);
+    setConflict(false);
+  }
+
+  function updateThemes(updater: (themes: MenuCatalogFile["themes"]) => MenuCatalogFile["themes"]) {
+    updateMenu((current) => ({ ...current, themes: updater(current.themes) }));
+  }
+
   function updateSelectedItem(updater: (item: MenuItem) => MenuItem) {
-    setMenu((current) => ({
+    updateMenu((current) => ({
       ...current,
       categories: current.categories.map((category) => {
         if (category.id !== selectedCategoryId) return category;
@@ -516,12 +282,25 @@ export function AdminMenuEditor({
     setSelectedItemId(category.items[0]?.id ?? "");
   }
 
+  function jumpToIssue(issue: ReadinessIssue) {
+    setEditorTab(issue.tab);
+    if (issue.categoryId) setSelectedCategoryId(issue.categoryId);
+    if (issue.itemId) setSelectedItemId(issue.itemId);
+    if (issue.tab === "organize-edit" && issue.categoryId) {
+      const themeForCategory = Object.entries(menu.themes).find(([, ids]) =>
+        ids.includes(issue.categoryId!),
+      );
+      if (themeForCategory) setStructureTheme(themeForCategory[0]);
+    }
+    requestAnimationFrame(() => {
+      mainPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function addItem() {
     if (!selectedCategoryId) return;
-    setError(null);
-    setConflict(false);
     let nextItemId = "";
-    setMenu((current) => ({
+    updateMenu((current) => ({
       ...current,
       categories: current.categories.map((category) => {
         if (category.id !== selectedCategoryId) return category;
@@ -530,15 +309,16 @@ export function AdminMenuEditor({
         return { ...category, items: [...category.items, newItem] };
       }),
     }));
-    if (nextItemId) setSelectedItemId(nextItemId);
+    if (nextItemId) {
+      setSelectedItemId(nextItemId);
+      setEditorTab("advanced-setup");
+    }
   }
 
   function removeItem() {
     if (!selectedCategoryId || !selectedItemId) return;
-    setError(null);
-    setConflict(false);
     let nextItemId = "";
-    setMenu((current) => ({
+    updateMenu((current) => ({
       ...current,
       categories: current.categories.map((category) => {
         if (category.id !== selectedCategoryId) return category;
@@ -567,7 +347,7 @@ export function AdminMenuEditor({
           }))
         : undefined,
     };
-    setMenu((current) => ({
+    updateMenu((current) => ({
       ...current,
       categories: current.categories.map((category) => {
         if (category.id !== selectedCategoryId) return category;
@@ -578,6 +358,12 @@ export function AdminMenuEditor({
   }
 
   async function commitAndPublish() {
+    if (readinessIssues.length > 0) {
+      setError(`Fix ${readinessIssues.length} issue(s) before publishing.`);
+      setStatus(null);
+      jumpToIssue(readinessIssues[0]!);
+      return;
+    }
     if (!hasMenuCatalogChanges(menu, baselineMenu)) {
       setError("No catalog changes to publish.");
       setStatus(null);
@@ -642,85 +428,65 @@ export function AdminMenuEditor({
     }
   }
 
-  const publishButtonLabel = busy ? "Publishing..." : "Commit & publish";
-
   return (
     <main className={`min-h-dvh px-4 py-6 sm:px-6 lg:px-8 ${theme.page}`}>
       <div className="mx-auto max-w-7xl">
         <header className={`overflow-hidden rounded-lg border ${theme.panel}`}>
           <div className="h-2 bg-violet-600" />
-          <div className="flex flex-col gap-5 px-5 py-5 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-violet-700">RicoS catalog</p>
-              <h1 className={`mt-1 text-2xl font-normal tracking-normal ${theme.strongText}`}>
-                Menu editor
-              </h1>
-              <p className={`mt-2 text-sm ${theme.mutedText}`}>
-                {itemCount} items across {menu.categories.length} categories
-                {editedFieldCount > 0 ? (
-                  <span className={`ml-3 font-medium ${theme.changedText}`}>
-                    {editedFieldCount} changed
-                  </span>
-                ) : null}
-              </p>
-              <div className={`mt-4 max-w-3xl rounded-md border px-4 py-3 text-sm leading-6 ${theme.nestedPanel}`}>
-                <p className={theme.regularText}>
-                  Before publishing, make sure every item has a clear name, description, price,
-                  tax, and kitchen station. Review choice groups and extra prices, then press
-                  <span className="font-medium"> Commit & publish</span> once. The live menu updates
-                  after RicoS-Menu CI revalidates the catalog cache (usually under a minute).
+          <div className="space-y-4 px-5 py-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <p className={`text-sm font-medium ${theme.accentText}`}>RicoS catalog</p>
+                <h1 className={`mt-1 text-2xl font-normal tracking-normal ${theme.strongText}`}>
+                  Menu editor
+                </h1>
+                <p className={`mt-2 text-sm ${theme.mutedText}`}>
+                  {itemCount} items · {menu.categories.length} categories
+                  {editedItemCount > 0 || themesChanged ? (
+                    <span className={`ml-2 font-medium ${theme.changedText}`}>
+                      {editedItemCount > 0 ? `${editedItemCount} items edited` : null}
+                      {editedItemCount > 0 && themesChanged ? " · " : null}
+                      {themesChanged ? "themes edited" : null}
+                    </span>
+                  ) : null}
                 </p>
               </div>
+              <WorkAreaTabs activeTab={editorTab} onTabChange={setEditorTab} theme={theme} />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div
-                className={`inline-flex rounded-full border p-1 ${theme.cardBorder} ${
-                  themeMode === "dark" ? "bg-slate-950" : "bg-slate-100"
-                }`}
-                aria-label="Color mode"
-              >
-                {(["light", "dark"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setThemeMode(mode)}
-                    className={`min-h-9 rounded-full px-4 text-sm font-medium capitalize transition ${
-                      themeMode === mode
-                        ? "bg-violet-600 text-white shadow-sm"
-                        : `${theme.regularText} hover:bg-violet-500/10`
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                disabled={publishDisabled}
-                onClick={() => void commitAndPublish()}
-                className="min-h-11 rounded-md bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-              >
-                {publishButtonLabel}
-              </button>
-            </div>
+            <PublishReadinessBar
+              issues={readinessIssues}
+              hasChanges={hasChanges}
+              editedItemCount={editedItemCount + (themesChanged ? 1 : 0)}
+              busy={busy}
+              publishDisabled={publishDisabled}
+              onPublish={() => void commitAndPublish()}
+              onJumpToIssue={jumpToIssue}
+            />
           </div>
         </header>
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
+        <div
+          className={`mt-5 grid gap-5 ${isSeasonalMode ? "grid-cols-1" : "lg:grid-cols-[330px_minmax(0,1fr)]"}`}
+        >
+          {!isSeasonalMode ? (
           <aside className={`min-w-0 rounded-lg border p-4 ${theme.panel}`}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className={`text-base font-medium ${theme.strongText}`}>Catalog items</h2>
-                <p className={`mt-1 text-xs ${theme.mutedText}`}>Choose an item to edit.</p>
-              </div>
-              <button
-                type="button"
-                disabled={!selectedCategoryId}
-                onClick={addItem}
-                className={`min-h-9 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
-              >
-                Add item
-              </button>
+            <div>
+              <h2 className={`text-base font-medium ${theme.strongText}`}>Items</h2>
+              <p className={`mt-1 text-xs ${theme.mutedText}`}>
+                {editorTab === "advanced-setup"
+                  ? "Pick an item to edit, or add a new one."
+                  : "Pick an item to update its price."}
+              </p>
+              {editorTab === "advanced-setup" ? (
+                <button
+                  type="button"
+                  disabled={!selectedCategoryId}
+                  onClick={addItem}
+                  className={`mt-3 min-h-9 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
+                >
+                  Add item
+                </button>
+              ) : null}
             </div>
 
             <div className="mt-4 space-y-3">
@@ -730,72 +496,73 @@ export function AdminMenuEditor({
                 );
                 const categoryChanged = !baselineCategory || !valuesEqual(category, baselineCategory);
                 return (
-                <section
-                  key={category.id}
-                  className={`rounded-md border ${
-                    categoryChanged ? theme.changedPanel : theme.cardBorder
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => chooseCategory(category)}
-                    className={`w-full px-3 py-3 text-left text-sm ${
-                      selectedCategoryId === category.id
-                        ? theme.categoryButtonActive
-                        : theme.categoryButton
+                  <section
+                    key={category.id}
+                    className={`rounded-md border ${
+                      categoryChanged ? theme.changedPanel : theme.cardBorder
                     }`}
                   >
-                    <span className="block font-medium">{category.title.en || category.id}</span>
-                    <span className={`mt-0.5 block text-xs ${theme.mutedText}`}>
-                      {category.items.length} items
-                      {categoryChanged ? (
-                        <span className={`ml-2 font-semibold ${theme.changedText}`}>Edited</span>
-                      ) : null}
-                    </span>
-                  </button>
-                  {selectedCategoryId === category.id ? (
-                    <div className={`border-t py-2 ${theme.divider}`}>
-                      {category.items.map((item) => {
-                        const baselineItem = baselineCategory?.items.find(
-                          (candidate) => candidate.id === item.id,
-                        );
-                        const itemChanged = !baselineItem || !valuesEqual(item, baselineItem);
-                        return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setSelectedItemId(item.id)}
-                          className={`block w-full px-3 py-2.5 text-left text-sm ${
-                            selectedItemId === item.id
-                              ? theme.itemButtonActive
-                              : theme.itemButton
-                          }`}
-                        >
-                          <span className="block truncate">{itemDisplayName(item)}</span>
-                          <span className={`mt-0.5 block text-xs ${theme.mutedText}`}>
-                            ${formatDollars(item.priceCents)}
-                            {itemChanged ? (
-                              <span className={`ml-2 font-semibold ${theme.changedText}`}>
-                                Edited
+                    <button
+                      type="button"
+                      onClick={() => chooseCategory(category)}
+                      className={`w-full px-3 py-3 text-left text-sm ${
+                        selectedCategoryId === category.id
+                          ? theme.categoryButtonActive
+                          : theme.categoryButton
+                      }`}
+                    >
+                      <span className="block font-medium">{category.title.en || category.id}</span>
+                      <span className={`mt-0.5 block text-xs ${theme.mutedText}`}>
+                        {category.items.length} items
+                        {categoryChanged ? (
+                          <span className={`ml-2 font-semibold ${theme.changedText}`}>Edited</span>
+                        ) : null}
+                      </span>
+                    </button>
+                    {selectedCategoryId === category.id ? (
+                      <div className={`border-t py-2 ${theme.divider}`}>
+                        {category.items.map((item) => {
+                          const baselineItem = baselineCategory?.items.find(
+                            (candidate) => candidate.id === item.id,
+                          );
+                          const itemChanged = !baselineItem || !valuesEqual(item, baselineItem);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setSelectedItemId(item.id)}
+                              className={`block w-full px-3 py-2.5 text-left text-sm ${
+                                selectedItemId === item.id
+                                  ? theme.itemButtonActive
+                                  : theme.itemButton
+                              }`}
+                            >
+                              <span className="block truncate">{itemDisplayName(item)}</span>
+                              <span className={`mt-0.5 block text-xs ${theme.mutedText}`}>
+                                ${formatDollars(item.priceCents)}
+                                {itemChanged ? (
+                                  <span className={`ml-2 font-semibold ${theme.changedText}`}>
+                                    Edited
+                                  </span>
+                                ) : null}
                               </span>
-                            ) : null}
-                          </span>
-                        </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </section>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </section>
                 );
               })}
             </div>
           </aside>
+          ) : null}
 
-          <section className="min-w-0 space-y-5">
-            {status ? <StatusBanner tone="success" theme={themeMode}>{status}</StatusBanner> : null}
+          <section ref={mainPanelRef} className="min-w-0 space-y-5">
+            {status ? <StatusBanner tone="success">{status}</StatusBanner> : null}
             {error ? (
               <div className="space-y-3">
-                <StatusBanner tone="error" theme={themeMode}>{error}</StatusBanner>
+                <StatusBanner tone="error">{error}</StatusBanner>
                 {conflict ? (
                   <button
                     type="button"
@@ -808,104 +575,99 @@ export function AdminMenuEditor({
               </div>
             ) : null}
 
-            {selected.item ? (
+            {isSeasonalMode ? (
+              <MenuStructurePane
+                menu={menu}
+                theme={theme}
+                selectedTheme={structureTheme || (themeNames[0] ?? "")}
+                onSelectTheme={setStructureTheme}
+                onUpdateThemes={updateThemes}
+                onGoToDailyPricing={() => setEditorTab("basic-edit")}
+              />
+            ) : null}
+
+            {editorTab !== "organize-edit" && selected.item ? (
               <>
                 <div className={`overflow-hidden rounded-lg border ${theme.panel}`}>
-                  <div className="border-l-4 border-violet-600 px-5 py-5">
+                  <div className="border-l-4 border-violet-500 px-5 py-5">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-violet-700">
+                        <p className={`text-sm font-medium ${theme.accentText}`}>
                           {selected.category?.title.en ?? "Category"}
                         </p>
                         <h2 className={`mt-1 truncate text-2xl font-normal ${theme.strongText}`}>
                           {itemDisplayName(selected.item)}
                         </h2>
-                        <p className={`mt-2 text-sm ${theme.mutedText}`}>
-                          Edit this item the same way it appears in the ordering catalog.
-                        </p>
+                        {editorTab === "basic-edit" ? (
+                          <p className={`mt-2 text-sm ${theme.mutedText}`}>
+                            Update price and taxes, then publish when ready.
+                          </p>
+                        ) : (
+                          <p className={`mt-2 text-sm ${theme.mutedText}`}>
+                            Full item setup: names, descriptions, choices, and rules.
+                          </p>
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={duplicateItem}
-                          className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.neutralButton}`}
-                        >
-                          Duplicate
-                        </button>
-                        <button
-                          type="button"
-                          onClick={removeItem}
-                          className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
-                        >
-                          Remove
-                        </button>
-                      </div>
+                      {editorTab === "advanced-setup" ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={duplicateItem}
+                            className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.neutralButton}`}
+                          >
+                            Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={removeItem}
+                            className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
 
-                <div className={`rounded-lg border p-5 ${theme.panel}`}>
-                  <h3 className={`text-base font-medium ${theme.strongText}`}>Item details</h3>
-                  <div className="mt-5 grid gap-5 md:grid-cols-2">
-                    <TextField
-                      label="English name"
-                      value={selected.item.name.en}
-                      onChange={(value) => updateSelectedItemLocalized("name", "en", value)}
-                      theme={theme}
-                      changed={fieldChanged("name.en", selected.item.name.en)}
-                    />
-                    <TextField
-                      label="Spanish name"
-                      value={selected.item.name.es}
-                      onChange={(value) => updateSelectedItemLocalized("name", "es", value)}
-                      theme={theme}
-                      changed={fieldChanged("name.es", selected.item.name.es)}
-                    />
-                    <TextAreaField
-                      label="English description"
-                      value={selected.item.description.en}
-                      onChange={(value) => updateSelectedItemLocalized("description", "en", value)}
-                      theme={theme}
-                      changed={fieldChanged("description.en", selected.item.description.en)}
-                    />
-                    <TextAreaField
-                      label="Spanish description"
-                      value={selected.item.description.es}
-                      onChange={(value) => updateSelectedItemLocalized("description", "es", value)}
-                      theme={theme}
-                      changed={fieldChanged("description.es", selected.item.description.es)}
-                    />
-                    <TextField
-                      label="Item ID"
-                      value={selected.item.id}
-                      onChange={(value) => {
-                        setSelectedItemId(value);
-                        updateSelectedItem((item) => ({ ...item, id: value }));
-                      }}
-                      theme={theme}
-                      changed={fieldChanged("id", selected.item.id)}
-                    />
-                    <SelectField
-                      label="Kitchen station"
-                      value={selected.item.station}
-                      options={STATIONS}
-                      onChange={(value) => updateSelectedItem((item) => ({ ...item, station: value }))}
-                      theme={theme}
-                      changed={fieldChanged("station", selected.item.station)}
-                    />
-                    <DeferredNumberField
-                      label="Price"
-                      numericValue={selected.item.priceCents}
-                      format={formatDollars}
-                      parse={parseDollars}
-                      step={DOLLAR_STEP}
-                      onChange={(priceCents) =>
-                        updateSelectedItem((item) => ({ ...item, priceCents }))
-                      }
-                      theme={theme}
-                      changed={fieldChanged("priceCents", selected.item.priceCents)}
-                    />
-                    <div className="grid gap-5 sm:grid-cols-2">
+                {editorTab === "basic-edit" ? (
+                  <div className={`rounded-lg border p-5 ${theme.panel}`}>
+                    <h3 className={`text-base font-medium ${theme.strongText}`}>Pricing</h3>
+                    <div className="mt-5 grid gap-5 md:grid-cols-2">
+                      <TextField
+                        label="Name (English)"
+                        value={selected.item.name.en}
+                        onChange={(value) => updateSelectedItemLocalized("name", "en", value)}
+                        theme={theme}
+                        changed={fieldChanged("name.en", selected.item.name.en)}
+                      />
+                      <TextField
+                        label="Name (Spanish)"
+                        value={selected.item.name.es}
+                        onChange={(value) => updateSelectedItemLocalized("name", "es", value)}
+                        theme={theme}
+                        changed={fieldChanged("name.es", selected.item.name.es)}
+                      />
+                      <DeferredNumberField
+                        label="Price"
+                        numericValue={selected.item.priceCents}
+                        format={formatDollars}
+                        parse={parseDollars}
+                        step={DOLLAR_STEP}
+                        onChange={(priceCents) =>
+                          updateSelectedItem((item) => ({ ...item, priceCents }))
+                        }
+                        theme={theme}
+                        changed={fieldChanged("priceCents", selected.item.priceCents)}
+                      />
+                      <SelectField
+                        label="Kitchen station"
+                        value={selected.item.station}
+                        options={STATIONS}
+                        onChange={(value) => updateSelectedItem((item) => ({ ...item, station: value }))}
+                        theme={theme}
+                        changed={fieldChanged("station", selected.item.station)}
+                      />
                       <DeferredNumberField
                         label="Sales tax %"
                         numericValue={selected.item.salesTaxRate}
@@ -931,358 +693,449 @@ export function AdminMenuEditor({
                         changed={fieldChanged("municipalTaxRate", selected.item.municipalTaxRate)}
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div className={`rounded-lg border p-5 ${theme.panel}`}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className={`text-base font-medium ${theme.strongText}`}>
-                        Choices and add-ons
-                      </h3>
-                      <p className={`mt-1 text-sm ${theme.mutedText}`}>
-                        Examples: pancake or waffle, sides, toppings, extra charges.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateSelectedItem((item) => ({
-                          ...item,
-                          modifierGroups: [
-                            ...(item.modifierGroups ?? []),
-                            makeModifierGroup(item.modifierGroups),
-                          ],
-                        }))
-                      }
-                      className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
-                    >
-                      Add choice group
-                    </button>
-                  </div>
-
-                  <div className="mt-5 space-y-5">
-                    {(selected.item.modifierGroups ?? []).map((group, groupIndex) => {
-                      const groupPath = buildFieldPath("modifierGroups", groupIndex);
-                      const groupChanged = fieldChanged(groupPath, group);
-                      return (
-                      <section
-                        key={`${group.id}-${groupIndex}`}
-                        className={`rounded-lg border p-4 ${
-                          groupChanged ? theme.changedPanel : theme.cardBorder
-                        }`}
+                    <p className={`mt-4 text-sm ${theme.mutedText}`}>
+                      Need choices, descriptions, or conditional sides? Switch to{" "}
+                      <button
+                        type="button"
+                        onClick={() => setEditorTab("advanced-setup")}
+                        className="font-medium text-violet-300 underline-offset-2 hover:underline"
                       >
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="grid flex-1 gap-4 md:grid-cols-2">
-                            <TextField
-                              label="Group title English"
-                              value={group.title.en}
-                              onChange={(value) =>
-                                updateModifierGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  title: { ...current.title, en: value },
-                                }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(
-                                buildFieldPath(groupPath, "title", "en"),
-                                group.title.en,
-                              )}
-                            />
-                            <TextField
-                              label="Group title Spanish"
-                              value={group.title.es}
-                              onChange={(value) =>
-                                updateModifierGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  title: { ...current.title, es: value },
-                                }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(
-                                buildFieldPath(groupPath, "title", "es"),
-                                group.title.es,
-                              )}
-                            />
-                            <TextField
-                              label="Group ID"
-                              value={group.id}
-                              onChange={(value) =>
-                                updateModifierGroup(groupIndex, (current) => ({ ...current, id: value }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(buildFieldPath(groupPath, "id"), group.id)}
-                            />
-                            <SelectField
-                              label="Selection type"
-                              value={group.selectionType}
-                              options={SELECTION_TYPES}
-                              onChange={(value) =>
-                                updateModifierGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  selectionType: value,
-                                }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(
-                                buildFieldPath(groupPath, "selectionType"),
-                                group.selectionType,
-                              )}
-                            />
-                            <DeferredNumberField
-                              label="Minimum selections"
-                              numericValue={group.minSelections}
-                              format={(value) => String(value)}
-                              parse={(value) => Number.parseInt(value, 10) || 0}
-                              step="1"
-                              onChange={(minSelections) =>
-                                updateModifierGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  minSelections,
-                                }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(
-                                buildFieldPath(groupPath, "minSelections"),
-                                group.minSelections,
-                              )}
-                            />
-                            <DeferredNumberField
-                              label="Maximum selections"
-                              numericValue={group.maxSelections}
-                              format={(value) => String(value)}
-                              parse={(value) => Number.parseInt(value, 10) || 0}
-                              step="1"
-                              onChange={(maxSelections) =>
-                                updateModifierGroup(groupIndex, (current) => ({
-                                  ...current,
-                                  maxSelections,
-                                }))
-                              }
-                              theme={theme}
-                              changed={fieldChanged(
-                                buildFieldPath(groupPath, "maxSelections"),
-                                group.maxSelections,
-                              )}
-                            />
-                          </div>
-                          <div className="flex shrink-0 flex-wrap gap-2">
-                            <label
-                              className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm ${
-                                fieldChanged(buildFieldPath(groupPath, "required"), group.required)
-                                  ? `${theme.changedPanel} ${theme.changedText}`
-                                  : theme.checkboxShell
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={group.required}
-                                onChange={(event) =>
-                                  updateModifierGroup(groupIndex, (current) => ({
-                                    ...current,
-                                    required: event.target.checked,
-                                  }))
-                                }
-                                className="h-4 w-4 accent-violet-600"
-                              />
-                              Required
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateSelectedItem((item) => ({
-                                  ...item,
-                                  modifierGroups: (item.modifierGroups ?? []).filter(
-                                    (_, index) => index !== groupIndex,
-                                  ),
-                                }))
-                              }
-                              className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
-                            >
-                              Remove group
-                            </button>
-                          </div>
-                        </div>
+                        Advanced setup
+                      </button>
+                      .
+                    </p>
+                  </div>
+                ) : null}
 
-                        <div className={`mt-4 grid gap-4 md:grid-cols-2 ${theme.nestedPanel} rounded-md border p-3`}>
-                          <TextField
-                            label="Show only when group ID"
-                            value={group.visibleWhen?.groupId ?? ""}
-                            onChange={(value) =>
-                              updateModifierGroup(groupIndex, (current) => {
-                                const trimmed = value.trim();
-                                const optionIds = current.visibleWhen?.optionIds ?? [];
-                                if (!trimmed && optionIds.length === 0) {
-                                  const { visibleWhen: _removed, ...rest } = current;
-                                  return rest;
-                                }
-                                return {
-                                  ...current,
-                                  visibleWhen: {
-                                    groupId: trimmed,
-                                    optionIds,
-                                  },
-                                };
-                              })
+                {editorTab === "advanced-setup" ? (
+                  <>
+                    <div className={`rounded-lg border p-5 ${theme.panel}`}>
+                      <h3 className={`text-base font-medium ${theme.strongText}`}>Item details</h3>
+                      <div className="mt-5 grid gap-5 md:grid-cols-2">
+                        <TextField
+                          label="English name"
+                          value={selected.item.name.en}
+                          onChange={(value) => updateSelectedItemLocalized("name", "en", value)}
+                          theme={theme}
+                          changed={fieldChanged("name.en", selected.item.name.en)}
+                        />
+                        <TextField
+                          label="Spanish name"
+                          value={selected.item.name.es}
+                          onChange={(value) => updateSelectedItemLocalized("name", "es", value)}
+                          theme={theme}
+                          changed={fieldChanged("name.es", selected.item.name.es)}
+                        />
+                        <TextAreaField
+                          label="English description"
+                          value={selected.item.description.en}
+                          onChange={(value) =>
+                            updateSelectedItemLocalized("description", "en", value)
+                          }
+                          theme={theme}
+                          changed={fieldChanged("description.en", selected.item.description.en)}
+                        />
+                        <TextAreaField
+                          label="Spanish description"
+                          value={selected.item.description.es}
+                          onChange={(value) =>
+                            updateSelectedItemLocalized("description", "es", value)
+                          }
+                          theme={theme}
+                          changed={fieldChanged("description.es", selected.item.description.es)}
+                        />
+                        <TextField
+                          label="Item ID (internal)"
+                          value={selected.item.id}
+                          onChange={(value) => {
+                            setSelectedItemId(value);
+                            updateSelectedItem((item) => ({ ...item, id: value }));
+                          }}
+                          theme={theme}
+                          changed={fieldChanged("id", selected.item.id)}
+                        />
+                        <SelectField
+                          label="Kitchen station"
+                          value={selected.item.station}
+                          options={STATIONS}
+                          onChange={(value) =>
+                            updateSelectedItem((item) => ({ ...item, station: value }))
+                          }
+                          theme={theme}
+                          changed={fieldChanged("station", selected.item.station)}
+                        />
+                        <DeferredNumberField
+                          label="Price"
+                          numericValue={selected.item.priceCents}
+                          format={formatDollars}
+                          parse={parseDollars}
+                          step={DOLLAR_STEP}
+                          onChange={(priceCents) =>
+                            updateSelectedItem((item) => ({ ...item, priceCents }))
+                          }
+                          theme={theme}
+                          changed={fieldChanged("priceCents", selected.item.priceCents)}
+                        />
+                        <div className="grid gap-5 sm:grid-cols-2">
+                          <DeferredNumberField
+                            label="Sales tax %"
+                            numericValue={selected.item.salesTaxRate}
+                            format={formatPercent}
+                            parse={parsePercent}
+                            step="0.001"
+                            onChange={(salesTaxRate) =>
+                              updateSelectedItem((item) => ({ ...item, salesTaxRate }))
+                            }
+                            theme={theme}
+                            changed={fieldChanged("salesTaxRate", selected.item.salesTaxRate)}
+                          />
+                          <DeferredNumberField
+                            label="Municipal tax %"
+                            numericValue={selected.item.municipalTaxRate}
+                            format={formatPercent}
+                            parse={parsePercent}
+                            step="0.001"
+                            onChange={(municipalTaxRate) =>
+                              updateSelectedItem((item) => ({ ...item, municipalTaxRate }))
                             }
                             theme={theme}
                             changed={fieldChanged(
-                              buildFieldPath(groupPath, "visibleWhen", "groupId"),
-                              group.visibleWhen?.groupId ?? "",
-                            )}
-                          />
-                          <TextField
-                            label="Show only when option IDs (comma-separated)"
-                            value={(group.visibleWhen?.optionIds ?? []).join(", ")}
-                            onChange={(value) =>
-                              updateModifierGroup(groupIndex, (current) => {
-                                const optionIds = value
-                                  .split(",")
-                                  .map((part) => part.trim())
-                                  .filter(Boolean);
-                                const groupId = current.visibleWhen?.groupId ?? "";
-                                if (!groupId && optionIds.length === 0) {
-                                  const { visibleWhen: _removed, ...rest } = current;
-                                  return rest;
-                                }
-                                return {
-                                  ...current,
-                                  visibleWhen: {
-                                    groupId,
-                                    optionIds,
-                                  },
-                                };
-                              })
-                            }
-                            theme={theme}
-                            changed={fieldChanged(
-                              buildFieldPath(groupPath, "visibleWhen", "optionIds"),
-                              group.visibleWhen?.optionIds ?? [],
+                              "municipalTaxRate",
+                              selected.item.municipalTaxRate,
                             )}
                           />
                         </div>
+                      </div>
+                    </div>
 
-                        <div className="mt-5 space-y-3">
-                          {group.options.map((option, optionIndex) => {
-                            const optionPath = buildFieldPath(groupPath, "options", optionIndex);
-                            const optionChanged = fieldChanged(optionPath, option);
-                            return (
-                            <div
-                              key={`${option.id}-${optionIndex}`}
-                              className={`grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_1fr_1fr_150px_auto] ${
-                                optionChanged ? theme.changedPanel : theme.nestedPanel
-                              }`}
-                            >
-                              <TextField
-                                label="Option English"
-                                value={option.label.en}
-                                onChange={(value) =>
-                                  updateModifierOption(groupIndex, optionIndex, (current) => ({
-                                    ...current,
-                                    label: { ...current.label, en: value },
-                                  }))
-                                }
-                                theme={theme}
-                                changed={fieldChanged(
-                                  buildFieldPath(optionPath, "label", "en"),
-                                  option.label.en,
-                                )}
-                              />
-                              <TextField
-                                label="Option Spanish"
-                                value={option.label.es}
-                                onChange={(value) =>
-                                  updateModifierOption(groupIndex, optionIndex, (current) => ({
-                                    ...current,
-                                    label: { ...current.label, es: value },
-                                  }))
-                                }
-                                theme={theme}
-                                changed={fieldChanged(
-                                  buildFieldPath(optionPath, "label", "es"),
-                                  option.label.es,
-                                )}
-                              />
-                              <TextField
-                                label="Option ID"
-                                value={option.id}
-                                onChange={(value) =>
-                                  updateModifierOption(groupIndex, optionIndex, (current) => ({
-                                    ...current,
-                                    id: value,
-                                  }))
-                                }
-                                theme={theme}
-                                changed={fieldChanged(buildFieldPath(optionPath, "id"), option.id)}
-                              />
-                              <DeferredNumberField
-                                label="Extra price"
-                                numericValue={option.priceDeltaCents ?? 0}
-                                format={formatDollars}
-                                parse={parseDollars}
-                                step={DOLLAR_STEP}
-                                onChange={(priceDeltaCents) =>
-                                  updateModifierOption(groupIndex, optionIndex, (current) => {
-                                    if (priceDeltaCents === 0) {
-                                      const withoutPrice: ModifierOption = {
-                                        id: current.id,
-                                        label: current.label,
-                                      };
-                                      return withoutPrice;
-                                    }
-                                    return { ...current, priceDeltaCents };
-                                  })
-                                }
-                                theme={theme}
-                                changed={fieldChanged(
-                                  buildFieldPath(optionPath, "priceDeltaCents"),
-                                  option.priceDeltaCents,
-                                )}
-                              />
-                              <div className="flex items-end">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateModifierGroup(groupIndex, (current) => ({
-                                      ...current,
-                                      options: current.options.filter(
-                                        (_, index) => index !== optionIndex,
-                                      ),
-                                    }))
-                                  }
-                                  className={`min-h-10 w-full rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                            );
-                          })}
+                    <div className={`rounded-lg border p-5 ${theme.panel}`}>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className={`text-base font-medium ${theme.strongText}`}>
+                            Choices and add-ons
+                          </h3>
+                          <p className={`mt-1 text-sm ${theme.mutedText}`}>
+                            Sizes, sides, toppings, and extra charges.
+                          </p>
                         </div>
-
                         <button
                           type="button"
                           onClick={() =>
-                            updateModifierGroup(groupIndex, (current) => ({
-                              ...current,
-                              options: [...current.options, makeModifierOption(current.options)],
+                            updateSelectedItem((item) => ({
+                              ...item,
+                              modifierGroups: [
+                                ...(item.modifierGroups ?? []),
+                                makeModifierGroup(item.modifierGroups),
+                              ],
                             }))
                           }
-                          className={`mt-4 min-h-10 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
+                          className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
                         >
-                          Add option
+                          Add choice group
                         </button>
-                      </section>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
+
+                      <div className="mt-5 space-y-5">
+                        {(selected.item.modifierGroups ?? []).map((group, groupIndex) => {
+                          const groupPath = buildFieldPath("modifierGroups", groupIndex);
+                          const groupChanged = fieldChanged(groupPath, group);
+                          const allGroups = selected.item?.modifierGroups ?? [];
+                          return (
+                            <section
+                              key={`${group.id}-${groupIndex}`}
+                              className={`rounded-lg border p-4 ${
+                                groupChanged ? theme.changedPanel : theme.cardBorder
+                              }`}
+                            >
+                              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                <div className="grid flex-1 gap-4 md:grid-cols-2">
+                                  <TextField
+                                    label="Group title (English)"
+                                    value={group.title.en}
+                                    onChange={(value) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        title: { ...current.title, en: value },
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(
+                                      buildFieldPath(groupPath, "title", "en"),
+                                      group.title.en,
+                                    )}
+                                  />
+                                  <TextField
+                                    label="Group title (Spanish)"
+                                    value={group.title.es}
+                                    onChange={(value) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        title: { ...current.title, es: value },
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(
+                                      buildFieldPath(groupPath, "title", "es"),
+                                      group.title.es,
+                                    )}
+                                  />
+                                  <TextField
+                                    label="Group ID (internal)"
+                                    value={group.id}
+                                    onChange={(value) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        id: value,
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(buildFieldPath(groupPath, "id"), group.id)}
+                                  />
+                                  <SelectField
+                                    label="Pick one or many"
+                                    value={group.selectionType}
+                                    options={SELECTION_TYPES}
+                                    optionLabels={{
+                                      single: "Pick one",
+                                      multiple: "Pick many",
+                                    }}
+                                    onChange={(value) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        selectionType: value,
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(
+                                      buildFieldPath(groupPath, "selectionType"),
+                                      group.selectionType,
+                                    )}
+                                  />
+                                  <DeferredNumberField
+                                    label="Minimum picks"
+                                    numericValue={group.minSelections}
+                                    format={(value) => String(value)}
+                                    parse={(value) => Number.parseInt(value, 10) || 0}
+                                    step="1"
+                                    onChange={(minSelections) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        minSelections,
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(
+                                      buildFieldPath(groupPath, "minSelections"),
+                                      group.minSelections,
+                                    )}
+                                  />
+                                  <DeferredNumberField
+                                    label="Maximum picks"
+                                    numericValue={group.maxSelections}
+                                    format={(value) => String(value)}
+                                    parse={(value) => Number.parseInt(value, 10) || 0}
+                                    step="1"
+                                    onChange={(maxSelections) =>
+                                      updateModifierGroup(groupIndex, (current) => ({
+                                        ...current,
+                                        maxSelections,
+                                      }))
+                                    }
+                                    theme={theme}
+                                    changed={fieldChanged(
+                                      buildFieldPath(groupPath, "maxSelections"),
+                                      group.maxSelections,
+                                    )}
+                                  />
+                                </div>
+                                <div className="flex shrink-0 flex-wrap gap-2">
+                                  <label
+                                    className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm ${
+                                      fieldChanged(
+                                        buildFieldPath(groupPath, "required"),
+                                        group.required,
+                                      )
+                                        ? `${theme.changedPanel} ${theme.changedText}`
+                                        : theme.checkboxShell
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={group.required}
+                                      onChange={(event) =>
+                                        updateModifierGroup(groupIndex, (current) => ({
+                                          ...current,
+                                          required: event.target.checked,
+                                        }))
+                                      }
+                                      className="h-4 w-4 accent-violet-600"
+                                    />
+                                    Required
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateSelectedItem((item) => ({
+                                        ...item,
+                                        modifierGroups: (item.modifierGroups ?? []).filter(
+                                          (_, index) => index !== groupIndex,
+                                        ),
+                                      }))
+                                    }
+                                    className={`min-h-10 rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
+                                  >
+                                    Remove group
+                                  </button>
+                                </div>
+                              </div>
+
+                              <VisibilityRuleBuilder
+                                group={group}
+                                groupIndex={groupIndex}
+                                allGroups={allGroups}
+                                theme={theme}
+                                changed={Boolean(
+                                  group.visibleWhen &&
+                                    fieldChanged(
+                                      buildFieldPath(groupPath, "visibleWhen"),
+                                      group.visibleWhen,
+                                    ),
+                                )}
+                                onUpdate={(updater) =>
+                                  updateModifierGroup(groupIndex, updater)
+                                }
+                              />
+
+                              <div className="mt-5 space-y-3">
+                                {group.options.map((option, optionIndex) => {
+                                  const optionPath = buildFieldPath(
+                                    groupPath,
+                                    "options",
+                                    optionIndex,
+                                  );
+                                  const optionChanged = fieldChanged(optionPath, option);
+                                  return (
+                                    <div
+                                      key={`${option.id}-${optionIndex}`}
+                                      className={`grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_1fr_1fr_150px_auto] ${
+                                        optionChanged ? theme.changedPanel : theme.nestedPanel
+                                      }`}
+                                    >
+                                      <TextField
+                                        label="Option (English)"
+                                        value={option.label.en}
+                                        onChange={(value) =>
+                                          updateModifierOption(groupIndex, optionIndex, (current) => ({
+                                            ...current,
+                                            label: { ...current.label, en: value },
+                                          }))
+                                        }
+                                        theme={theme}
+                                        changed={fieldChanged(
+                                          buildFieldPath(optionPath, "label", "en"),
+                                          option.label.en,
+                                        )}
+                                      />
+                                      <TextField
+                                        label="Option (Spanish)"
+                                        value={option.label.es}
+                                        onChange={(value) =>
+                                          updateModifierOption(groupIndex, optionIndex, (current) => ({
+                                            ...current,
+                                            label: { ...current.label, es: value },
+                                          }))
+                                        }
+                                        theme={theme}
+                                        changed={fieldChanged(
+                                          buildFieldPath(optionPath, "label", "es"),
+                                          option.label.es,
+                                        )}
+                                      />
+                                      <TextField
+                                        label="Option ID (internal)"
+                                        value={option.id}
+                                        onChange={(value) =>
+                                          updateModifierOption(groupIndex, optionIndex, (current) => ({
+                                            ...current,
+                                            id: value,
+                                          }))
+                                        }
+                                        theme={theme}
+                                        changed={fieldChanged(
+                                          buildFieldPath(optionPath, "id"),
+                                          option.id,
+                                        )}
+                                      />
+                                      <DeferredNumberField
+                                        label="Extra price"
+                                        numericValue={option.priceDeltaCents ?? 0}
+                                        format={formatDollars}
+                                        parse={parseDollars}
+                                        step={DOLLAR_STEP}
+                                        onChange={(priceDeltaCents) =>
+                                          updateModifierOption(groupIndex, optionIndex, (current) => {
+                                            if (priceDeltaCents === 0) {
+                                              const withoutPrice: ModifierOption = {
+                                                id: current.id,
+                                                label: current.label,
+                                              };
+                                              return withoutPrice;
+                                            }
+                                            return { ...current, priceDeltaCents };
+                                          })
+                                        }
+                                        theme={theme}
+                                        changed={fieldChanged(
+                                          buildFieldPath(optionPath, "priceDeltaCents"),
+                                          option.priceDeltaCents,
+                                        )}
+                                      />
+                                      <div className="flex items-end">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            updateModifierGroup(groupIndex, (current) => ({
+                                              ...current,
+                                              options: current.options.filter(
+                                                (_, index) => index !== optionIndex,
+                                              ),
+                                            }))
+                                          }
+                                          className={`min-h-10 w-full rounded-md border px-3 text-sm font-medium ${theme.dangerButton}`}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateModifierGroup(groupIndex, (current) => ({
+                                    ...current,
+                                    options: [...current.options, makeModifierOption(current.options)],
+                                  }))
+                                }
+                                className={`mt-4 min-h-10 rounded-md border px-3 text-sm font-medium ${theme.softButton}`}
+                              >
+                                Add option
+                              </button>
+                            </section>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </>
-            ) : (
-              <StatusBanner tone="neutral" theme={themeMode}>
-                Select or add an item to start editing.
-              </StatusBanner>
-            )}
+            ) : null}
+
+            {editorTab !== "organize-edit" && !selected.item ? (
+              <StatusBanner tone="neutral">Select or add an item to start editing.</StatusBanner>
+            ) : null}
           </section>
         </div>
       </div>
