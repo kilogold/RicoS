@@ -112,6 +112,29 @@ export function findCategory(menu: MenuCatalogFile, categoryId: string): MenuCat
   return menu.categories.find((category) => category.id === categoryId);
 }
 
+/** Categories in theme order, then category order within each theme; unassigned last. */
+export function orderCategoriesByThemes(menu: MenuCatalogFile): MenuCategory[] {
+  const byId = new Map(menu.categories.map((category) => [category.id, category]));
+  const ordered: MenuCategory[] = [];
+  const seen = new Set<string>();
+
+  for (const themeName of Object.keys(menu.themes)) {
+    for (const categoryId of menu.themes[themeName] ?? []) {
+      if (seen.has(categoryId)) continue;
+      const category = byId.get(categoryId);
+      if (!category) continue;
+      seen.add(categoryId);
+      ordered.push(category);
+    }
+  }
+
+  for (const category of menu.categories) {
+    if (!seen.has(category.id)) ordered.push(category);
+  }
+
+  return ordered;
+}
+
 export function isCategoryEmpty(menu: MenuCatalogFile, categoryId: string): boolean {
   const category = findCategory(menu, categoryId);
   return category !== undefined && category.items.length === 0;
