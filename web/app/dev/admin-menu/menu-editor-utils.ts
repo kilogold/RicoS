@@ -1,4 +1,4 @@
-import type { MenuCatalogFile, MenuItem, ModifierGroup, ModifierOption } from "@ricos/shared";
+import type { MenuCatalogFile, MenuCategory, MenuItem, ModifierGroup, ModifierOption } from "@ricos/shared";
 
 export const CENTS_PER_DOLLAR = 100;
 export const DOLLAR_STEP = "0.05";
@@ -35,6 +35,16 @@ export function slugifyId(value: string, fallback: string): string {
 
 export function itemDisplayName(item: MenuItem): string {
   return item.name.en.trim() || item.name.es.trim() || item.id;
+}
+
+export function makeNewCategory(existingCategories: MenuCategory[]): MenuCategory {
+  const suffix = String(existingCategories.length + 1).padStart(2, "0");
+  return {
+    id: `cat_new_${Date.now().toString(36)}_${suffix}`,
+    title: { en: "New category", es: "Nueva categoria" },
+    notes: [],
+    items: [],
+  };
 }
 
 export function makeNewItem(existingItems: MenuItem[]): MenuItem {
@@ -96,6 +106,31 @@ export function countEditedItems(menu: MenuCatalogFile, baselineMenu: MenuCatalo
     }
   }
   return count;
+}
+
+export function findCategory(menu: MenuCatalogFile, categoryId: string): MenuCategory | undefined {
+  return menu.categories.find((category) => category.id === categoryId);
+}
+
+export function isCategoryEmpty(menu: MenuCatalogFile, categoryId: string): boolean {
+  const category = findCategory(menu, categoryId);
+  return category !== undefined && category.items.length === 0;
+}
+
+export function canDeleteCategory(menu: MenuCatalogFile, categoryId: string): boolean {
+  return isCategoryEmpty(menu, categoryId);
+}
+
+export function isThemeEmpty(menu: MenuCatalogFile, themeName: string): boolean {
+  return (menu.themes[themeName] ?? []).length === 0;
+}
+
+/** Empty themes may be deleted; cannot remove the only theme while categories still exist. */
+export function canDeleteTheme(menu: MenuCatalogFile, themeName: string): boolean {
+  if (!isThemeEmpty(menu, themeName)) return false;
+  const themeCount = Object.keys(menu.themes).length;
+  if (themeCount <= 1 && menu.categories.length > 0) return false;
+  return true;
 }
 
 export function initialEditorSelection(menu: MenuCatalogFile) {

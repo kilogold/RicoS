@@ -19,6 +19,14 @@ export function MenuEditorWorkspace() {
     structureTheme,
     setStructureTheme,
     updateThemes,
+    addCategoryToTheme,
+    updateCategoryTitle,
+    categoryTitleChanged,
+    addTheme,
+    removeTheme,
+    canDeleteTheme,
+    deleteCategory,
+    canDeleteCategory,
     setEditorTab,
     selected,
   } = useMenuEditor();
@@ -42,6 +50,14 @@ export function MenuEditorWorkspace() {
             selectedTheme={structureTheme || (themeNames[0] ?? "")}
             onSelectTheme={setStructureTheme}
             onUpdateThemes={updateThemes}
+            onAddCategory={addCategoryToTheme}
+            onUpdateCategoryTitle={updateCategoryTitle}
+            categoryTitleChanged={categoryTitleChanged}
+            onAddTheme={addTheme}
+            onRemoveTheme={removeTheme}
+            canDeleteTheme={canDeleteTheme}
+            onDeleteCategory={deleteCategory}
+            canDeleteCategory={canDeleteCategory}
             onGoToDailyPricing={() => setEditorTab("basic-edit")}
           />
         ) : null}
