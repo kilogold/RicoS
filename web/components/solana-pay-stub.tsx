@@ -215,6 +215,8 @@ export function SolanaPayStub({
   const [signature, setSignature] = useState<string | null>(null);
   const [referenceAddress, setReferenceAddress] = useState<Address | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const isAndroid =
+    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
   // Build URL + QR once per mount (re-runnable via retryKey).
   useEffect(() => {
@@ -453,12 +455,14 @@ export function SolanaPayStub({
             className="h-64 w-64 rounded-lg bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
             dangerouslySetInnerHTML={{ __html: qr }}
           />
-          <a
-            href={url.toString()}
-            className="text-xs text-[#f4c430] underline underline-offset-4"
-          >
-            Open in wallet
-          </a>
+          {isAndroid ? (
+            <a
+              href={url.toString()}
+              className="text-xs text-[#f4c430] underline underline-offset-4"
+            >
+              Open in wallet
+            </a>
+          ) : null}
           {signature ? (
             <p className="break-all text-center font-mono text-[10px] text-white/50">
               sig: {signature}
