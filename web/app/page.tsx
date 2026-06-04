@@ -56,7 +56,7 @@ export default function Home() {
       </div>
 
       <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
-        <MenuBoard categories={catalog.categories} />
+        <MenuBoard catalog={catalog} />
       </div>
 
       <CartBar />

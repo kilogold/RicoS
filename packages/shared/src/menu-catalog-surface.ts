@@ -11,6 +11,11 @@ import type {
   MenuItem,
   ModifierGroup,
 } from "./menu-types";
+import {
+  hasStaleInactiveSelections,
+  isModifierGroupActive,
+  pruneInactiveSelections,
+} from "./modifier-visibility";
 
 export type { LineSelections };
 
@@ -20,6 +25,7 @@ export type MenuCatalogSurface = {
   listAllItems: () => MenuItem[];
   getCategoryForItem: (itemId: string) => MenuCategory | undefined;
   getModifierGroupsForItem: (itemId: string) => ModifierGroup[];
+  getActiveModifierGroupsForItem: (itemId: string, selections: LineSelections) => ModifierGroup[];
   resolveLocalizedText: (value: LocalizedText, language: Language) => string;
   normalizeSelections: (selections: LineSelections) => LineSelections;
   selectionSignature: (selections: LineSelections) => string;
@@ -90,6 +96,15 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
     return item.modifierGroups;
   }
 
+  function getActiveModifierGroupsForItem(
+    itemId: string,
+    selections: LineSelections = {},
+  ): ModifierGroup[] {
+    const groups = getModifierGroupsForItem(itemId);
+    const normalized = normalizeSelections(selections);
+    return groups.filter((group) => isModifierGroupActive(group, normalized));
+  }
+
   function validateSelectionsForItem(
     itemId: string,
     inputSelections: LineSelections = {},
@@ -104,15 +119,24 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
       return { ok: true, normalized: {} };
     }
 
+    if (hasStaleInactiveSelections(groups, normalized)) {
+      return { ok: false, error: "Selections include inactive modifier groups." };
+    }
+
+    const pruned = pruneInactiveSelections(groups, normalized);
+
     const allowedGroupIds = new Set(groups.map((g) => g.id));
-    for (const groupId of Object.keys(normalized)) {
+    for (const groupId of Object.keys(pruned)) {
       if (!allowedGroupIds.has(groupId)) {
         return { ok: false, error: `Unknown modifier group: ${groupId}` };
       }
     }
 
     for (const group of groups) {
-      const values = normalized[group.id] ?? [];
+      if (!isModifierGroupActive(group, pruned)) {
+        continue;
+      }
+      const values = pruned[group.id] ?? [];
       const validOptionIds = new Set(group.options.map((opt) => opt.id));
       const groupLabel = resolveLocalizedText(group.title, "en");
       if (values.some((optionId) => !validOptionIds.has(optionId))) {
@@ -129,7 +153,7 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
       }
     }
 
-    return { ok: true, normalized };
+    return { ok: true, normalized: pruned };
   }
 
   function getModifierSurchargeCents(itemId: string, selections: LineSelections = {}): number {
@@ -137,9 +161,12 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
     if (groups.length === 0) {
       return 0;
     }
-    const normalized = normalizeSelections(selections);
+    const normalized = pruneInactiveSelections(groups, normalizeSelections(selections));
     let sum = 0;
     for (const group of groups) {
+      if (!isModifierGroupActive(group, normalized)) {
+        continue;
+      }
       const picked = normalized[group.id] ?? [];
       if (picked.length === 0) continue;
       const optionIndex = new Map(group.options.map((option) => [option.id, option]));
@@ -169,9 +196,12 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
     language: Language = "en",
   ): string[] {
     const groups = getModifierGroupsForItem(itemId);
-    const normalized = normalizeSelections(selections);
+    const normalized = pruneInactiveSelections(groups, normalizeSelections(selections));
     const rows: string[] = [];
     for (const group of groups) {
+      if (!isModifierGroupActive(group, normalized)) {
+        continue;
+      }
       const picked = normalized[group.id] ?? [];
       if (picked.length === 0) continue;
       const labels = picked
@@ -190,6 +220,7 @@ export function createMenuCatalogSurface(catalog: MenuDocument): MenuCatalogSurf
     listAllItems,
     getCategoryForItem,
     getModifierGroupsForItem,
+    getActiveModifierGroupsForItem,
     resolveLocalizedText,
     normalizeSelections,
     selectionSignature,

@@ -76,6 +76,8 @@ export type AppStrings = {
   checkoutPhasePaymentIntro: string;
   storeClosedBanner: string;
   lastCallBannerPrefix: string;
+  themeScheduleUnavailable: string;
+  themeScheduleAvailableWhen: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -162,6 +164,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     storeClosedBanner:
       "We're closed — you can browse the menu. Online ordering opens at 8:00 AM and closes at 9:00 PM (store time).",
     lastCallBannerPrefix: "Last call — ordering closes in",
+    themeScheduleUnavailable: "Not available for ordering right now.",
+    themeScheduleAvailableWhen: "Available",
   },
   es: {
     homeTagline: "RicoS",
@@ -248,6 +252,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     storeClosedBanner:
       "Estamos cerrados — puedes ver el menu. Las ordenes en linea abren a las 8:00 a. m. y cierran a las 9:00 p. m. (hora local).",
     lastCallBannerPrefix: "Ultima hora — el pedido en linea cierra en",
+    themeScheduleUnavailable: "No disponible para ordenar en este momento.",
+    themeScheduleAvailableWhen: "Disponible",
   },
 };
 

@@ -4,13 +4,17 @@
  */
 
 import { canonicalJson } from "./menu-versions/index";
+import { resolveMenuCatalogRaw } from "./menu-catalog-compact";
+import { parseThemeAvailability } from "./menu-theme-availability-parse";
 import type {
   LocalizedText,
   MenuCategory,
   MenuDocument,
   MenuItem,
+  MenuThemes,
   ModifierGroup,
   ModifierOption,
+  ModifierVisibilityRule,
   OrderFeeRates,
   PrintStation,
 } from "./menu-types";
@@ -51,6 +55,26 @@ function parseModifierOption(raw: unknown, ctx: string): ModifierOption {
   return out;
 }
 
+function parseModifierVisibilityRule(raw: unknown, ctx: string): ModifierVisibilityRule {
+  if (!raw || typeof raw !== "object") throw new Error(`Invalid menu: ${ctx} visibleWhen`);
+  const v = raw as Record<string, unknown>;
+  if (typeof v.groupId !== "string" || !v.groupId) {
+    throw new Error(`Invalid menu: ${ctx} visibleWhen groupId`);
+  }
+  if (!Array.isArray(v.optionIds) || v.optionIds.length === 0) {
+    throw new Error(`Invalid menu: ${ctx} visibleWhen optionIds`);
+  }
+  const optionIds: string[] = [];
+  for (let i = 0; i < v.optionIds.length; i++) {
+    const optionId = v.optionIds[i];
+    if (typeof optionId !== "string" || !optionId) {
+      throw new Error(`Invalid menu: ${ctx} visibleWhen optionIds[${i}]`);
+    }
+    optionIds.push(optionId);
+  }
+  return { groupId: v.groupId, optionIds };
+}
+
 function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
   if (!raw || typeof raw !== "object") throw new Error(`Invalid menu: ${ctx} group`);
   const g = raw as Record<string, unknown>;
@@ -67,7 +91,7 @@ function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
     throw new Error(`Invalid menu: ${ctx} group maxSelections`);
   }
   if (!Array.isArray(g.options)) throw new Error(`Invalid menu: ${ctx} group options`);
-  return {
+  const group: ModifierGroup = {
     id: g.id,
     title: g.title,
     selectionType: g.selectionType,
@@ -76,6 +100,10 @@ function parseModifierGroup(raw: unknown, ctx: string): ModifierGroup {
     maxSelections: g.maxSelections,
     options: g.options.map((opt, i) => parseModifierOption(opt, `${ctx}[${i}]`)),
   };
+  if (g.visibleWhen !== undefined) {
+    group.visibleWhen = parseModifierVisibilityRule(g.visibleWhen, `${ctx}.visibleWhen`);
+  }
+  return group;
 }
 
 function parsePrintStation(raw: unknown, ctx: string): PrintStation {
@@ -155,26 +183,74 @@ function parseOrderFees(rawOrderFees: unknown): OrderFeeRates {
   };
 }
 
+function parseThemes(raw: unknown, categoryIds: Set<string>): MenuThemes {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid menu: themes");
+  }
+  if (categoryIds.size === 0) {
+    if (Object.keys(raw as Record<string, unknown>).length > 0) {
+      throw new Error("Invalid menu: themes must be empty when there are no categories");
+    }
+    return {};
+  }
+  const themes: MenuThemes = {};
+  const assigned = new Set<string>();
+
+  for (const [theme, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!theme) throw new Error("Invalid menu: themes empty theme key");
+    if (!Array.isArray(value)) throw new Error(`Invalid menu: themes["${theme}"]`);
+    const categoryIdList: string[] = [];
+    for (let i = 0; i < value.length; i++) {
+      const categoryId = value[i];
+      if (typeof categoryId !== "string" || !categoryId) {
+        throw new Error(`Invalid menu: themes["${theme}"][${i}]`);
+      }
+      if (!categoryIds.has(categoryId)) {
+        throw new Error(`Invalid menu: themes["${theme}"] unknown category "${categoryId}"`);
+      }
+      if (assigned.has(categoryId)) {
+        throw new Error(`Invalid menu: themes duplicate category "${categoryId}"`);
+      }
+      assigned.add(categoryId);
+      categoryIdList.push(categoryId);
+    }
+    themes[theme] = categoryIdList;
+  }
+
+  if (Object.keys(themes).length === 0) throw new Error("Invalid menu: themes");
+
+  for (const categoryId of categoryIds) {
+    if (!assigned.has(categoryId)) {
+      throw new Error(`Invalid menu: themes missing category "${categoryId}"`);
+    }
+  }
+
+  return themes;
+}
+
 function parseMenuDocumentFromRoot(raw: Record<string, unknown>): MenuDocument {
   if (!isLocalizedText(raw.restaurant)) throw new Error("Invalid menu: restaurant");
   if (!isLocalizedText(raw.menuName)) throw new Error("Invalid menu: menuName");
   if (!Array.isArray(raw.categories)) throw new Error("Invalid menu: categories");
+  const categories = raw.categories.map((cat, i) => parseMenuCategory(cat, `categories[${i}]`));
+  const categoryIds = new Set(categories.map((category) => category.id));
+  const themes = parseThemes(raw.themes, categoryIds);
+  const themeKeys = new Set(Object.keys(themes));
+  const themeAvailability = parseThemeAvailability(raw.themeAvailability, themeKeys);
   return {
     restaurant: raw.restaurant,
     menuName: raw.menuName,
-    categories: raw.categories.map((cat, i) => parseMenuCategory(cat, `categories[${i}]`)),
+    themes,
+    categories,
     orderFees: parseOrderFees(raw.orderFees),
+    ...(themeAvailability !== undefined ? { themeAvailability } : {}),
   };
 }
 
-/**
- * Validate and parse the on-disk catalog file (e.g. root `menu.json`).
- */
-export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("Invalid menu catalog: expected object");
-  }
-  const o = raw as Record<string, unknown>;
+function parseMenuCatalogReleaseFields(o: Record<string, unknown>): {
+  catalogVersion: number;
+  publishedAtIso: string;
+} {
   const cv = o.catalogVersion;
   if (typeof cv !== "number" || !Number.isInteger(cv) || cv < 1) {
     throw new Error("Invalid menu catalog: catalogVersion must be a positive integer");
@@ -187,9 +263,34 @@ export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
   if (!Number.isFinite(publishedAtMs)) {
     throw new Error("Invalid menu catalog: publishedAt is not a valid date");
   }
-  const publishedAtIso = new Date(publishedAtMs).toISOString();
+  return { catalogVersion: cv, publishedAtIso: new Date(publishedAtMs).toISOString() };
+}
+
+/**
+ * Validate and parse an expanded catalog (inline item.modifierGroups), e.g. editor publish payload.
+ */
+export function parseExpandedMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid menu catalog: expected object");
+  }
+  const o = raw as Record<string, unknown>;
+  const { catalogVersion, publishedAtIso } = parseMenuCatalogReleaseFields(o);
   const catalog = parseMenuDocumentFromRoot(o);
-  return { catalogVersion: cv, publishedAtIso, catalog };
+  return { catalogVersion, publishedAtIso, catalog };
+}
+
+/**
+ * Validate and parse the on-disk catalog file (e.g. root `menu.json`).
+ */
+export function parseMenuCatalogFile(raw: unknown): ParsedMenuCatalogFile {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Invalid menu catalog: expected object");
+  }
+  const o = raw as Record<string, unknown>;
+  const { catalogVersion, publishedAtIso } = parseMenuCatalogReleaseFields(o);
+  const resolved = resolveMenuCatalogRaw(o);
+  const catalog = parseMenuDocumentFromRoot(resolved);
+  return { catalogVersion, publishedAtIso, catalog };
 }
 
 /**
@@ -206,8 +307,12 @@ export function buildManifestForHash(params: {
     publishedAt: new Date(publishedAtMs).toISOString(),
     restaurant: catalog.restaurant,
     menuName: catalog.menuName,
+    themes: catalog.themes,
     categories: catalog.categories,
     orderFees: catalog.orderFees,
+    ...(catalog.themeAvailability !== undefined
+      ? { themeAvailability: catalog.themeAvailability }
+      : {}),
   };
 }
 

@@ -20,13 +20,25 @@ export type {
   MenuCategory,
   MenuDocument,
   MenuItem,
+  MenuThemes,
   ModifierGroup,
   ModifierOption,
+  ModifierVisibilityRule,
   ItemTaxRates,
   OrderFeeRates,
   PrintStation,
   SelectionType,
+  ThemeAvailability,
+  ThemeAvailabilityMap,
+  ThemeTimeWindow,
+  Weekday,
 } from "./menu-types";
+
+export {
+  hasStaleInactiveSelections,
+  isModifierGroupActive,
+  pruneInactiveSelections,
+} from "./modifier-visibility";
 
 export type { PurchaseOrderLine } from "./purchase-order-line";
 
@@ -62,10 +74,17 @@ export { buildDecodeIndex, canonicalJson } from "./menu-versions/index";
 export {
   buildManifestForHash,
   computeMenuContentHash,
+  parseExpandedMenuCatalogFile,
   parseMenuCatalogFile,
   type MenuCatalogFile,
   type ParsedMenuCatalogFile,
 } from "./menu-catalog-file";
+
+export {
+  compactMenuCatalogForDisk,
+  resolveMenuCatalogRaw,
+  type MenuCatalogFileOnDisk,
+} from "./menu-catalog-compact";
 
 export {
   createMenuCatalogSurface,
@@ -73,6 +92,21 @@ export {
   selectionSignature,
   type MenuCatalogSurface,
 } from "./menu-catalog-surface";
+
+export {
+  buildThemedMenuSections,
+  type BuildThemedMenuSectionsOptions,
+  type ThemedMenuSection,
+} from "./menu-themes";
+
+export {
+  MENU_STORE_TIMEZONE,
+  formatThemeAvailabilityLabel,
+  getThemeScheduleStatus,
+  isThemeScheduleActive,
+  parseThemeTimeHHMM,
+  type ThemeScheduleStatus,
+} from "./menu-theme-availability";
 
 export type { KitchenOrderIntent } from "./kitchen-order";
 export {

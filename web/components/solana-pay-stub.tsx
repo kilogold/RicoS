@@ -38,10 +38,16 @@ import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/domain/menu-version-p
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { fullRedirect } from "@/lib/navigation/full-redirect";
 import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
+import { requiredEnv } from "@/lib/shared/config/server-env";
 
-// Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
-const MERCHANT_WALLET = "EEHj6a2oScEN2nKT7rN9n2UKT2jLbGQtJnNK5cC5MDJb";
-const USDC_DEVNET_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+const MERCHANT_WALLET = requiredEnv({
+  NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT:
+    process.env.NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT,
+});
+const USDC_DEVNET_MINT = requiredEnv({
+  NEXT_PUBLIC_HELIUS_USDC_MINT: 
+    process.env.NEXT_PUBLIC_HELIUS_USDC_MINT,
+});
 const USDC_DECIMALS = 6;
 
 // The pay link is built as if every amount were SOL (9 decimal places). USDC only
@@ -63,6 +69,31 @@ function splMinorUnitsForSolanaPayUrl(
   );
 }
 const SOLANA_RPC_PROXY_PATH = "/api/solana/rpc";
+
+/** Gill requires a full http(s) URL; the browser forwards JSON-RPC to our Helius proxy. */
+function requireSolanaRpcProxyUrl(): string {
+  if (typeof window === "undefined") {
+    throw new Error("Solana Pay checkout RPC must run in the browser");
+  }
+  const { origin } = window.location;
+  if (!origin) {
+    throw new Error("Solana Pay checkout RPC requires window.location.origin");
+  }
+  const url = `${origin}${SOLANA_RPC_PROXY_PATH}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Solana Pay checkout RPC proxy URL is invalid: ${url}`);
+  }
+  if (!/^https?:$/i.test(parsed.protocol)) {
+    throw new Error(
+      `Solana Pay checkout RPC proxy must use http or https (got ${parsed.protocol})`,
+    );
+  }
+  return url;
+}
+
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
 
@@ -173,7 +204,7 @@ export function SolanaPayStub({
   const { cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot } = snapshot;
 
   const rpc = useMemo(
-    () => createSolanaClient({ urlOrMoniker: SOLANA_RPC_PROXY_PATH }).rpc,
+    () => createSolanaClient({ urlOrMoniker: requireSolanaRpcProxyUrl() }).rpc,
     [],
   );
 
@@ -190,6 +221,8 @@ export function SolanaPayStub({
   const [signature, setSignature] = useState<string | null>(null);
   const [referenceAddress, setReferenceAddress] = useState<Address | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const isAndroid =
+    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 
   // Build URL + QR once per mount (re-runnable via retryKey).
   useEffect(() => {
@@ -428,12 +461,14 @@ export function SolanaPayStub({
             className="h-64 w-64 rounded-lg bg-white p-2 [&>svg]:h-full [&>svg]:w-full"
             dangerouslySetInnerHTML={{ __html: qr }}
           />
-          <a
-            href={url.toString()}
-            className="text-xs text-[#f4c430] underline underline-offset-4"
-          >
-            Open in wallet
-          </a>
+          {isAndroid ? (
+            <a
+              href={url.toString()}
+              className="text-xs text-[#f4c430] underline underline-offset-4"
+            >
+              Open in wallet
+            </a>
+          ) : null}
           {signature ? (
             <p className="break-all text-center font-mono text-[10px] text-white/50">
               sig: {signature}
