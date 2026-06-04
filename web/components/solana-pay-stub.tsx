@@ -63,6 +63,31 @@ function splMinorUnitsForSolanaPayUrl(
   );
 }
 const SOLANA_RPC_PROXY_PATH = "/api/solana/rpc";
+
+/** Gill requires a full http(s) URL; the browser forwards JSON-RPC to our Helius proxy. */
+function requireSolanaRpcProxyUrl(): string {
+  if (typeof window === "undefined") {
+    throw new Error("Solana Pay checkout RPC must run in the browser");
+  }
+  const { origin } = window.location;
+  if (!origin) {
+    throw new Error("Solana Pay checkout RPC requires window.location.origin");
+  }
+  const url = `${origin}${SOLANA_RPC_PROXY_PATH}`;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Solana Pay checkout RPC proxy URL is invalid: ${url}`);
+  }
+  if (!/^https?:$/i.test(parsed.protocol)) {
+    throw new Error(
+      `Solana Pay checkout RPC proxy must use http or https (got ${parsed.protocol})`,
+    );
+  }
+  return url;
+}
+
 const POLL_INTERVAL_MS = 2500;
 const CONFIRMATION_TIMEOUT_MS = 90_000;
 
@@ -173,7 +198,7 @@ export function SolanaPayStub({
   const { cents, amountMinor, cartLines, products, menuVersion, catalogSnapshot } = snapshot;
 
   const rpc = useMemo(
-    () => createSolanaClient({ urlOrMoniker: SOLANA_RPC_PROXY_PATH }).rpc,
+    () => createSolanaClient({ urlOrMoniker: requireSolanaRpcProxyUrl() }).rpc,
     [],
   );
 
