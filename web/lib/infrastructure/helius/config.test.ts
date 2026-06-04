@@ -1,30 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import {
-  getHeliusEnhancedApiBase,
-  getHeliusRpcUrl,
-  getHeliusSolanaCluster,
-} from "./config";
-
-describe("getHeliusSolanaCluster", () => {
-  afterEach(() => {
-    delete process.env.HELIUS_SOLANA_CLUSTER;
-  });
-
-  test("defaults to devnet when unset", () => {
-    expect(getHeliusSolanaCluster()).toBe("devnet");
-  });
-
-  test("accepts mainnet-beta alias", () => {
-    process.env.HELIUS_SOLANA_CLUSTER = "mainnet-beta";
-    expect(getHeliusSolanaCluster()).toBe("mainnet");
-  });
-
-  test("accepts devnet explicitly", () => {
-    process.env.HELIUS_SOLANA_CLUSTER = "devnet";
-    expect(getHeliusSolanaCluster()).toBe("devnet");
-  });
-});
+import { getHeliusEnhancedApiBase, getHeliusRpcUrl } from "./config";
 
 describe("getHeliusRpcUrl", () => {
   const originalApiKey = process.env.HELIUS_API_KEY;
@@ -32,6 +8,7 @@ describe("getHeliusRpcUrl", () => {
 
   beforeEach(() => {
     process.env.HELIUS_API_KEY = "test-api-key";
+    process.env.HELIUS_SOLANA_CLUSTER = "devnet";
   });
 
   afterEach(() => {
@@ -47,7 +24,21 @@ describe("getHeliusRpcUrl", () => {
     }
   });
 
-  test("builds devnet Helius RPC URL with encoded api key", () => {
+  test("throws when cluster is missing", () => {
+    delete process.env.HELIUS_SOLANA_CLUSTER;
+    expect(() => getHeliusRpcUrl()).toThrow(
+      "Missing required environment variable: HELIUS_SOLANA_CLUSTER",
+    );
+  });
+
+  test("throws when cluster is invalid", () => {
+    process.env.HELIUS_SOLANA_CLUSTER = "mainnet-beta";
+    expect(() => getHeliusRpcUrl()).toThrow(
+      'Invalid HELIUS_SOLANA_CLUSTER: "mainnet-beta". Expected "devnet" or "mainnet".',
+    );
+  });
+
+  test("builds devnet Helius RPC URL", () => {
     process.env.HELIUS_SOLANA_CLUSTER = "devnet";
     expect(getHeliusRpcUrl()).toBe(
       "https://devnet.helius-rpc.com/?api-key=test-api-key",
@@ -63,16 +54,36 @@ describe("getHeliusRpcUrl", () => {
 });
 
 describe("getHeliusEnhancedApiBase", () => {
+  const originalCluster = process.env.HELIUS_SOLANA_CLUSTER;
+
   afterEach(() => {
-    delete process.env.HELIUS_SOLANA_CLUSTER;
+    if (originalCluster === undefined) {
+      delete process.env.HELIUS_SOLANA_CLUSTER;
+    } else {
+      process.env.HELIUS_SOLANA_CLUSTER = originalCluster;
+    }
   });
 
-  test("maps devnet cluster to enhanced API host", () => {
+  test("throws when cluster is missing", () => {
+    delete process.env.HELIUS_SOLANA_CLUSTER;
+    expect(() => getHeliusEnhancedApiBase()).toThrow(
+      "Missing required environment variable: HELIUS_SOLANA_CLUSTER",
+    );
+  });
+
+  test("throws when cluster is invalid", () => {
+    process.env.HELIUS_SOLANA_CLUSTER = "testnet";
+    expect(() => getHeliusEnhancedApiBase()).toThrow(
+      'Invalid HELIUS_SOLANA_CLUSTER: "testnet". Expected "devnet" or "mainnet".',
+    );
+  });
+
+  test("uses devnet enhanced API host", () => {
     process.env.HELIUS_SOLANA_CLUSTER = "devnet";
     expect(getHeliusEnhancedApiBase()).toBe("https://api-devnet.helius-rpc.com");
   });
 
-  test("maps mainnet cluster to enhanced API host", () => {
+  test("uses mainnet enhanced API host", () => {
     process.env.HELIUS_SOLANA_CLUSTER = "mainnet";
     expect(getHeliusEnhancedApiBase()).toBe("https://api-mainnet.helius-rpc.com");
   });
