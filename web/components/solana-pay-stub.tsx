@@ -38,10 +38,10 @@ import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/domain/menu-version-p
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { fullRedirect } from "@/lib/navigation/full-redirect";
 import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
+import { requiredEnv } from "@/lib/shared/config/server-env";
 
-// Devnet settings. Swap the merchant wallet + mint for mainnet when going live.
-const MERCHANT_WALLET = "EEHj6a2oScEN2nKT7rN9n2UKT2jLbGQtJnNK5cC5MDJb";
-const USDC_DEVNET_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+const MERCHANT_WALLET = requiredEnv("NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT");
+const USDC_DEVNET_MINT = requiredEnv("NEXT_PUBLIC_HELIUS_USDC_MINT");
 const USDC_DECIMALS = 6;
 
 // The pay link is built as if every amount were SOL (9 decimal places). USDC only
