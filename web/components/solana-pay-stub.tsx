@@ -45,8 +45,12 @@ const MERCHANT_WALLET = requiredEnv({
     process.env.NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT,
 });
 const USDC_DEVNET_MINT = requiredEnv({
-  NEXT_PUBLIC_HELIUS_USDC_MINT: 
+  NEXT_PUBLIC_HELIUS_USDC_MINT:
     process.env.NEXT_PUBLIC_HELIUS_USDC_MINT,
+});
+const SOLANA_CLUSTER = requiredEnv({
+  NEXT_PUBLIC_HELIUS_SOLANA_CLUSTER:
+    process.env.NEXT_PUBLIC_HELIUS_SOLANA_CLUSTER,
 });
 const USDC_DECIMALS = 6;
 
@@ -427,7 +431,7 @@ export function SolanaPayStub({
 
       <p className="mt-2 text-sm text-white/75">
         {cents > 0
-          ? `Scan with a Solana wallet to pay ${formatUsd(cents, language)} in USDC (devnet).`
+          ? `Scan with a Solana wallet to pay ${formatUsd(cents, language)} in USDC (${SOLANA_CLUSTER}).`
           : copy.solanaPayStubBody}
       </p>
 
