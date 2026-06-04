@@ -40,8 +40,14 @@ import { fullRedirect } from "@/lib/navigation/full-redirect";
 import { formatUsd, linesWithItems, orderTotalsForCart } from "@/lib/pricing";
 import { requiredEnv } from "@/lib/shared/config/server-env";
 
-const MERCHANT_WALLET = requiredEnv("NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT");
-const USDC_DEVNET_MINT = requiredEnv("NEXT_PUBLIC_HELIUS_USDC_MINT");
+const MERCHANT_WALLET = requiredEnv({
+  NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT:
+    process.env.NEXT_PUBLIC_HELIUS_MERCHANT_RECIPIENT,
+});
+const USDC_DEVNET_MINT = requiredEnv({
+  NEXT_PUBLIC_HELIUS_USDC_MINT: 
+    process.env.NEXT_PUBLIC_HELIUS_USDC_MINT,
+});
 const USDC_DECIMALS = 6;
 
 // The pay link is built as if every amount were SOL (9 decimal places). USDC only
