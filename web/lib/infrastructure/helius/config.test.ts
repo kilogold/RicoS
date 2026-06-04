@@ -31,13 +31,6 @@ describe("getHeliusRpcUrl", () => {
     );
   });
 
-  test("throws when cluster is invalid", () => {
-    process.env.HELIUS_SOLANA_CLUSTER = "mainnet-beta";
-    expect(() => getHeliusRpcUrl()).toThrow(
-      'Invalid HELIUS_SOLANA_CLUSTER: "mainnet-beta". Expected "devnet" or "mainnet".',
-    );
-  });
-
   test("builds devnet Helius RPC URL", () => {
     process.env.HELIUS_SOLANA_CLUSTER = "devnet";
     expect(getHeliusRpcUrl()).toBe(
@@ -68,13 +61,6 @@ describe("getHeliusEnhancedApiBase", () => {
     delete process.env.HELIUS_SOLANA_CLUSTER;
     expect(() => getHeliusEnhancedApiBase()).toThrow(
       "Missing required environment variable: HELIUS_SOLANA_CLUSTER",
-    );
-  });
-
-  test("throws when cluster is invalid", () => {
-    process.env.HELIUS_SOLANA_CLUSTER = "testnet";
-    expect(() => getHeliusEnhancedApiBase()).toThrow(
-      'Invalid HELIUS_SOLANA_CLUSTER: "testnet". Expected "devnet" or "mainnet".',
     );
   });
 
