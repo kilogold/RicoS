@@ -15,7 +15,10 @@ import {
   validateOrderServiceMode,
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
-import { insertPendingPurchaseOrderIfNew } from "@/lib/infrastructure/turso/webhook-db";
+import {
+  getPurchaseOrderByReference,
+  insertPendingPurchaseOrderIfNew,
+} from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 type AthReferenceRegistrationRequest = {
@@ -31,6 +34,13 @@ type AthReferenceRegistrationRequest = {
 
 const ATH_MIN_GRAND_TOTAL_CENTS = 100;
 const ATH_MAX_GRAND_TOTAL_CENTS = 150000;
+
+function tursoHost(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("libsql://")) return trimmed.slice("libsql://".length);
+  if (trimmed.startsWith("https://")) return trimmed.slice("https://".length);
+  return "unknown";
+}
 
 export async function handleAthMovilReferenceRegistrationRequest(
   req: Request,
@@ -111,37 +121,84 @@ export async function handleAthMovilReferenceRegistrationRequest(
       );
     }
 
-    const orderReference = generateAthMovilPaymentReference();
     const db = await getWebhookDb();
     const normalizedMetadata = {
       [CART_CODEC_KEY]: cartCodec,
       [CART_B64_KEY]: cartB64,
     };
-    const pendingPayload = await buildKitchenOrderPayload(
-      {
-        provider: "athmovil",
-        paymentIngressEventId: "",
-        paymentReferenceId: orderReference,
-        grandTotalCents,
-        currency: currency.trim().toLowerCase(),
-        metadata: normalizedMetadata,
-      },
-      serviceMode,
-      contact.customerName,
-    );
+    const normalizedCurrency = currency.trim().toLowerCase();
+    let orderReference = "";
+    let inserted = false;
+    let persisted = null as Awaited<ReturnType<typeof getPurchaseOrderByReference>>;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      orderReference = generateAthMovilPaymentReference();
+      const pendingPayload = await buildKitchenOrderPayload(
+        {
+          provider: "athmovil",
+          paymentIngressEventId: "",
+          paymentReferenceId: orderReference,
+          grandTotalCents,
+          currency: normalizedCurrency,
+          metadata: normalizedMetadata,
+        },
+        serviceMode,
+        contact.customerName,
+      );
 
-    await insertPendingPurchaseOrderIfNew(db, {
-      orderReference,
-      paymentProvider: "athmovil",
-      paymentIntentExpiresAt: null,
-      grandTotalCents,
-      currency: currency.trim().toLowerCase(),
-      payload: pendingPayload,
-      metadata: normalizedMetadata,
-      customerName: contact.customerName,
-      customerPhone: contact.customerPhone,
-      customerEmail: contact.customerEmail,
-    });
+      inserted = await insertPendingPurchaseOrderIfNew(db, {
+        orderReference,
+        paymentProvider: "athmovil",
+        paymentIntentExpiresAt: null,
+        grandTotalCents,
+        currency: normalizedCurrency,
+        payload: pendingPayload,
+        metadata: normalizedMetadata,
+        customerName: contact.customerName,
+        customerPhone: contact.customerPhone,
+        customerEmail: contact.customerEmail,
+      });
+      persisted = await getPurchaseOrderByReference(db, orderReference);
+      // Turso can report rowsAffected=0 even when the row exists remotely.
+      if (inserted || persisted) {
+        inserted = true;
+        break;
+      }
+    }
+
+    if (!inserted) {
+      console.error(
+        JSON.stringify({
+          scope: "ath_reference_insert_conflict",
+          grandTotalCents,
+          currency: normalizedCurrency,
+          tursoHost: tursoHost(process.env.TURSO_DATABASE_URL ?? ""),
+        }),
+      );
+      throw new Error("ath_reference_conflict");
+    }
+
+    if (!persisted) {
+      console.error(
+        JSON.stringify({
+          scope: "ath_reference_not_persisted",
+          orderReference,
+          grandTotalCents,
+          currency: normalizedCurrency,
+          tursoHost: tursoHost(process.env.TURSO_DATABASE_URL ?? ""),
+        }),
+      );
+      throw new Error("ath_pending_order_not_persisted");
+    }
+
+    console.info(
+      JSON.stringify({
+        scope: "ath_reference_created",
+        orderReference,
+        grandTotalCents,
+        currency: normalizedCurrency,
+        tursoHost: tursoHost(process.env.TURSO_DATABASE_URL ?? ""),
+      }),
+    );
 
     return NextResponse.json({ reference: orderReference });
   } catch (err) {

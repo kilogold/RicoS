@@ -89,12 +89,6 @@ function SuccessContent() {
         return;
       }
 
-      if (provider === "ath-movil") {
-        clear();
-        setState({ phase: "confirmed" });
-        return;
-      }
-
       const params = new URLSearchParams({ provider });
       if (provider === "stripe") {
         params.set("payment_intent", paymentIntent!);

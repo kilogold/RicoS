@@ -2,6 +2,7 @@ import type { Client } from "@libsql/client";
 import type { KitchenOrderPayload, NormalizedIngressEvent } from "@/lib/commerce/domain";
 import {
   getPurchaseOrderByReference,
+  markAthMovilPurchaseOrderPaidIfNew,
   markSolanaPurchaseOrderPaidIfNew,
   markStripePurchaseOrderPaidIfNew,
   type PurchaseOrderRecord,
@@ -122,6 +123,31 @@ export async function executeSolanaIngressEvent(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("purchase_orders solana atomic insert failed:", message);
+    return { ok: false, status: 500, body: { error: "persist_failed" } };
+  }
+}
+
+/** ATH ingress: mark the pending `purchase_orders` row paid and enqueue kitchen print. */
+export async function executeAthIngressEvent(
+  db: Client,
+  event: NormalizedIngressEvent,
+): Promise<IngressOutcome> {
+  let payload: KitchenOrderPayload;
+  try {
+    payload = await loadPaidPayloadFromPending(db, event.paymentReferenceId, event);
+  } catch (err) {
+    return ingressErrorToOutcome(err, event);
+  }
+
+  try {
+    await markAthMovilPurchaseOrderPaidIfNew(db, {
+      orderReference: event.paymentReferenceId,
+      payload,
+    });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("purchase_orders athmovil atomic insert failed:", message);
     return { ok: false, status: 500, body: { error: "persist_failed" } };
   }
 }

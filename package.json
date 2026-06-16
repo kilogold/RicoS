@@ -15,6 +15,7 @@
     "db:nuke:production": "bun --env-file=.env.production --env-file=.env.local scripts/nuke-turso-db.mjs",
     "db:clear-orders": "bun --env-file=.env.preview --env-file=.env.local scripts/clear-orders-turso-db.mjs",
     "db:clear-orders:production": "bun --env-file=.env.production --env-file=.env.local scripts/clear-orders-turso-db.mjs",
+    "ath:subscribe-webhook": "bun --env-file=.env.preview --env-file=.env.local scripts/subscribe-ath-movil-webhook.mjs",
     "dev:web": "bun --env-file=../.env.preview --env-file=../.env.local run --cwd web dev",
     "dev:web:production": "bun --env-file=../.env.production --env-file=../.env.local run --cwd web dev",
     "dev:kitchen": "bun --env-file=../.env.preview --env-file=../.env.local run --cwd kitchen-relay dev",
