@@ -190,6 +190,56 @@
         sessionStorage.removeItem("ricos:ath-checkout");
         window.location.replace("/checkout");
       }
+
+      (function autoOpenAthModal() {
+        var attempts = 0;
+        var maxAttempts = 20;
+        var intervalMs = 400;
+
+        function modalIsRendered() {
+          var modal = document.getElementById("athmOpenModal");
+          return !!(modal && modal.innerHTML && modal.innerHTML.trim().length > 0);
+        }
+
+        function tryOpen() {
+          if (modalIsRendered()) {
+            return;
+          }
+          attempts += 1;
+          document.getElementById("status").textContent = "Opening ATH checkout...";
+
+          if (typeof window.createDivButtonPayment === "function") {
+            try {
+              window.createDivButtonPayment();
+            } catch (err) {
+              console.error("ATH createDivButtonPayment failed", err);
+            }
+          }
+
+          var button = document.getElementById("buttonATHMBP");
+          if (button && typeof button.click === "function") {
+            button.click();
+          } else if (typeof window.sendATHMPayment === "function") {
+            try {
+              window.sendATHMPayment();
+            } catch (err) {
+              console.error("ATH sendATHMPayment failed", err);
+            }
+          }
+
+          if (modalIsRendered()) {
+            return;
+          }
+          if (attempts >= maxAttempts) {
+            document.getElementById("status").textContent = "Tap the ATH button to continue.";
+            return;
+          }
+
+          setTimeout(tryOpen, intervalMs);
+        }
+
+        tryOpen();
+      })();
     </script>
   </body>
 </html>
