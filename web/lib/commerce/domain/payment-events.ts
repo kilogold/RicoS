@@ -7,7 +7,7 @@ export {
   isValidPaymentIngressEventId,
 } from "@ricos/shared";
 
-export type IngressProvider = "stripe" | "helius";
+export type IngressProvider = "stripe" | "helius" | "athmovil";
 
 export type NormalizedIngressEvent = {
   provider: IngressProvider;

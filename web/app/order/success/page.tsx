@@ -52,8 +52,9 @@ function SuccessContent() {
   const provider = parseOrderConfirmationProvider(searchParams.get("provider"));
   const paymentIntent = searchParams.get("payment_intent");
   const redirectStatus = searchParams.get("redirect_status");
-  const solanaPayReference = searchParams.get("reference");
+  const paymentReference = searchParams.get("reference");
   const transactionSignature = searchParams.get("signature");
+  const ecommerceId = searchParams.get("ecommerceId");
   const [state, setState] = useState<ConfirmationState>({ phase: "loading" });
 
   useEffect(() => {
@@ -79,7 +80,7 @@ function SuccessContent() {
         return;
       }
 
-      if (provider === "solana" && !solanaPayReference) {
+      if ((provider === "solana" || provider === "ath-movil") && !paymentReference) {
         setState({
           phase: "error",
           message: strings.orderConfirmationInvalidSession,
@@ -88,12 +89,18 @@ function SuccessContent() {
         return;
       }
 
+      if (provider === "ath-movil") {
+        clear();
+        setState({ phase: "confirmed" });
+        return;
+      }
+
       const params = new URLSearchParams({ provider });
       if (provider === "stripe") {
         params.set("payment_intent", paymentIntent!);
         if (redirectStatus) params.set("redirect_status", redirectStatus);
       } else {
-        params.set("reference", solanaPayReference!);
+        params.set("reference", paymentReference!);
         if (transactionSignature) params.set("signature", transactionSignature);
       }
 
@@ -132,7 +139,7 @@ function SuccessContent() {
     provider,
     paymentIntent,
     redirectStatus,
-    solanaPayReference,
+    paymentReference,
     transactionSignature,
     clear,
     language,
@@ -140,7 +147,7 @@ function SuccessContent() {
 
   const paymentRefBlock = paymentRefForProvider(provider, {
     paymentIntent,
-    solanaPayReference,
+    paymentReference,
     copy,
   });
 
@@ -148,6 +155,13 @@ function SuccessContent() {
     provider === "solana" && transactionSignature ? (
       <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/80 break-all">
         {copy.transactionSignatureLabel}: {transactionSignature}
+      </p>
+    ) : null;
+
+  const ecommerceIdBlock =
+    provider === "ath-movil" && ecommerceId ? (
+      <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/80 break-all">
+        ecommerceId: {ecommerceId}
       </p>
     ) : null;
 
@@ -176,6 +190,7 @@ function SuccessContent() {
           </p>
           {paymentRefBlock}
           {signatureBlock}
+          {ecommerceIdBlock}
           {redirectStatus ? (
             <p className="mt-2 text-xs text-white/50">
               {copy.statusLabel}: {redirectStatus}
@@ -202,6 +217,7 @@ function SuccessContent() {
         <p className="mt-4 text-white/75">{copy.orderConfirmedMessage}</p>
         {paymentRefBlock}
         {signatureBlock}
+        {ecommerceIdBlock}
         {redirectStatus ? (
           <p className="mt-2 text-xs text-white/50">
             {copy.statusLabel}: {redirectStatus}
@@ -222,7 +238,7 @@ function paymentRefForProvider(
   provider: OrderConfirmationProvider | null,
   refs: {
     paymentIntent: string | null;
-    solanaPayReference: string | null;
+    paymentReference: string | null;
     copy: ReturnType<typeof getAppStrings>;
   },
 ) {
@@ -233,10 +249,10 @@ function paymentRefForProvider(
       </p>
     );
   }
-  if (provider === "solana" && refs.solanaPayReference) {
+  if ((provider === "solana" || provider === "ath-movil") && refs.paymentReference) {
     return (
       <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90 break-all">
-        {refs.copy.orderReferenceLabel}: {refs.solanaPayReference}
+        {refs.copy.orderReferenceLabel}: {refs.paymentReference}
       </p>
     );
   }

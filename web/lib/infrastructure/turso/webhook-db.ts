@@ -65,7 +65,7 @@ export async function migrate(client: Client): Promise<void> {
     CREATE TABLE IF NOT EXISTS purchase_orders (
       order_reference          TEXT PRIMARY KEY,
       payment_provider         TEXT NOT NULL
-                               CHECK (payment_provider IN ('stripe','helius')),
+                               CHECK (payment_provider IN ('stripe','helius','athmovil')),
       payment_ingress_event_id TEXT UNIQUE,
       payment_intent_expires_at INTEGER,
       amount_cents             INTEGER NOT NULL,
