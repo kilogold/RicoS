@@ -13,6 +13,7 @@ import { Suspense, useEffect, useState } from "react";
 
 type ConfirmationState =
   | { phase: "loading" }
+  | { phase: "awaiting_confirmation" }
   | { phase: "confirmed" }
   | {
       phase: "error";
@@ -98,30 +99,65 @@ function SuccessContent() {
         if (transactionSignature) params.set("signature", transactionSignature);
       }
 
-      try {
-        const res = await fetch(`/api/order/confirmation-status?${params.toString()}`);
-        const body = (await res.json()) as ConfirmationApiResponse;
+      const isAth = provider === "ath-movil";
+      const maxAttempts = isAth ? 90 : 1;
 
-        if (cancelled) return;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const res = await fetch(`/api/order/confirmation-status?${params.toString()}`, {
+            cache: "no-store",
+          });
+          const body = (await res.json()) as ConfirmationApiResponse;
+          if (cancelled) return;
 
-        if (body.ok) {
-          clear();
-          setState({ phase: "confirmed" });
-          return;
-        }
+          if (body.ok) {
+            if (isAth && body.orderStatus === "pending") {
+              setState({ phase: "awaiting_confirmation" });
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              continue;
+            }
+            if (isAth && body.orderStatus === "expired") {
+              setState({
+                phase: "error",
+                message: strings.orderConfirmationPaymentFailed,
+                code: "payment_not_succeeded",
+              });
+              return;
+            }
+            clear();
+            setState({ phase: "confirmed" });
+            return;
+          }
 
-        setState({
-          phase: "error",
-          message: errorMessageForCode(body.code, strings),
-          code: body.code,
-        });
-      } catch {
-        if (!cancelled) {
+          if (isAth && body.code === "missing_order") {
+            setState({ phase: "awaiting_confirmation" });
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            continue;
+          }
+
           setState({
             phase: "error",
-            message: strings.orderConfirmationNotConfirmed,
+            message: errorMessageForCode(body.code, strings),
+            code: body.code,
           });
+          return;
+        } catch {
+          if (!cancelled) {
+            setState({
+              phase: "error",
+              message: strings.orderConfirmationNotConfirmed,
+            });
+          }
+          return;
         }
+      }
+
+      if (!cancelled) {
+        setState({
+          phase: "error",
+          message: strings.orderConfirmationNotConfirmed,
+          code: "order_not_confirmed",
+        });
       }
     }
 
@@ -159,7 +195,7 @@ function SuccessContent() {
       </p>
     ) : null;
 
-  if (state.phase === "loading") {
+  if (state.phase === "loading" || state.phase === "awaiting_confirmation") {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">

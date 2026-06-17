@@ -882,6 +882,45 @@ export async function setPurchaseOrderStatus(
   await transitionOrderStatus(client, orderReference, status);
 }
 
+export async function updatePendingPurchaseOrderMetadata(
+  client: Client,
+  params: {
+    orderReference: string;
+    metadata: Record<string, string | undefined>;
+    paymentIntentExpiresAt?: number | null;
+  },
+): Promise<boolean> {
+  const order = await getPurchaseOrderByReference(client, params.orderReference);
+  if (!order || order.status !== "pending") {
+    return false;
+  }
+
+  const currentPayload = order.payload as PersistedOrderPayload;
+  const mergedPayload: PersistedOrderPayload = {
+    ...currentPayload,
+    metadata: {
+      ...(currentPayload.metadata ?? {}),
+      ...params.metadata,
+    },
+  };
+
+  const result = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET payload_json = ?,
+          payment_intent_expires_at = COALESCE(?, payment_intent_expires_at)
+      WHERE order_reference = ?
+        AND payment_ingress_event_id IS NULL
+    `,
+    args: [
+      JSON.stringify(mergedPayload),
+      params.paymentIntentExpiresAt ?? null,
+      params.orderReference,
+    ],
+  });
+  return (result.rowsAffected ?? 0) > 0;
+}
+
 // ---------- refunds ---------------------------------------------------------
 
 function rowToRefund(row: Record<string, unknown>): RefundRecord {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
 import {
   DINE_IN_UNAVAILABLE_CODE,
@@ -20,6 +21,8 @@ import {
   insertPendingPurchaseOrderIfNew,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
+import { runAthPaymentSettlementLoop } from "@/lib/commerce/web-api/ath-movil/use-cases/run-ath-payment-settlement-loop";
+import { startAthPaymentOrchestration } from "@/lib/commerce/web-api/ath-movil/use-cases/start-ath-payment-orchestration";
 
 type AthReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
@@ -189,6 +192,37 @@ export async function handleAthMovilReferenceRegistrationRequest(
       );
       throw new Error("ath_pending_order_not_persisted");
     }
+
+    const athPublicToken = process.env.NEXT_PUBLIC_ATH_MOVIL_PUBLIC_TOKEN?.trim();
+    if (!athPublicToken) {
+      throw new Error("ath_public_token_missing");
+    }
+
+    const orchestration = await startAthPaymentOrchestration(db, {
+      orderReference,
+      publicToken: athPublicToken,
+      totalCents: grandTotalCents,
+      serviceMode,
+      customerName: contact.customerName,
+      customerPhone: contact.customerPhone,
+      customerEmail: contact.customerEmail,
+    });
+
+    console.info(
+      JSON.stringify({
+        scope: "athm_payment_created",
+        orderReference,
+        ecommerceId: orchestration.ecommerceId,
+        expiresAt: orchestration.expiresAt,
+      }),
+    );
+
+    after(async () => {
+      await runAthPaymentSettlementLoop({
+        orderReference,
+        publicToken: athPublicToken,
+      });
+    });
 
     console.info(
       JSON.stringify({

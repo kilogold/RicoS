@@ -40,17 +40,8 @@ type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
 type CheckoutPhase = "service" | "contact" | "payment";
 
-const ATH_CHECKOUT_SESSION_KEY = "ricos:ath-checkout";
 const ATH_MIN_GRAND_TOTAL_CENTS = 100;
 const ATH_MAX_GRAND_TOTAL_CENTS = 150000;
-
-function formatAthAmount(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
-
-function toAthAmountNumber(cents: number): number {
-  return Number(formatAthAmount(cents));
-}
 
 export default function CheckoutPage() {
   const { lines, clear } = useCart();
@@ -296,12 +287,6 @@ export default function CheckoutPage() {
       setGrandTotalCents(0);
       setError(null);
 
-      const athPublicToken = process.env.NEXT_PUBLIC_ATH_MOVIL_PUBLIC_TOKEN?.trim();
-      if (!athPublicToken) {
-        setError("ATH Móvil is not configured for this environment.");
-        return;
-      }
-
       const athGrandTotalCents = orderTotals.grandTotalCents;
       if (
         athGrandTotalCents < ATH_MIN_GRAND_TOTAL_CENTS ||
@@ -388,52 +373,7 @@ export default function CheckoutPage() {
         setError("ATH Móvil requires a valid phone number.");
         return;
       }
-
-      const athConfig = {
-        env: "production",
-        publicToken: athPublicToken,
-        timeout: 600,
-        orderType: "",
-        theme: "btn",
-        total: toAthAmountNumber(athGrandTotalCents),
-        subtotal: toAthAmountNumber(orderTotals.subtotalCents),
-        tax: toAthAmountNumber(
-          orderTotals.salesTaxCents + orderTotals.municipalTaxCents + orderTotals.serviceChargeCents,
-        ),
-        metadata1: reference,
-        metadata2: selectedServiceMode,
-        phoneNumber: Number(phoneDigits),
-        customerName: lockedContact.customerName,
-        customerEmail: lockedContact.customerEmail ?? "",
-        currency: "USD",
-        lang: language === "en" ? "en" : "es",
-        items: lines.map((line) => {
-          const item = surface.getItemById(line.id);
-          const name = item ? surface.resolveLocalizedText(item.name, language) : line.id;
-          const quantity = line.quantity;
-          const lineTotalCents = item ? item.priceCents * quantity : 0;
-          const unitPrice = quantity > 0 ? toAthAmountNumber(Math.floor(lineTotalCents / quantity)) : 0;
-          return {
-            name,
-            description: "",
-            quantity,
-            price: unitPrice,
-            tax: 0,
-            metadata: null,
-          };
-        }),
-      };
-
-      sessionStorage.setItem(
-        ATH_CHECKOUT_SESSION_KEY,
-        JSON.stringify({
-          reference,
-          config: athConfig,
-        }),
-      );
-
-      const params = new URLSearchParams({ reference });
-      fullRedirect(`/pay/ath-movil.html?${params.toString()}`);
+      fullRedirect(`/order/success?provider=ath-movil&reference=${encodeURIComponent(reference)}`);
     })();
 
     return () => {

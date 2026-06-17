@@ -12,21 +12,15 @@ const CONFIRMED_STATUSES: ReadonlySet<PurchaseOrderStatus> = new Set([
   "refunded",
 ]);
 
-const WEBHOOK_SETTLE_ATTEMPTS = 30;
-const WEBHOOK_SETTLE_DELAY_MS = 1000;
 const ATH_REFERENCE_RE = /^[a-f0-9]{32,40}$/i;
 
 export type AthOrderConfirmationResult =
   | { ok: true; orderStatus: PurchaseOrderStatus }
   | {
       ok: false;
-      code: "invalid_reference" | "missing_order" | "order_not_confirmed";
+      code: "invalid_reference" | "missing_order";
       detail: string;
     };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function logAthConfirmationMismatch(params: Record<string, unknown>): void {
   console.error(
@@ -51,52 +45,27 @@ export async function verifyAthOrderConfirmation(params: {
   }
 
   const db = await getWebhookDb();
-  for (let attempt = 1; attempt <= WEBHOOK_SETTLE_ATTEMPTS; attempt += 1) {
-    const order = await getPurchaseOrderByReference(db, orderReference);
-
-    if (!order) {
-      logAthConfirmationMismatch({
-        orderReference,
-        orderStatus: null,
-        detail: "no_purchase_order_row_after_ath_success",
-        attempts: attempt,
-      });
-      return {
-        ok: false,
-        code: "missing_order",
-        detail: "purchase_order_not_found",
-      };
-    }
-
-    if (CONFIRMED_STATUSES.has(order.status)) {
-      return { ok: true, orderStatus: order.status };
-    }
-
-    if (order.status === "pending" && attempt < WEBHOOK_SETTLE_ATTEMPTS) {
-      await sleep(WEBHOOK_SETTLE_DELAY_MS);
-      continue;
-    }
-
+  const order = await getPurchaseOrderByReference(db, orderReference);
+  if (!order) {
     logAthConfirmationMismatch({
       orderReference,
-      orderStatus: order.status,
-      detail: order.status === "pending" ? "order_still_pending_after_ath_success" : "order_not_in_confirmed_status",
-      attempts: attempt,
+      orderStatus: null,
+      detail: "no_purchase_order_row_after_ath_success",
     });
     return {
       ok: false,
-      code: "order_not_confirmed",
-      detail: `status_${order.status}`,
+      code: "missing_order",
+      detail: "purchase_order_not_found",
     };
   }
 
-  logAthConfirmationMismatch({
-    orderReference,
-    detail: "verification_exhausted",
-  });
-  return {
-    ok: false,
-    code: "order_not_confirmed",
-    detail: "verification_exhausted",
-  };
+  if (!CONFIRMED_STATUSES.has(order.status) && order.status !== "pending" && order.status !== "expired") {
+    logAthConfirmationMismatch({
+      orderReference,
+      orderStatus: order.status,
+      detail: "order_not_in_confirmed_status",
+    });
+  }
+
+  return { ok: true, orderStatus: order.status };
 }
