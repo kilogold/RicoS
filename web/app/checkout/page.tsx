@@ -7,6 +7,8 @@ import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { useStoreSession } from "@/app/_client/store-session-context";
 import { useCart } from "@/lib/cart-context";
 import {
+  CUSTOMER_PHONE_MAX_LEN,
+  formatUsPhoneInput,
   validateCustomerContact,
   type NormalizedCustomerContact,
 } from "@/lib/commerce/domain/customer-contact";
@@ -559,8 +561,10 @@ export default function CheckoutPage() {
                     name="customerPhone"
                     autoComplete="tel"
                     inputMode="tel"
+                    maxLength={CUSTOMER_PHONE_MAX_LEN}
+                    placeholder="(787) 555-1234"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => setCustomerPhone(formatUsPhoneInput(e.target.value))}
                     className="rounded-lg border border-white/15 bg-[#0c2340] px-3 py-2 text-white placeholder:text-white/40 focus:border-[#f4c430]/50 focus:outline-none"
                   />
                 </label>

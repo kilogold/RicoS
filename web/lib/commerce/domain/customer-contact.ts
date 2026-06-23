@@ -1,7 +1,9 @@
 /** Shared pickup contact validation (stored only in our DB; never sent to payment rails). */
 
 export const CUSTOMER_NAME_MAX_LEN = 200;
-export const CUSTOMER_PHONE_MAX_LEN = 40;
+/** Formatted US domestic phone: (xxx) xxx-xxxx */
+export const CUSTOMER_PHONE_MAX_LEN = 14;
+export const US_PHONE_DIGIT_COUNT = 10;
 export const CUSTOMER_EMAIL_MAX_LEN = 320;
 
 const EMAIL_LOOSE =
@@ -27,6 +29,31 @@ function trimStr(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+export function extractPhoneDigits(raw: string): string {
+  return raw.replace(/\D/g, "");
+}
+
+/** Strips leading US country code (+1) when present on an 11-digit number. */
+export function stripUsCountryCode(digits: string): string {
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
+export function toUsLocalPhoneDigits(rawPhone: string): string {
+  return stripUsCountryCode(extractPhoneDigits(rawPhone));
+}
+
+/** Formats partial or full input as US domestic (xxx) xxx-xxxx; caps at 10 digits. */
+export function formatUsPhoneInput(raw: string): string {
+  const digits = stripUsCountryCode(extractPhoneDigits(raw)).slice(0, US_PHONE_DIGIT_COUNT);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 /**
  * Validates required name + phone and optional email for order placement APIs.
  */
@@ -48,9 +75,9 @@ export function validateCustomerContact(input: CustomerContactInput): ValidateCu
   if (customerPhone.length > CUSTOMER_PHONE_MAX_LEN) {
     return { ok: false, error: `customerPhone must be at most ${CUSTOMER_PHONE_MAX_LEN} characters` };
   }
-  const digits = customerPhone.replace(/\D/g, "");
-  if (digits.length < 7) {
-    return { ok: false, error: "customerPhone must include at least 7 digits" };
+  const digits = stripUsCountryCode(extractPhoneDigits(customerPhone));
+  if (digits.length !== US_PHONE_DIGIT_COUNT) {
+    return { ok: false, error: "customerPhone must be a 10-digit US phone number" };
   }
 
   let customerEmail: string | null = null;
@@ -66,6 +93,6 @@ export function validateCustomerContact(input: CustomerContactInput): ValidateCu
 
   return {
     ok: true,
-    value: { customerName, customerPhone, customerEmail },
+    value: { customerName, customerPhone: formatUsPhoneInput(digits), customerEmail },
   };
 }

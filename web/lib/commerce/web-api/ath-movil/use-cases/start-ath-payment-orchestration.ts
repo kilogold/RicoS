@@ -1,12 +1,12 @@
 import type { Client } from "@libsql/client";
+import {
+  toUsLocalPhoneDigits,
+  US_PHONE_DIGIT_COUNT,
+} from "@/lib/commerce/domain/customer-contact";
 import { createPayment } from "@/lib/commerce/web-api/ath-movil/adapters/http/athm-payment-api-client";
 import { updatePendingPurchaseOrderMetadata } from "@/lib/infrastructure/turso/webhook-db";
 
 export const ATH_ORCHESTRATION_TIMEOUT_SECONDS = 600;
-
-function normalizePhoneDigits(rawPhone: string): string {
-  return rawPhone.replace(/\D/g, "");
-}
 
 export async function startAthPaymentOrchestration(
   db: Client,
@@ -22,8 +22,9 @@ export async function startAthPaymentOrchestration(
 ): Promise<{ ecommerceId: string; expiresAt: number }> {
   const startedAt = Date.now();
   const expiresAt = startedAt + ATH_ORCHESTRATION_TIMEOUT_SECONDS * 1000;
-  const phoneDigits = normalizePhoneDigits(params.customerPhone);
-  if (!phoneDigits) {
+  // ATH Móvil only accepts 10-digit local numbers; discard US country code (+1).
+  const phoneDigits = toUsLocalPhoneDigits(params.customerPhone);
+  if (phoneDigits.length !== US_PHONE_DIGIT_COUNT) {
     throw new Error("ath_invalid_phone_number");
   }
 
