@@ -4,9 +4,11 @@ import {
   US_PHONE_DIGIT_COUNT,
 } from "@/lib/commerce/domain/customer-contact";
 import { createPayment } from "@/lib/commerce/web-api/ath-movil/adapters/http/athm-payment-api-client";
+import {
+  ATH_ORCHESTRATION_TIMEOUT_SECONDS,
+  ATH_SETTLEMENT_BUDGET_MS,
+} from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-constants";
 import { updatePendingPurchaseOrderMetadata } from "@/lib/infrastructure/turso/webhook-db";
-
-export const ATH_ORCHESTRATION_TIMEOUT_SECONDS = 600;
 
 export async function startAthPaymentOrchestration(
   db: Client,
@@ -19,9 +21,16 @@ export async function startAthPaymentOrchestration(
     customerPhone: string;
     customerEmail: string | null;
   },
-): Promise<{ ecommerceId: string; expiresAt: number }> {
+): Promise<{
+  ecommerceId: string;
+  authToken: string;
+  expiresAt: number;
+  startedAt: number;
+  settlementDeadlineAt: number;
+}> {
   const startedAt = Date.now();
   const expiresAt = startedAt + ATH_ORCHESTRATION_TIMEOUT_SECONDS * 1000;
+  const settlementDeadlineAt = startedAt + ATH_SETTLEMENT_BUDGET_MS;
   // ATH Móvil only accepts 10-digit local numbers; discard US country code (+1).
   const phoneDigits = toUsLocalPhoneDigits(params.customerPhone);
   if (phoneDigits.length !== US_PHONE_DIGIT_COUNT) {
@@ -47,14 +56,20 @@ export async function startAthPaymentOrchestration(
     paymentIntentExpiresAt: expiresAt,
     metadata: {
       "athm:ecommerceId": payment.ecommerceId,
-      "athm:authToken": payment.authToken,
       "athm:startedAt": String(startedAt),
       "athm:expiresAt": String(expiresAt),
+      "athm:settlementDeadlineAt": String(settlementDeadlineAt),
     },
   });
   if (!metadataSaved) {
     throw new Error("ath_context_not_saved");
   }
 
-  return { ecommerceId: payment.ecommerceId, expiresAt };
+  return {
+    ecommerceId: payment.ecommerceId,
+    authToken: payment.authToken,
+    expiresAt,
+    startedAt,
+    settlementDeadlineAt,
+  };
 }

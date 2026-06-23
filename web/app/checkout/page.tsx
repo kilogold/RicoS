@@ -1,5 +1,6 @@
 "use client";
 
+import { AthMovilStub } from "@/components/ath-movil-stub";
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
@@ -28,12 +29,6 @@ import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { formatUsd, orderTotalsForCart } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe-client";
 import { Elements } from "@stripe/react-stripe-js";
-import {
-  buildDecodeIndex,
-  CART_B64_KEY,
-  CART_CODEC_KEY,
-  encodeCartToMetadataV1,
-} from "@ricos/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fullRedirect } from "@/lib/navigation/full-redirect";
@@ -41,9 +36,6 @@ import { fullRedirect } from "@/lib/navigation/full-redirect";
 type SelectedPaymentMethod = "stripe" | "solana" | "ath-movil";
 
 type CheckoutPhase = "service" | "contact" | "payment";
-
-const ATH_MIN_GRAND_TOTAL_CENTS = 100;
-const ATH_MAX_GRAND_TOTAL_CENTS = 150000;
 
 export default function CheckoutPage() {
   const { lines, clear } = useCart();
@@ -267,138 +259,6 @@ export default function CheckoutPage() {
     selectedServiceMode,
     selectedMethod,
     copy.dineInUnavailableDuringLastCall,
-  ]);
-
-  useEffect(() => {
-    if (
-      phase !== "payment" ||
-      !lockedContact ||
-      !selectedServiceMode ||
-      selectedMethod !== "ath-movil"
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      await Promise.resolve();
-      if (cancelled) return;
-
-      setClientSecret(null);
-      setGrandTotalCents(0);
-      setError(null);
-
-      const athGrandTotalCents = orderTotals.grandTotalCents;
-      if (
-        athGrandTotalCents < ATH_MIN_GRAND_TOTAL_CENTS ||
-        athGrandTotalCents > ATH_MAX_GRAND_TOTAL_CENTS
-      ) {
-        setError("ATH Móvil supports totals between $1.00 and $1500.00.");
-        return;
-      }
-
-      const decodeIndex = buildDecodeIndex(menuVersionSeen, catalog);
-      const encoded = encodeCartToMetadataV1(
-        menuVersionSeen,
-        lines.map((line) => ({
-          itemId: line.id,
-          quantity: line.quantity,
-          selections: line.selections,
-        })),
-        decodeIndex,
-      );
-
-      const cartCodec = encoded.metadata[CART_CODEC_KEY];
-      const cartB64 = encoded.metadata[CART_B64_KEY];
-      if (!cartCodec || !cartB64) {
-        setError(copy.checkoutErrorTitle);
-        return;
-      }
-
-      const referenceRes = await fetch("/api/ath-movil/reference", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metadata: {
-            [CART_CODEC_KEY]: cartCodec,
-            [CART_B64_KEY]: cartB64,
-          },
-          grandTotalCents: athGrandTotalCents,
-          currency: "usd",
-          menuVersionSeen,
-          customerName: lockedContact.customerName,
-          customerPhone: lockedContact.customerPhone,
-          serviceMode: selectedServiceMode,
-          ...(lockedContact.customerEmail ? { customerEmail: lockedContact.customerEmail } : {}),
-        }),
-      });
-      const referenceBody = (await referenceRes.json().catch(() => null)) as {
-        error?: string;
-        code?: string;
-        reference?: string;
-      } | null;
-      if (!referenceRes.ok) {
-        if (cancelled) return;
-        if (referenceRes.status === 409 && referenceBody?.code === MENU_VERSION_CONFLICT_CODE) {
-          clear();
-          fullRedirect("/?menuUpdated=1");
-          return;
-        }
-        if (referenceRes.status === 403 && referenceBody?.code === STORE_CLOSED_CODE) {
-          clear();
-          fullRedirect("/");
-          return;
-        }
-        if (referenceRes.status === 403 && referenceBody?.code === DINE_IN_UNAVAILABLE_CODE) {
-          setPhase("service");
-          setError(referenceBody.error ?? copy.dineInUnavailableDuringLastCall);
-          return;
-        }
-        setError(referenceBody?.error ?? copy.checkoutErrorTitle);
-        return;
-      }
-
-      const reference = referenceBody?.reference;
-      if (typeof reference !== "string" || reference.length === 0) {
-        setError(copy.checkoutErrorTitle);
-        return;
-      }
-      if (reference.length > 40) {
-        setError("ATH Móvil metadata1 supports up to 40 characters.");
-        return;
-      }
-
-      const phoneDigits = lockedContact.customerPhone.replace(/\D/g, "");
-      if (!phoneDigits) {
-        setError("ATH Móvil requires a valid phone number.");
-        return;
-      }
-      fullRedirect(`/order/success?provider=ath-movil&reference=${encodeURIComponent(reference)}`);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    catalog,
-    clear,
-    copy.checkoutErrorTitle,
-    copy.dineInUnavailableDuringLastCall,
-    language,
-    lines,
-    lockedContact,
-    menuVersionSeen,
-    orderTotals.grandTotalCents,
-    orderTotals.municipalTaxCents,
-    orderTotals.salesTaxCents,
-    orderTotals.serviceChargeCents,
-    orderTotals.subtotalCents,
-    phase,
-    selectedMethod,
-    selectedServiceMode,
-    surface,
   ]);
 
   if (lines.length === 0) {
@@ -726,15 +586,13 @@ export default function CheckoutPage() {
             />
           ) : null}
 
-          {selectedMethod === "ath-movil" ? (
-            <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
-              <h2 className="text-lg font-semibold text-[#f4c430]">{copy.paymentMethodAthLabel}</h2>
-              {error ? (
-                <p className="mt-2 text-sm text-red-200">{error}</p>
-              ) : (
-                <p className="mt-2 text-sm text-white/75">{copy.preparingSecureCheckout}</p>
-              )}
-            </div>
+          {selectedMethod === "ath-movil" && lockedContact && selectedServiceMode ? (
+            <AthMovilStub
+              customerName={lockedContact.customerName}
+              customerPhone={lockedContact.customerPhone}
+              customerEmail={lockedContact.customerEmail ?? ""}
+              serviceMode={selectedServiceMode}
+            />
           ) : null}
             </>
           ) : null}

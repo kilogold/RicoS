@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { after } from "next/server";
 import { CART_B64_KEY, CART_CODEC_KEY } from "@ricos/shared";
+import { start } from "workflow/api";
 import {
   DINE_IN_UNAVAILABLE_CODE,
   assertStoreOpenOr403,
@@ -17,12 +17,15 @@ import {
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { buildKitchenOrderPayload } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/process-ingress-event";
 import {
+  getPendingPurchaseOrderMetadata,
   getPurchaseOrderByReference,
   insertPendingPurchaseOrderIfNew,
+  updatePendingPurchaseOrderMetadata,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
-import { runAthPaymentSettlementLoop } from "@/lib/commerce/web-api/ath-movil/use-cases/run-ath-payment-settlement-loop";
+import { ATH_SETTLEMENT_BUDGET_MS } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-constants";
 import { startAthPaymentOrchestration } from "@/lib/commerce/web-api/ath-movil/use-cases/start-ath-payment-orchestration";
+import { athSettlePayment } from "@/lib/commerce/web-api/ath-movil/workflows/ath-settle-payment";
 
 type AthReferenceRegistrationRequest = {
   metadata?: Record<string, unknown>;
@@ -214,15 +217,30 @@ export async function handleAthMovilReferenceRegistrationRequest(
         orderReference,
         ecommerceId: orchestration.ecommerceId,
         expiresAt: orchestration.expiresAt,
+        settlementDeadlineAt: orchestration.settlementDeadlineAt,
       }),
     );
 
-    after(async () => {
-      await runAthPaymentSettlementLoop({
+    const existingWorkflowRunId =
+      getPendingPurchaseOrderMetadata(persisted)?.["athm:workflowRunId"]?.trim() ?? "";
+    let workflowRunId = existingWorkflowRunId;
+    if (!workflowRunId) {
+      const run = await start(athSettlePayment, [
+        {
+          orderReference,
+          publicToken: athPublicToken,
+          authToken: orchestration.authToken,
+          settlementDeadlineAt: orchestration.startedAt + ATH_SETTLEMENT_BUDGET_MS,
+        },
+      ]);
+      workflowRunId = run.runId;
+      await updatePendingPurchaseOrderMetadata(db, {
         orderReference,
-        publicToken: athPublicToken,
+        metadata: {
+          "athm:workflowRunId": workflowRunId,
+        },
       });
-    });
+    }
 
     console.info(
       JSON.stringify({
@@ -230,6 +248,7 @@ export async function handleAthMovilReferenceRegistrationRequest(
         orderReference,
         grandTotalCents,
         currency: normalizedCurrency,
+        workflowRunId: workflowRunId || undefined,
         tursoHost: tursoHost(process.env.TURSO_DATABASE_URL ?? ""),
       }),
     );

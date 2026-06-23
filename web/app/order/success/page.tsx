@@ -5,6 +5,12 @@ import {
   type OrderConfirmationProvider,
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
 import { useCart } from "@/lib/cart-context";
+import {
+  errorMessageForCode,
+  fetchOrderConfirmationStatus,
+  isOrderConfirmed,
+  type ConfirmationApiResponse,
+} from "@/lib/commerce/order-confirmation-client";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import Link from "next/link";
@@ -13,37 +19,12 @@ import { Suspense, useEffect, useState } from "react";
 
 type ConfirmationState =
   | { phase: "loading" }
-  | { phase: "awaiting_confirmation" }
   | { phase: "confirmed" }
   | {
       phase: "error";
       message: string;
       code?: string;
     };
-
-type ConfirmationApiResponse =
-  | { ok: true; orderStatus: string; provider?: string }
-  | { ok: false; code: string; detail?: string; provider?: string };
-
-function errorMessageForCode(
-  code: string,
-  copy: ReturnType<typeof getAppStrings>,
-): string {
-  switch (code) {
-    case "missing_order":
-      return copy.orderConfirmationMissingOrder;
-    case "payment_not_succeeded":
-      return copy.orderConfirmationPaymentFailed;
-    case "invalid_payment_intent":
-    case "invalid_reference":
-    case "invalid_provider":
-    case "invalid_session":
-      return copy.orderConfirmationInvalidSession;
-    case "order_not_confirmed":
-    default:
-      return copy.orderConfirmationNotConfirmed;
-  }
-}
 
 function SuccessContent() {
   const { language } = useLanguage();
@@ -99,66 +80,50 @@ function SuccessContent() {
         if (transactionSignature) params.set("signature", transactionSignature);
       }
 
-      const isAth = provider === "ath-movil";
-      const maxAttempts = isAth ? 90 : 1;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        try {
-          const res = await fetch(`/api/order/confirmation-status?${params.toString()}`, {
-            cache: "no-store",
-          });
-          const body = (await res.json()) as ConfirmationApiResponse;
-          if (cancelled) return;
-
-          if (body.ok) {
-            if (isAth && body.orderStatus === "pending") {
-              setState({ phase: "awaiting_confirmation" });
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              continue;
-            }
-            if (isAth && body.orderStatus === "expired") {
-              setState({
-                phase: "error",
-                message: strings.orderConfirmationPaymentFailed,
-                code: "payment_not_succeeded",
-              });
-              return;
-            }
-            clear();
-            setState({ phase: "confirmed" });
-            return;
-          }
-
-          if (isAth && body.code === "missing_order") {
-            setState({ phase: "awaiting_confirmation" });
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            continue;
-          }
-
-          setState({
-            phase: "error",
-            message: errorMessageForCode(body.code, strings),
-            code: body.code,
-          });
-          return;
-        } catch {
-          if (!cancelled) {
-            setState({
-              phase: "error",
-              message: strings.orderConfirmationNotConfirmed,
-            });
-          }
-          return;
-        }
+      let body: ConfirmationApiResponse | null;
+      try {
+        body = await fetchOrderConfirmationStatus(params);
+      } catch {
+        body = null;
       }
 
-      if (!cancelled) {
+      if (cancelled) return;
+
+      if (!body) {
         setState({
           phase: "error",
           message: strings.orderConfirmationNotConfirmed,
+        });
+        return;
+      }
+
+      if (body.ok) {
+        if (isOrderConfirmed(body.orderStatus)) {
+          clear();
+          setState({ phase: "confirmed" });
+          return;
+        }
+        if (body.orderStatus === "expired") {
+          setState({
+            phase: "error",
+            message: errorMessageForCode("payment_expired", strings),
+            code: "payment_expired",
+          });
+          return;
+        }
+        setState({
+          phase: "error",
+          message: errorMessageForCode("order_not_confirmed", strings),
           code: "order_not_confirmed",
         });
+        return;
       }
+
+      setState({
+        phase: "error",
+        message: errorMessageForCode(body.code, strings),
+        code: body.code,
+      });
     }
 
     void verify();
@@ -195,7 +160,7 @@ function SuccessContent() {
       </p>
     ) : null;
 
-  if (state.phase === "loading" || state.phase === "awaiting_confirmation") {
+  if (state.phase === "loading") {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
