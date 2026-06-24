@@ -115,6 +115,8 @@ export {
   isValidPaymentIngressEventId,
 } from "./kitchen-order";
 
+export { sleep } from "./sleep";
+
 export const DEFAULT_LANGUAGE: Language = "es";
 
 /** @deprecated Prefer `MenuCatalogSurface.resolveLocalizedText`. */

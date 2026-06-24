@@ -3,6 +3,11 @@ import {
   type PurchaseOrderStatus,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
+import { sleep } from "@ricos/shared";
+import {
+  ORDER_CONFIRMATION_ERROR_CODE,
+  type OrderConfirmationErrorCode,
+} from "@/lib/commerce/order-confirmation";
 
 const CONFIRMED_STATUSES: ReadonlySet<PurchaseOrderStatus> = new Set([
   "paid",
@@ -22,7 +27,7 @@ export type SolanaOrderConfirmationResult =
   | { ok: true; orderStatus: PurchaseOrderStatus }
   | {
       ok: false;
-      code: "invalid_reference" | "missing_order" | "order_not_confirmed";
+      code: OrderConfirmationErrorCode;
       detail: string;
     };
 
@@ -34,10 +39,6 @@ function logSolanaConfirmationMismatch(params: Record<string, unknown>): void {
       ...params,
     }),
   );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -55,7 +56,7 @@ export async function verifySolanaOrderConfirmation(params: {
   if (!orderReference || !SOLANA_REFERENCE_RE.test(orderReference)) {
     return {
       ok: false,
-      code: "invalid_reference",
+      code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
       detail: "missing_or_invalid_order_reference",
     };
   }
@@ -75,7 +76,7 @@ export async function verifySolanaOrderConfirmation(params: {
       });
       return {
         ok: false,
-        code: "missing_order",
+        code: ORDER_CONFIRMATION_ERROR_CODE.MISSING_ORDER,
         detail: "purchase_order_not_found",
       };
     }
@@ -101,7 +102,7 @@ export async function verifySolanaOrderConfirmation(params: {
     });
     return {
       ok: false,
-      code: "order_not_confirmed",
+      code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
       detail: `status_${order.status}`,
     };
   }
@@ -113,7 +114,7 @@ export async function verifySolanaOrderConfirmation(params: {
   });
   return {
     ok: false,
-    code: "order_not_confirmed",
+    code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
     detail: "verification_exhausted",
   };
 }

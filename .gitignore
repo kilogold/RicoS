@@ -1,5 +1,6 @@
 node_modules
 .next
+.workflow-data
 dist
 .env.local
 .env.production
