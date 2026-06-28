@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createClient, type Client } from "@libsql/client";
 import type { KitchenOrderIntent } from "@ricos/shared";
 import {
@@ -585,7 +584,7 @@ export async function enqueuePrintJob(
     throw new Error(`missing purchase order ${params.orderReference}`);
   }
 
-  const printJobId = randomUUID();
+  const printJobId = globalThis.crypto.randomUUID();
   const createdAt = Date.now();
   const paymentIngressEventId =
     params.intent === "paid"

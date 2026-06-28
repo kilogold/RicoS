@@ -1,4 +1,3 @@
-import type { Client } from "@libsql/client";
 import { sleep as delay } from "@ricos/shared";
 import { FatalError, RetryableError } from "workflow";
 import { ATH_SETTLEMENT_POLL_INTERVAL } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-constants";
@@ -8,14 +7,7 @@ import {
   findPayment,
 } from "@/lib/commerce/web-api/ath-movil/adapters/http/athm-payment-api-client";
 import { ATH_ECOMMERCE_STATUS } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-types";
-import { executeAthIngressEvent } from "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event";
 import { markAthExpired } from "@/lib/commerce/web-api/ath-movil/workflows/steps/mark-ath-expired-step";
-import {
-  getPendingPurchaseOrderMetadata,
-  getPurchaseOrderByReference,
-  updatePendingPurchaseOrderMetadata,
-} from "@/lib/infrastructure/turso/webhook-db";
-import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 type AthSettlementTickResult = "continue" | "paid" | "expired";
 
@@ -40,10 +32,25 @@ type FinalizeAthPaidOrderParams = {
   ecommerceId: string;
 };
 
+type SettlementOrder = {
+  status: string;
+  grandTotalCents: number;
+};
+
+type DbApi = {
+  getPendingPurchaseOrderMetadata: (order: unknown) => Record<string, string | undefined> | null;
+  getPurchaseOrderByReference: (db: unknown, orderReference: string) => Promise<unknown>;
+  updatePendingPurchaseOrderMetadata: (db: unknown, params: unknown) => Promise<boolean>;
+};
+
 function isFatalAthError(err: AthPaymentApiError): boolean {
   if (err.params.code !== "api_error") return false;
   if (typeof err.params.status !== "number") return false;
   return err.params.status >= 400 && err.params.status < 500 && err.params.status !== 429;
+}
+
+function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function readAthContext(metadata: Record<string, string | undefined> | null): {
@@ -68,16 +75,19 @@ function readAthContext(metadata: Record<string, string | undefined> | null): {
 }
 
 async function finalizeAthPaidOrder(
-  db: Client,
+  db: unknown,
   params: FinalizeAthPaidOrderParams,
 ): Promise<{ ok: true } | { ok: false; code: string; detail: string }> {
+  const { executeAthIngressEvent } = await import(
+    "@/lib/commerce/web-api/kitchen-order-dispatch/use-cases/execute-ingress-event"
+  );
   const referenceNumber = params.referenceNumber.trim();
   const orderReference = params.orderReference.trim();
   if (!referenceNumber || !orderReference) {
     return { ok: false, code: "invalid_finalize_input", detail: "missing_reference_or_order_reference" };
   }
 
-  const outcome = await executeAthIngressEvent(db, {
+  const outcome = await executeAthIngressEvent(db as never, {
     provider: "athmovil",
     paymentIngressEventId: `evt_ath_${referenceNumber}`,
     paymentReferenceId: orderReference,
@@ -99,13 +109,17 @@ async function finalizeAthPaidOrder(
 }
 
 async function runAthSettlementTick(
-  db: Client,
+  db: unknown,
+  dbApi: DbApi,
   input: AthSettlementTickInput,
 ): Promise<AthSettlementTickResult> {
-  const order = await getPurchaseOrderByReference(db, input.orderReference);
+  const order = (await dbApi.getPurchaseOrderByReference(
+    db,
+    input.orderReference,
+  )) as SettlementOrder | null;
   if (!order || order.status !== "pending") return "paid";
 
-  const context = readAthContext(getPendingPurchaseOrderMetadata(order));
+  const context = readAthContext(dbApi.getPendingPurchaseOrderMetadata(order));
   if (!context) {
     console.error(
       JSON.stringify({
@@ -155,7 +169,7 @@ async function runAthSettlementTick(
     );
 
     if (context.authorizedAt === null) {
-      await updatePendingPurchaseOrderMetadata(db, {
+      await dbApi.updatePendingPurchaseOrderMetadata(db, {
         orderReference: input.orderReference,
         metadata: {
           "athm:authorizedAt": String(Date.now()),
@@ -202,7 +216,7 @@ async function runAthSettlementTick(
         );
         return "continue";
       }
-      await updatePendingPurchaseOrderMetadata(db, {
+      await dbApi.updatePendingPurchaseOrderMetadata(db, {
         orderReference: input.orderReference,
         metadata: {
           "athm:referenceNumber": referenceNumber,
@@ -251,7 +265,7 @@ async function runAthSettlementTick(
       );
       return "continue";
     }
-    await updatePendingPurchaseOrderMetadata(db, {
+    await dbApi.updatePendingPurchaseOrderMetadata(db, {
       orderReference: input.orderReference,
       metadata: {
         "athm:referenceNumber": referenceNumber,
@@ -276,13 +290,17 @@ export async function athSettlementTickStep(
 ): Promise<AthSettlementTickResult> {
   "use step";
 
+  // These imports must stay dynamic so workflow module evaluation does not
+  // traverse libsql dependencies before step runtime. That causes a crash.
+  const { getWebhookDb } = await import("@/lib/infrastructure/turso/webhook-db-runtime");
+  const dbApi = (await import("@/lib/infrastructure/turso/webhook-db")) as unknown as DbApi;
   const db = await getWebhookDb();
   let attempt = 0;
 
   while (Date.now() < input.settlementDeadlineAt) {
     attempt += 1;
     try {
-      const result = await runAthSettlementTick(db, {
+      const result = await runAthSettlementTick(db, dbApi, {
         orderReference: input.orderReference,
         publicToken: input.publicToken,
         authToken: input.authToken,
@@ -292,13 +310,16 @@ export async function athSettlementTickStep(
         return result;
       }
     } catch (err) {
+      if (err instanceof FatalError || err instanceof RetryableError) {
+        throw err;
+      }
       if (err instanceof AthPaymentApiError) {
         if (isFatalAthError(err)) {
           throw new FatalError(err.message);
         }
         throw new RetryableError(err.message);
       }
-      throw err;
+      throw new FatalError(toErrorMessage(err));
     }
 
     await delay(ATH_SETTLEMENT_POLL_INTERVAL);
