@@ -2,7 +2,6 @@ import { FatalError, RetryableError } from "workflow";
 
 export async function markAthExpired(
   params: { orderReference: string; reason: string },
-  db?: unknown,
 ): Promise<void> {
   // Keep DB modules out of top-level workflow imports; loading them eagerly
   // pulls libsql into workflow VM evaluation and causes runtime crashes.
@@ -10,7 +9,7 @@ export async function markAthExpired(
   const { getPurchaseOrderByReference, setPurchaseOrderStatus } = await import(
     "@/lib/infrastructure/turso/webhook-db"
   );
-  const client = db ?? (await getWebhookDb());
+  const client = await getWebhookDb();
   const order = await getPurchaseOrderByReference(client as never, params.orderReference);
   if (!order || order.status !== "pending") return;
   await setPurchaseOrderStatus(client as never, params.orderReference, "expired");

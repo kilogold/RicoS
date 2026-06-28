@@ -37,12 +37,6 @@ type SettlementOrder = {
   grandTotalCents: number;
 };
 
-type DbApi = {
-  getPendingPurchaseOrderMetadata: (order: unknown) => Record<string, string | undefined> | null;
-  getPurchaseOrderByReference: (db: unknown, orderReference: string) => Promise<unknown>;
-  updatePendingPurchaseOrderMetadata: (db: unknown, params: unknown) => Promise<boolean>;
-};
-
 function isFatalAthError(err: AthPaymentApiError): boolean {
   if (err.params.code !== "api_error") return false;
   if (typeof err.params.status !== "number") return false;
@@ -109,17 +103,18 @@ async function finalizeAthPaidOrder(
 }
 
 async function runAthSettlementTick(
-  db: unknown,
-  dbApi: DbApi,
   input: AthSettlementTickInput,
 ): Promise<AthSettlementTickResult> {
+  const { getWebhookDb } = await import("@/lib/infrastructure/turso/webhook-db-runtime");
+  const dbApi = await import("@/lib/infrastructure/turso/webhook-db");
+  const db = await getWebhookDb();
   const order = (await dbApi.getPurchaseOrderByReference(
     db,
     input.orderReference,
   )) as SettlementOrder | null;
   if (!order || order.status !== "pending") return "paid";
 
-  const context = readAthContext(dbApi.getPendingPurchaseOrderMetadata(order));
+  const context = readAthContext(dbApi.getPendingPurchaseOrderMetadata(order as never));
   if (!context) {
     console.error(
       JSON.stringify({
@@ -132,7 +127,7 @@ async function runAthSettlementTick(
   }
 
   if (Date.now() >= context.expiresAt) {
-    await markAthExpired({ orderReference: input.orderReference, reason: "ath_expired" }, db);
+    await markAthExpired({ orderReference: input.orderReference, reason: "ath_expired" });
     return "expired";
   }
 
@@ -155,7 +150,7 @@ async function runAthSettlementTick(
   }
 
   if (found.ecommerceStatus === ATH_ECOMMERCE_STATUS.CANCEL) {
-    await markAthExpired({ orderReference: input.orderReference, reason: "ath_cancelled" }, db);
+    await markAthExpired({ orderReference: input.orderReference, reason: "ath_cancelled" });
     return "expired";
   }
 
@@ -178,10 +173,10 @@ async function runAthSettlementTick(
       const authorized = await authorizePayment({ authToken: input.authToken });
       if (authorized.ecommerceStatus !== ATH_ECOMMERCE_STATUS.COMPLETED) {
         if (authorized.ecommerceStatus === ATH_ECOMMERCE_STATUS.CANCEL) {
-          await markAthExpired(
-            { orderReference: input.orderReference, reason: "ath_cancelled_on_authorize" },
-            db,
-          );
+          await markAthExpired({
+            orderReference: input.orderReference,
+            reason: "ath_cancelled_on_authorize",
+          });
           return "expired";
         }
         return "continue";
@@ -290,17 +285,12 @@ export async function athSettlementTickStep(
 ): Promise<AthSettlementTickResult> {
   "use step";
 
-  // These imports must stay dynamic so workflow module evaluation does not
-  // traverse libsql dependencies before step runtime. That causes a crash.
-  const { getWebhookDb } = await import("@/lib/infrastructure/turso/webhook-db-runtime");
-  const dbApi = (await import("@/lib/infrastructure/turso/webhook-db")) as unknown as DbApi;
-  const db = await getWebhookDb();
   let attempt = 0;
 
   while (Date.now() < input.settlementDeadlineAt) {
     attempt += 1;
     try {
-      const result = await runAthSettlementTick(db, dbApi, {
+      const result = await runAthSettlementTick({
         orderReference: input.orderReference,
         publicToken: input.publicToken,
         authToken: input.authToken,
