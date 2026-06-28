@@ -33,33 +33,10 @@ export class AthPaymentApiError extends Error {
 }
 
 export async function createPayment(input: AthCreatePaymentRequest): Promise<AthCreatePaymentResponse> {
-  const body = {
-    env: input.env,
-    publicToken: input.publicToken,
-    timeout: input.timeoutSeconds,
-    total: input.total,
-    subtotal: input.subtotal ?? input.total,
-    tax: input.tax ?? 0,
-    metadata1: input.metadata1,
-    metadata2: input.metadata2,
-    phoneNumber: input.phoneNumber,
-    customerName: input.customerName,
-    customerEmail: input.customerEmail ?? "",
-    items: [
-      {
-        name: "RicoS Order",
-        description: "",
-        quantity: 1,
-        price: input.total,
-        tax: input.tax ?? 0,
-        metadata: null,
-      },
-    ],
-  };
   const envelope = await postAthEnvelope({
     phase: "payment",
     path: "/payment",
-    body,
+    body: input,
   });
   const data = envelope.data ?? {};
   const ecommerceId = readString(data, ["ecommerceId"]);
@@ -124,7 +101,7 @@ function toAthStatusResponse(
 async function postAthEnvelope(params: {
   phase: "payment" | "findPayment" | "authorization";
   path: string;
-  body: Record<string, unknown>;
+  body: unknown;
   bearerToken?: string;
 }): Promise<AthApiEnvelope> {
   let res: Response;

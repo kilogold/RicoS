@@ -209,11 +209,18 @@ export async function handleAthMovilReferenceRegistrationRequest(
     const orchestration = await startAthPaymentOrchestration(db, {
       orderReference,
       publicToken: athPublicToken,
-      totalCents: grandTotalCents,
+      totals: {
+        subtotalCents: persisted.payload.subtotalCents,
+        serviceChargeCents: persisted.payload.serviceChargeCents,
+        salesTaxCents: persisted.payload.salesTaxCents,
+        municipalTaxCents: persisted.payload.municipalTaxCents,
+        grandTotalCents: persisted.payload.grandTotalCents,
+      },
       serviceMode,
       customerName: contact.customerName,
       customerPhone: contact.customerPhone,
       customerEmail: contact.customerEmail,
+      lines: persisted.payload.lines,
     });
 
     console.info(

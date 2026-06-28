@@ -8,18 +8,28 @@ export const ATH_ECOMMERCE_STATUS = {
 export type AthEcommerceStatus =
   (typeof ATH_ECOMMERCE_STATUS)[keyof typeof ATH_ECOMMERCE_STATUS];
 
+export type AthPaymentItem = {
+  name: string;
+  description: string;
+  quantity: number;
+  price: number;
+  tax: number;
+  metadata: string | null;
+};
+
 export type AthCreatePaymentRequest = {
   env: "production" | "staging";
   publicToken: string;
-  timeoutSeconds: number;
+  timeout: number;
   total: number;
-  subtotal?: number;
-  tax?: number;
+  subtotal: number;
+  tax: number;
   metadata1: string;
   metadata2: string;
   phoneNumber: string;
   customerName: string;
-  customerEmail?: string;
+  customerEmail: string;
+  items: AthPaymentItem[];
 };
 
 export type AthCreatePaymentResponse = {

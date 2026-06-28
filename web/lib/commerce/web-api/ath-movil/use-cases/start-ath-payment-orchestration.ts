@@ -1,4 +1,5 @@
 import type { Client } from "@libsql/client";
+import type { OrderTotals, PurchaseOrderLine } from "@ricos/shared";
 import {
   toUsLocalPhoneDigits,
   US_PHONE_DIGIT_COUNT,
@@ -8,18 +9,31 @@ import {
   ATH_ORCHESTRATION_TIMEOUT_SECONDS,
   ATH_SETTLEMENT_BUDGET_MS,
 } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-constants";
+import type { AthPaymentItem } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-types";
 import { updatePendingPurchaseOrderMetadata } from "@/lib/infrastructure/turso/webhook-db";
+
+function athItemsFromOrderLines(lines: PurchaseOrderLine[]): AthPaymentItem[] {
+  return lines.map((line) => ({
+    name: line.itemLabel,
+    description: line.selectionLines.join(", "),
+    quantity: line.quantity,
+    price: line.lineUnitTotalCents / 100,
+    tax: 0,
+    metadata: null,
+  }));
+}
 
 export async function startAthPaymentOrchestration(
   db: Client,
   params: {
     orderReference: string;
     publicToken: string;
-    totalCents: number;
+    totals: OrderTotals;
     serviceMode: string;
     customerName: string;
     customerPhone: string;
     customerEmail: string | null;
+    lines: PurchaseOrderLine[];
   },
 ): Promise<{
   ecommerceId: string;
@@ -37,18 +51,20 @@ export async function startAthPaymentOrchestration(
     throw new Error("ath_invalid_phone_number");
   }
 
+  const { subtotalCents, salesTaxCents, municipalTaxCents, grandTotalCents } = params.totals;
   const payment = await createPayment({
     env: "production",
     publicToken: params.publicToken,
-    timeoutSeconds: ATH_ORCHESTRATION_TIMEOUT_SECONDS,
-    total: params.totalCents / 100,
-    subtotal: params.totalCents / 100,
-    tax: 0,
+    timeout: ATH_ORCHESTRATION_TIMEOUT_SECONDS,
+    total: grandTotalCents / 100,
+    subtotal: subtotalCents / 100,
+    tax: (salesTaxCents + municipalTaxCents) / 100,
     metadata1: params.orderReference,
     metadata2: params.serviceMode.slice(0, 40),
     phoneNumber: phoneDigits,
     customerName: params.customerName,
-    customerEmail: params.customerEmail ?? undefined,
+    customerEmail: params.customerEmail ?? "",
+    items: athItemsFromOrderLines(params.lines),
   });
 
   const metadataSaved = await updatePendingPurchaseOrderMetadata(db, {
