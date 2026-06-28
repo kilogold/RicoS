@@ -1,4 +1,6 @@
 import { parseOrderConfirmationProvider } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
+import { ORDER_CONFIRMATION_ERROR_CODE } from "@/lib/commerce/order-confirmation";
+import { verifyAthOrderConfirmation } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/verify-ath-order-confirmation";
 import { verifySolanaOrderConfirmation } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/verify-solana-order-confirmation";
 import { verifyStripeOrderConfirmation } from "@/lib/commerce/web-api/staff-order-management/maintenance/use-cases/verify-stripe-order-confirmation";
 import { NextResponse } from "next/server";
@@ -14,7 +16,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         ok: false,
-        code: "invalid_provider",
+        code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
         detail: "missing_or_unsupported_provider",
         provider: null,
       },
@@ -30,7 +32,7 @@ export async function GET(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          code: "invalid_payment_intent",
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
           detail: "missing_payment_intent",
           provider: "stripe",
         },
@@ -58,7 +60,7 @@ export async function GET(req: Request) {
         detail: result.detail,
         provider: "stripe",
       },
-      { status: result.code === "invalid_payment_intent" ? 400 : 409 },
+      { status: result.code === ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT ? 400 : 409 },
     );
   }
 
@@ -70,7 +72,7 @@ export async function GET(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          code: "invalid_reference",
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
           detail: "missing_reference",
           provider: "solana",
         },
@@ -98,14 +100,49 @@ export async function GET(req: Request) {
         detail: result.detail,
         provider: "solana",
       },
-      { status: result.code === "invalid_reference" ? 400 : 409 },
+      { status: result.code === ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE ? 400 : 409 },
+    );
+  }
+
+  if (provider === "ath-movil") {
+    const paymentReference = url.searchParams.get("reference");
+
+    if (!paymentReference) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
+          detail: "missing_reference",
+          provider: "ath-movil",
+        },
+        { status: 400 },
+      );
+    }
+
+    const result = await verifyAthOrderConfirmation({ orderReference: paymentReference });
+    if (result.ok) {
+      return NextResponse.json({
+        ok: true,
+        orderStatus: result.orderStatus,
+        provider: "ath-movil",
+      });
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        code: result.code,
+        detail: result.detail,
+        provider: "ath-movil",
+      },
+      { status: result.code === ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE ? 400 : 409 },
     );
   }
 
   return NextResponse.json(
     {
       ok: false,
-      code: "invalid_provider",
+      code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
       detail: "unsupported_provider",
       provider: null,
     },

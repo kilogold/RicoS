@@ -5,6 +5,16 @@ import {
   type OrderConfirmationProvider,
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
 import { useCart } from "@/lib/cart-context";
+import {
+  ORDER_CONFIRMATION_ERROR_CODE,
+  type OrderConfirmationErrorCode,
+} from "@/lib/commerce/order-confirmation";
+import {
+  errorMessageForCode,
+  fetchOrderConfirmationStatus,
+  isOrderConfirmed,
+  type ConfirmationApiResponse,
+} from "@/lib/commerce/order-confirmation-client";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import Link from "next/link";
@@ -17,32 +27,8 @@ type ConfirmationState =
   | {
       phase: "error";
       message: string;
-      code?: string;
+      code?: OrderConfirmationErrorCode;
     };
-
-type ConfirmationApiResponse =
-  | { ok: true; orderStatus: string; provider?: string }
-  | { ok: false; code: string; detail?: string; provider?: string };
-
-function errorMessageForCode(
-  code: string,
-  copy: ReturnType<typeof getAppStrings>,
-): string {
-  switch (code) {
-    case "missing_order":
-      return copy.orderConfirmationMissingOrder;
-    case "payment_not_succeeded":
-      return copy.orderConfirmationPaymentFailed;
-    case "invalid_payment_intent":
-    case "invalid_reference":
-    case "invalid_provider":
-    case "invalid_session":
-      return copy.orderConfirmationInvalidSession;
-    case "order_not_confirmed":
-    default:
-      return copy.orderConfirmationNotConfirmed;
-  }
-}
 
 function SuccessContent() {
   const { language } = useLanguage();
@@ -52,7 +38,7 @@ function SuccessContent() {
   const provider = parseOrderConfirmationProvider(searchParams.get("provider"));
   const paymentIntent = searchParams.get("payment_intent");
   const redirectStatus = searchParams.get("redirect_status");
-  const solanaPayReference = searchParams.get("reference");
+  const paymentReference = searchParams.get("reference");
   const transactionSignature = searchParams.get("signature");
   const [state, setState] = useState<ConfirmationState>({ phase: "loading" });
 
@@ -65,7 +51,7 @@ function SuccessContent() {
         setState({
           phase: "error",
           message: strings.orderConfirmationInvalidSession,
-          code: "invalid_provider",
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
         });
         return;
       }
@@ -74,16 +60,16 @@ function SuccessContent() {
         setState({
           phase: "error",
           message: strings.orderConfirmationInvalidSession,
-          code: "invalid_payment_intent",
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
         });
         return;
       }
 
-      if (provider === "solana" && !solanaPayReference) {
+      if ((provider === "solana" || provider === "ath-movil") && !paymentReference) {
         setState({
           phase: "error",
           message: strings.orderConfirmationInvalidSession,
-          code: "invalid_reference",
+          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
         });
         return;
       }
@@ -93,35 +79,60 @@ function SuccessContent() {
         params.set("payment_intent", paymentIntent!);
         if (redirectStatus) params.set("redirect_status", redirectStatus);
       } else {
-        params.set("reference", solanaPayReference!);
+        params.set("reference", paymentReference!);
         if (transactionSignature) params.set("signature", transactionSignature);
       }
 
+      let body: ConfirmationApiResponse | null;
       try {
-        const res = await fetch(`/api/order/confirmation-status?${params.toString()}`);
-        const body = (await res.json()) as ConfirmationApiResponse;
+        body = await fetchOrderConfirmationStatus(params);
+      } catch {
+        body = null;
+      }
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        if (body.ok) {
+      if (!body) {
+        setState({
+          phase: "error",
+          message: strings.orderConfirmationNotConfirmed,
+        });
+        return;
+      }
+
+      if (body.ok) {
+        if (isOrderConfirmed(body.orderStatus)) {
           clear();
           setState({ phase: "confirmed" });
           return;
         }
-
-        setState({
-          phase: "error",
-          message: errorMessageForCode(body.code, strings),
-          code: body.code,
-        });
-      } catch {
-        if (!cancelled) {
+        if (body.orderStatus === "expired") {
           setState({
             phase: "error",
-            message: strings.orderConfirmationNotConfirmed,
+            message: errorMessageForCode(
+              ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED,
+              strings,
+            ),
+            code: ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED,
           });
+          return;
         }
+        setState({
+          phase: "error",
+          message: errorMessageForCode(
+            ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
+            strings,
+          ),
+          code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
+        });
+        return;
       }
+
+      setState({
+        phase: "error",
+        message: errorMessageForCode(body.code, strings),
+        code: body.code,
+      });
     }
 
     void verify();
@@ -132,7 +143,7 @@ function SuccessContent() {
     provider,
     paymentIntent,
     redirectStatus,
-    solanaPayReference,
+    paymentReference,
     transactionSignature,
     clear,
     language,
@@ -140,7 +151,7 @@ function SuccessContent() {
 
   const paymentRefBlock = paymentRefForProvider(provider, {
     paymentIntent,
-    solanaPayReference,
+    paymentReference,
     copy,
   });
 
@@ -222,7 +233,7 @@ function paymentRefForProvider(
   provider: OrderConfirmationProvider | null,
   refs: {
     paymentIntent: string | null;
-    solanaPayReference: string | null;
+    paymentReference: string | null;
     copy: ReturnType<typeof getAppStrings>;
   },
 ) {
@@ -233,10 +244,10 @@ function paymentRefForProvider(
       </p>
     );
   }
-  if (provider === "solana" && refs.solanaPayReference) {
+  if ((provider === "solana" || provider === "ath-movil") && refs.paymentReference) {
     return (
       <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90 break-all">
-        {refs.copy.orderReferenceLabel}: {refs.solanaPayReference}
+        {refs.copy.orderReferenceLabel}: {refs.paymentReference}
       </p>
     );
   }

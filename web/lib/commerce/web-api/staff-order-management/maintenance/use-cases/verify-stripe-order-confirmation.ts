@@ -3,6 +3,11 @@ import {
   type PurchaseOrderStatus,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
+import { sleep } from "@ricos/shared";
+import {
+  ORDER_CONFIRMATION_ERROR_CODE,
+  type OrderConfirmationErrorCode,
+} from "@/lib/commerce/order-confirmation";
 
 const CONFIRMED_STATUSES: ReadonlySet<PurchaseOrderStatus> = new Set([
   "paid",
@@ -19,11 +24,7 @@ export type StripeOrderConfirmationResult =
   | { ok: true; orderStatus: PurchaseOrderStatus }
   | {
       ok: false;
-      code:
-        | "invalid_payment_intent"
-        | "payment_not_succeeded"
-        | "missing_order"
-        | "order_not_confirmed";
+      code: OrderConfirmationErrorCode;
       detail: string;
     };
 
@@ -35,10 +36,6 @@ function logStripeConfirmationMismatch(params: Record<string, unknown>): void {
       ...params,
     }),
   );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -56,7 +53,7 @@ export async function verifyStripeOrderConfirmation(params: {
   if (!paymentIntentId || !paymentIntentId.startsWith("pi_")) {
     return {
       ok: false,
-      code: "invalid_payment_intent",
+      code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
       detail: "missing_or_invalid_payment_intent",
     };
   }
@@ -69,7 +66,7 @@ export async function verifyStripeOrderConfirmation(params: {
     });
     return {
       ok: false,
-      code: "payment_not_succeeded",
+      code: ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_NOT_SUCCEEDED,
       detail: redirectStatus ? `redirect_status_${redirectStatus}` : "redirect_status_missing",
     };
   }
@@ -89,7 +86,7 @@ export async function verifyStripeOrderConfirmation(params: {
       });
       return {
         ok: false,
-        code: "missing_order",
+        code: ORDER_CONFIRMATION_ERROR_CODE.MISSING_ORDER,
         detail: "purchase_order_not_found",
       };
     }
@@ -115,7 +112,7 @@ export async function verifyStripeOrderConfirmation(params: {
     });
     return {
       ok: false,
-      code: "order_not_confirmed",
+      code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
       detail: `status_${order.status}`,
     };
   }
@@ -127,7 +124,7 @@ export async function verifyStripeOrderConfirmation(params: {
   });
   return {
     ok: false,
-    code: "order_not_confirmed",
+    code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
     detail: "verification_exhausted",
   };
 }

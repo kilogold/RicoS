@@ -35,6 +35,7 @@ export type AppStrings = {
   orderConfirmationMissingOrder: string;
   orderConfirmationNotConfirmed: string;
   orderConfirmationPaymentFailed: string;
+  orderConfirmationPaymentExpired: string;
   orderConfirmationInvalidSession: string;
   paymentIntentLabel: string;
   orderReferenceLabel: string;
@@ -63,6 +64,7 @@ export type AppStrings = {
   solanaPayStubBody: string;
   athMovilStubTitle: string;
   athMovilStubBody: string;
+  athMovilWaitingHint: string;
   pickupContactHeading: string;
   customerNameLabel: string;
   customerPhoneLabel: string;
@@ -120,6 +122,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "Your payment may have gone through, but we have not confirmed your order yet. Please contact the store with the payment reference below.",
     orderConfirmationPaymentFailed:
       "Your payment did not complete. You have not been charged for a confirmed order. Please return to checkout and try again.",
+    orderConfirmationPaymentExpired:
+      "Your ATH Móvil payment request expired before we could confirm your order. You were not charged for a confirmed order. Please return to the menu and check out again.",
     orderConfirmationInvalidSession:
       "This confirmation link is incomplete or invalid. Please return to the menu and start checkout again.",
     paymentIntentLabel: "Payment intent",
@@ -149,7 +153,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     solanaPayStubTitle: "Solana Pay",
     solanaPayStubBody: "Solana Pay checkout will be available here soon.",
     athMovilStubTitle: "ATH Móvil",
-    athMovilStubBody: "ATH Móvil checkout will be available here soon.",
+    athMovilStubBody: "Pay {total} with ATH Móvil on the phone number you entered.",
+    athMovilWaitingHint: "Open the ATH Móvil app and approve the payment request. This page updates automatically once payment is confirmed.",
     pickupContactHeading: "Contact info",
     customerNameLabel: "Name",
     customerPhoneLabel: "Phone",
@@ -207,6 +212,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "Es posible que el pago se haya procesado, pero aun no confirmamos tu orden. Contacta la tienda con la referencia de pago abajo.",
     orderConfirmationPaymentFailed:
       "El pago no se completo. No se registro una orden confirmada. Vuelve al pago e intentalo de nuevo.",
+    orderConfirmationPaymentExpired:
+      "La solicitud de pago con ATH Móvil venció antes de que pudiéramos confirmar tu orden. No se te cobró una orden confirmada. Vuelve al menú e inicia el pago de nuevo.",
     orderConfirmationInvalidSession:
       "Este enlace de confirmacion esta incompleto o no es valido. Vuelve al menu e inicia el pago de nuevo.",
     paymentIntentLabel: "Intento de pago",
@@ -236,7 +243,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     solanaPayStubTitle: "Solana Pay",
     solanaPayStubBody: "El pago con Solana Pay estara disponible pronto.",
     athMovilStubTitle: "ATH Movil",
-    athMovilStubBody: "El pago con ATH Movil estara disponible pronto.",
+    athMovilStubBody: "Paga {total} con ATH Movil usando el telefono que ingresaste.",
+    athMovilWaitingHint: "Abre la app ATH Movil y aprueba la solicitud de pago. Esta pagina se actualizara automaticamente cuando se confirme el pago.",
     pickupContactHeading: "Informacion de contacto",
     customerNameLabel: "Nombre",
     customerPhoneLabel: "Telefono",

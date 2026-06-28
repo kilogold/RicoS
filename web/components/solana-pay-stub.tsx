@@ -20,6 +20,7 @@ import {
   CART_CODEC_KEY,
   encodeCartToMetadataV1,
   type MenuDocument,
+  sleep,
 } from "@ricos/shared";
 import type { Address } from "@solana/addresses";
 import { createSolanaClient } from "gill";
@@ -351,7 +352,6 @@ export function SolanaPayStub({
     if (!qr || !referenceAddress) return;
 
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
 
     const run = async () => {
       while (!cancelled) {
@@ -406,9 +406,7 @@ export function SolanaPayStub({
           return;
         }
 
-        await new Promise<void>((resolve) => {
-          timer = setTimeout(resolve, POLL_INTERVAL_MS);
-        });
+        await sleep(POLL_INTERVAL_MS);
       }
     };
 
@@ -416,7 +414,6 @@ export function SolanaPayStub({
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
     };
   }, [qr, rpc, amountMinor, referenceAddress]);
 

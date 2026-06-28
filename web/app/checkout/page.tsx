@@ -1,5 +1,6 @@
 "use client";
 
+import { AthMovilStub } from "@/components/ath-movil-stub";
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
@@ -7,6 +8,8 @@ import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { useStoreSession } from "@/app/_client/store-session-context";
 import { useCart } from "@/lib/cart-context";
 import {
+  CUSTOMER_PHONE_FORMATTED_MAX_LEN,
+  formatUsPhoneInput,
   validateCustomerContact,
   type NormalizedCustomerContact,
 } from "@/lib/commerce/domain/customer-contact";
@@ -418,8 +421,10 @@ export default function CheckoutPage() {
                     name="customerPhone"
                     autoComplete="tel"
                     inputMode="tel"
+                    maxLength={CUSTOMER_PHONE_FORMATTED_MAX_LEN}
+                    placeholder="(787) 555-1234"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => setCustomerPhone(formatUsPhoneInput(e.target.value))}
                     className="rounded-lg border border-white/15 bg-[#0c2340] px-3 py-2 text-white placeholder:text-white/40 focus:border-[#f4c430]/50 focus:outline-none"
                   />
                 </label>
@@ -581,11 +586,13 @@ export default function CheckoutPage() {
             />
           ) : null}
 
-          {selectedMethod === "ath-movil" ? (
-            <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
-              <h2 className="text-lg font-semibold text-[#f4c430]">{copy.athMovilStubTitle}</h2>
-              <p className="mt-2 text-sm text-white/75">{copy.athMovilStubBody}</p>
-            </div>
+          {selectedMethod === "ath-movil" && lockedContact && selectedServiceMode ? (
+            <AthMovilStub
+              customerName={lockedContact.customerName}
+              customerPhone={lockedContact.customerPhone}
+              customerEmail={lockedContact.customerEmail ?? ""}
+              serviceMode={selectedServiceMode}
+            />
           ) : null}
             </>
           ) : null}

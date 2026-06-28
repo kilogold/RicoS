@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { createClient, type Client } from "@libsql/client";
 import type { KitchenOrderIntent } from "@ricos/shared";
 import {
@@ -44,6 +43,7 @@ export type RefundRecord = {
   amountCents: number;
   stripeRefundConfirmation?: string;
   solanaRefundTransactionSignature?: string;
+  athRefundReferenceNumber?: string;
   createdAt: number;
   confirmedAt?: number;
 };
@@ -65,7 +65,7 @@ export async function migrate(client: Client): Promise<void> {
     CREATE TABLE IF NOT EXISTS purchase_orders (
       order_reference          TEXT PRIMARY KEY,
       payment_provider         TEXT NOT NULL
-                               CHECK (payment_provider IN ('stripe','helius')),
+                               CHECK (payment_provider IN ('stripe','helius','athmovil')),
       payment_ingress_event_id TEXT UNIQUE,
       payment_intent_expires_at INTEGER,
       amount_cents             INTEGER NOT NULL,
@@ -113,10 +113,14 @@ export async function migrate(client: Client): Promise<void> {
       amount_cents                         INTEGER NOT NULL CHECK (amount_cents > 0),
       stripe_refund_confirmation           TEXT,
       solana_refund_transaction_signature  TEXT,
+      ath_refund_reference_number          TEXT,
       created_at                           INTEGER NOT NULL,
       confirmed_at                         INTEGER
     )
   `);
+  await client.execute(`
+    ALTER TABLE refunds ADD COLUMN ath_refund_reference_number TEXT
+  `).catch(() => {});
   await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_refunds_order_reference
     ON refunds(order_reference)
@@ -130,6 +134,11 @@ export async function migrate(client: Client): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS uq_refunds_solana_signature
     ON refunds(solana_refund_transaction_signature)
     WHERE solana_refund_transaction_signature IS NOT NULL
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_refunds_ath_reference_number
+    ON refunds(ath_refund_reference_number)
+    WHERE ath_refund_reference_number IS NOT NULL
   `);
 
   await client.execute(`
@@ -479,6 +488,68 @@ export async function markSolanaPurchaseOrderPaidIfNew(
   return true;
 }
 
+/**
+ * ATH Móvil ingress: move a pending purchase order to paid and attach ATH ingress id.
+ * Returns true when this webhook moved the row to paid.
+ */
+export async function markAthMovilPurchaseOrderPaidIfNew(
+  client: Client,
+  params: {
+    orderReference: string;
+    payload: KitchenOrderPayload;
+  },
+): Promise<boolean> {
+  const existing = await client.execute({
+    sql: `
+      SELECT po.payment_ingress_event_id, sh.status
+      FROM purchase_orders po
+      LEFT JOIN status_history sh
+        ON sh.order_reference = po.order_reference
+       AND sh.status_id = po.status_id
+      WHERE po.order_reference = ?
+    `,
+    args: [params.orderReference],
+  });
+  const rows = (existing.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) {
+    throw new Error(`missing pending ATH Móvil purchase order ${params.orderReference}`);
+  }
+  const currentIngress = rows[0].payment_ingress_event_id ?? rows[0].PAYMENT_INGRESS_EVENT_ID;
+  if (currentIngress === params.payload.paymentIngressEventId) {
+    return false;
+  }
+  const currentStatus = String(rows[0].status ?? rows[0].STATUS ?? "pending");
+  if (currentStatus !== "pending") {
+    return false;
+  }
+
+  const update = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET payment_ingress_event_id = ?,
+          amount_cents = ?,
+          currency = ?,
+          payload_json = ?
+      WHERE order_reference = ?
+        AND payment_provider = 'athmovil'
+        AND payment_ingress_event_id IS NULL
+    `,
+    args: [
+      params.payload.paymentIngressEventId,
+      params.payload.grandTotalCents,
+      params.payload.currency,
+      JSON.stringify(params.payload),
+      params.orderReference,
+    ],
+  });
+  if ((update.rowsAffected ?? 0) === 0) {
+    return false;
+  }
+  await transitionOrderStatus(client, params.orderReference, "paid");
+  await enqueuePrintJob(client, { orderReference: params.orderReference, intent: "paid" });
+  return true;
+}
+
 export function hydratePrintJobPayload(
   order: PurchaseOrderRecord,
   intent: KitchenOrderIntent,
@@ -513,7 +584,7 @@ export async function enqueuePrintJob(
     throw new Error(`missing purchase order ${params.orderReference}`);
   }
 
-  const printJobId = randomUUID();
+  const printJobId = globalThis.crypto.randomUUID();
   const createdAt = Date.now();
   const paymentIngressEventId =
     params.intent === "paid"
@@ -810,11 +881,51 @@ export async function setPurchaseOrderStatus(
   await transitionOrderStatus(client, orderReference, status);
 }
 
+export async function updatePendingPurchaseOrderMetadata(
+  client: Client,
+  params: {
+    orderReference: string;
+    metadata: Record<string, string | undefined>;
+    paymentIntentExpiresAt?: number | null;
+  },
+): Promise<boolean> {
+  const order = await getPurchaseOrderByReference(client, params.orderReference);
+  if (!order || order.status !== "pending") {
+    return false;
+  }
+
+  const currentPayload = order.payload as PersistedOrderPayload;
+  const mergedPayload: PersistedOrderPayload = {
+    ...currentPayload,
+    metadata: {
+      ...(currentPayload.metadata ?? {}),
+      ...params.metadata,
+    },
+  };
+
+  const result = await client.execute({
+    sql: `
+      UPDATE purchase_orders
+      SET payload_json = ?,
+          payment_intent_expires_at = COALESCE(?, payment_intent_expires_at)
+      WHERE order_reference = ?
+        AND payment_ingress_event_id IS NULL
+    `,
+    args: [
+      JSON.stringify(mergedPayload),
+      params.paymentIntentExpiresAt ?? null,
+      params.orderReference,
+    ],
+  });
+  return (result.rowsAffected ?? 0) > 0;
+}
+
 // ---------- refunds ---------------------------------------------------------
 
 function rowToRefund(row: Record<string, unknown>): RefundRecord {
   const stripe = row.stripe_refund_confirmation ?? row.STRIPE_REFUND_CONFIRMATION;
   const sol = row.solana_refund_transaction_signature ?? row.SOLANA_REFUND_TRANSACTION_SIGNATURE;
+  const ath = row.ath_refund_reference_number ?? row.ATH_REFUND_REFERENCE_NUMBER;
   const confirmed = row.confirmed_at ?? row.CONFIRMED_AT;
   return {
     id: Number(row.id ?? row.ID ?? 0),
@@ -823,6 +934,7 @@ function rowToRefund(row: Record<string, unknown>): RefundRecord {
     stripeRefundConfirmation: stripe === null || stripe === undefined ? undefined : String(stripe),
     solanaRefundTransactionSignature:
       sol === null || sol === undefined ? undefined : String(sol),
+    athRefundReferenceNumber: ath === null || ath === undefined ? undefined : String(ath),
     createdAt: Number(row.created_at ?? row.CREATED_AT ?? 0),
     confirmedAt: confirmed === null || confirmed === undefined ? undefined : Number(confirmed),
   };
@@ -846,11 +958,14 @@ export async function tryInsertRefundIfWithinOrderTotal(
     amountCents: number;
     stripeRefundConfirmation?: string;
     solanaRefundTransactionSignature?: string;
+    athRefundReferenceNumber?: string;
   },
 ): Promise<RefundRecord | null> {
   const now = Date.now();
   const proofPresent =
-    !!params.stripeRefundConfirmation || !!params.solanaRefundTransactionSignature;
+    !!params.stripeRefundConfirmation ||
+    !!params.solanaRefundTransactionSignature ||
+    !!params.athRefundReferenceNumber;
   const result = await client.execute({
     sql: `
       INSERT INTO refunds (
@@ -858,10 +973,11 @@ export async function tryInsertRefundIfWithinOrderTotal(
         amount_cents,
         stripe_refund_confirmation,
         solana_refund_transaction_signature,
+        ath_refund_reference_number,
         created_at,
         confirmed_at
       )
-      SELECT ?, ?, ?, ?, ?, ?
+      SELECT ?, ?, ?, ?, ?, ?, ?
       WHERE EXISTS (
         SELECT 1 FROM purchase_orders po
         WHERE po.order_reference = ?
@@ -870,19 +986,31 @@ export async function tryInsertRefundIfWithinOrderTotal(
             WHERE r.order_reference = ?
           ), 0)
       )
+        AND (
+          ? IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM refunds r2
+            WHERE r2.ath_refund_reference_number = ?
+          )
+        )
       RETURNING id, order_reference, amount_cents, stripe_refund_confirmation,
-                solana_refund_transaction_signature, created_at, confirmed_at
+                solana_refund_transaction_signature, ath_refund_reference_number,
+                created_at, confirmed_at
     `,
     args: [
       params.orderReference,
       params.amountCents,
       params.stripeRefundConfirmation ?? null,
       params.solanaRefundTransactionSignature ?? null,
+      params.athRefundReferenceNumber ?? null,
       now,
       proofPresent ? now : null,
       params.orderReference,
       params.amountCents,
       params.orderReference,
+      params.athRefundReferenceNumber ?? null,
+      params.athRefundReferenceNumber ?? null,
     ],
   });
   const rows = (result.rows ?? []) as Record<string, unknown>[];
@@ -906,11 +1034,14 @@ export async function insertRefund(
     amountCents: number;
     stripeRefundConfirmation?: string;
     solanaRefundTransactionSignature?: string;
+    athRefundReferenceNumber?: string;
   },
 ): Promise<RefundRecord> {
   const now = Date.now();
   const proofPresent =
-    !!params.stripeRefundConfirmation || !!params.solanaRefundTransactionSignature;
+    !!params.stripeRefundConfirmation ||
+    !!params.solanaRefundTransactionSignature ||
+    !!params.athRefundReferenceNumber;
   const result = await client.execute({
     sql: `
       INSERT INTO refunds (
@@ -918,18 +1049,21 @@ export async function insertRefund(
         amount_cents,
         stripe_refund_confirmation,
         solana_refund_transaction_signature,
+        ath_refund_reference_number,
         created_at,
         confirmed_at
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING id, order_reference, amount_cents, stripe_refund_confirmation,
-                solana_refund_transaction_signature, created_at, confirmed_at
+                solana_refund_transaction_signature, ath_refund_reference_number,
+                created_at, confirmed_at
     `,
     args: [
       params.orderReference,
       params.amountCents,
       params.stripeRefundConfirmation ?? null,
       params.solanaRefundTransactionSignature ?? null,
+      params.athRefundReferenceNumber ?? null,
       now,
       proofPresent ? now : null,
     ],
@@ -941,9 +1075,17 @@ export async function insertRefund(
 export async function updateRefundConfirmation(
   client: Client,
   refundId: number,
-  proof: { stripeRefundConfirmation?: string; solanaRefundTransactionSignature?: string },
+  proof: {
+    stripeRefundConfirmation?: string;
+    solanaRefundTransactionSignature?: string;
+    athRefundReferenceNumber?: string;
+  },
 ): Promise<void> {
-  if (!proof.stripeRefundConfirmation && !proof.solanaRefundTransactionSignature) {
+  if (
+    !proof.stripeRefundConfirmation &&
+    !proof.solanaRefundTransactionSignature &&
+    !proof.athRefundReferenceNumber
+  ) {
     throw new Error("updateRefundConfirmation: at least one rail proof required");
   }
   await client.execute({
@@ -951,12 +1093,14 @@ export async function updateRefundConfirmation(
       UPDATE refunds
       SET stripe_refund_confirmation = COALESCE(?, stripe_refund_confirmation),
           solana_refund_transaction_signature = COALESCE(?, solana_refund_transaction_signature),
+          ath_refund_reference_number = COALESCE(?, ath_refund_reference_number),
           confirmed_at = COALESCE(confirmed_at, ?)
       WHERE id = ?
     `,
     args: [
       proof.stripeRefundConfirmation ?? null,
       proof.solanaRefundTransactionSignature ?? null,
+      proof.athRefundReferenceNumber ?? null,
       Date.now(),
       refundId,
     ],
@@ -974,7 +1118,8 @@ export async function sumConfirmedRefundsForOrder(
       FROM refunds
       WHERE order_reference = ?
         AND (stripe_refund_confirmation IS NOT NULL
-             OR solana_refund_transaction_signature IS NOT NULL)
+             OR solana_refund_transaction_signature IS NOT NULL
+             OR ath_refund_reference_number IS NOT NULL)
     `,
     args: [orderReference],
   });
@@ -989,7 +1134,8 @@ export async function listRefundsForOrder(
   const result = await client.execute({
     sql: `
       SELECT id, order_reference, amount_cents, stripe_refund_confirmation,
-             solana_refund_transaction_signature, created_at, confirmed_at
+             solana_refund_transaction_signature, ath_refund_reference_number,
+             created_at, confirmed_at
       FROM refunds
       WHERE order_reference = ?
       ORDER BY created_at ASC
@@ -998,6 +1144,26 @@ export async function listRefundsForOrder(
   });
   const rows = (result.rows ?? []) as Record<string, unknown>[];
   return rows.map(rowToRefund);
+}
+
+export async function getRefundByAthRefundReferenceNumber(
+  client: Client,
+  athRefundReferenceNumber: string,
+): Promise<RefundRecord | null> {
+  const result = await client.execute({
+    sql: `
+      SELECT id, order_reference, amount_cents, stripe_refund_confirmation,
+             solana_refund_transaction_signature, ath_refund_reference_number,
+             created_at, confirmed_at
+      FROM refunds
+      WHERE ath_refund_reference_number = ?
+      LIMIT 1
+    `,
+    args: [athRefundReferenceNumber],
+  });
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  return rowToRefund(rows[0]);
 }
 
 /** Batched refund rows for many orders; each key is an `order_reference`. */
@@ -1012,7 +1178,8 @@ export async function listRefundsForOrders(
   const result = await client.execute({
     sql: `
       SELECT id, order_reference, amount_cents, stripe_refund_confirmation,
-             solana_refund_transaction_signature, created_at, confirmed_at
+             solana_refund_transaction_signature, ath_refund_reference_number,
+             created_at, confirmed_at
       FROM refunds
       WHERE order_reference IN (${placeholders})
       ORDER BY order_reference ASC, created_at ASC

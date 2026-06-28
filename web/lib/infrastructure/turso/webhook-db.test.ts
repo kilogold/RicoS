@@ -5,11 +5,14 @@ import { executeStripeIngressEvent } from "@/lib/commerce/web-api/kitchen-order-
 import {
   deletePurchaseOrderByReference,
   getPurchaseOrderByReference,
+  getRefundByAthRefundReferenceNumber,
   insertPendingPurchaseOrderIfNew,
   ackPrintJob,
   enqueuePrintJob,
   listPendingPurchaseOrders,
   listPrintJobs,
+  listRefundsForOrder,
+  markAthMovilPurchaseOrderPaidIfNew,
   markPurchaseOrderAcknowledged,
   markPurchaseOrderFulfilled,
   markSolanaPurchaseOrderPaidIfNew,
@@ -252,6 +255,48 @@ describe("webhook-db payment persistence", () => {
     expect(await statusIds(db, "solana_ref_2")).toEqual([1, 2, 3, 4]);
   });
 
+  test("marks ATH Móvil pending order as paid and is idempotent", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "ath_ref_1",
+      paymentProvider: "athmovil",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 1100,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "ath_ref_1",
+      }),
+      customerName: "Ath",
+      customerPhone: "555-0111",
+      customerEmail: null,
+    });
+
+    const paidPayload = payload({
+      paymentIngressEventId: "evt_ath_1024264030-8a36",
+      paymentReferenceId: "ath_ref_1",
+      intent: "paid",
+      currency: "usd",
+      grandTotalCents: 1100,
+    });
+
+    expect(
+      await markAthMovilPurchaseOrderPaidIfNew(db, {
+        orderReference: "ath_ref_1",
+        payload: paidPayload,
+      }),
+    ).toBe(true);
+    expect(
+      await markAthMovilPurchaseOrderPaidIfNew(db, {
+        orderReference: "ath_ref_1",
+        payload: paidPayload,
+      }),
+    ).toBe(false);
+
+    const paid = await getPurchaseOrderByReference(db, "ath_ref_1");
+    expect(paid?.status).toBe("paid");
+    expect(paid?.paymentIngressEventId).toBe("evt_ath_1024264030-8a36");
+  });
+
   test("paid webhook reuses saved pending ticket payload", async () => {
     await insertPendingPurchaseOrderIfNew(db, {
       orderReference: "pi_saved_payload",
@@ -445,5 +490,50 @@ describe("webhook-db payment persistence", () => {
       stripeRefundConfirmation: "re_1",
     });
     expect(await sumConfirmedRefundsForOrder(db, "pi_1")).toBe(600);
+  });
+
+  test("supports ATH refund proof and idempotent lookup key", async () => {
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference: "ath_paid_1",
+      paymentProvider: "athmovil",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 1000,
+      currency: "usd",
+      payload: payload({
+        paymentIngressEventId: "",
+        paymentReferenceId: "ath_paid_1",
+      }),
+      customerName: "Refund ATH",
+      customerPhone: "555-0112",
+      customerEmail: null,
+    });
+    await markAthMovilPurchaseOrderPaidIfNew(db, {
+      orderReference: "ath_paid_1",
+      payload: payload({
+        paymentIngressEventId: "evt_ath_1024264030-8a36",
+        paymentReferenceId: "ath_paid_1",
+        currency: "usd",
+      }),
+    });
+
+    const first = await tryInsertRefundIfWithinOrderTotal(db, {
+      orderReference: "ath_paid_1",
+      amountCents: 400,
+      athRefundReferenceNumber: "evt_ath_refund_1024264030-8a36",
+    });
+    expect(first?.amountCents).toBe(400);
+    expect(first?.athRefundReferenceNumber).toBe("evt_ath_refund_1024264030-8a36");
+
+    const duplicate = await tryInsertRefundIfWithinOrderTotal(db, {
+      orderReference: "ath_paid_1",
+      amountCents: 400,
+      athRefundReferenceNumber: "evt_ath_refund_1024264030-8a36",
+    });
+    expect(duplicate).toBeNull();
+
+    const saved = await getRefundByAthRefundReferenceNumber(db, "evt_ath_refund_1024264030-8a36");
+    expect(saved?.orderReference).toBe("ath_paid_1");
+    expect(await sumConfirmedRefundsForOrder(db, "ath_paid_1")).toBe(400);
+    expect(await listRefundsForOrder(db, "ath_paid_1")).toHaveLength(1);
   });
 });

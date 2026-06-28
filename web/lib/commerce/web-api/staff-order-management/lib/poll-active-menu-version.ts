@@ -1,3 +1,5 @@
+import { sleep } from "@ricos/shared";
+
 export type PollActiveMenuVersionOptions = {
   intervalMs?: number;
   maxAttempts?: number;
@@ -7,10 +9,6 @@ export type PollActiveMenuVersionOptions = {
 
 const DEFAULT_INTERVAL_MS = 2000;
 const DEFAULT_MAX_ATTEMPTS = 90;
-
-async function defaultSleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function defaultFetchActiveVersion(): Promise<number | undefined> {
   const response = await fetch("/api/menu/active-version", { cache: "no-store" });
@@ -26,13 +24,13 @@ export async function pollUntilActiveMenuVersion(
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const fetchActiveVersion = options.fetchActiveVersion ?? defaultFetchActiveVersion;
-  const sleep = options.sleep ?? defaultSleep;
+  const sleepFn = options.sleep ?? sleep;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const version = await fetchActiveVersion();
     if (version === expectedVersion) return;
     if (attempt < maxAttempts) {
-      await sleep(intervalMs);
+      await sleepFn(intervalMs);
     }
   }
 

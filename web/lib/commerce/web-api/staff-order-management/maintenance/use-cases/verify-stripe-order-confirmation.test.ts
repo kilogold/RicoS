@@ -1,6 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { KitchenOrderPayload } from "@/lib/commerce/domain";
+import { ORDER_CONFIRMATION_ERROR_CODE } from "@/lib/commerce/order-confirmation";
 import {
   insertPendingPurchaseOrderIfNew,
   markStripePurchaseOrderPaidIfNew,
@@ -82,7 +83,7 @@ describe("verifyStripeOrderConfirmation", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.code).toBe("missing_order");
+      expect(result.code).toBe(ORDER_CONFIRMATION_ERROR_CODE.MISSING_ORDER);
     }
   });
 

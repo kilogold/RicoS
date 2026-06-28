@@ -1,4 +1,5 @@
 import type { PrintRetryOptions, PrinterAdapter } from "./types";
+import { sleep } from "@ricos/shared";
 
 export async function printWithRetries(
   adapter: PrinterAdapter,
@@ -19,8 +20,4 @@ export async function printWithRetries(
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
 }

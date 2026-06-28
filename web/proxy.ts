@@ -16,7 +16,11 @@ export function proxy(req: NextRequest) {
   }
 
   if (
-    (pathname === "/api/create-payment-intent" || pathname === "/api/solana-pay/reference") &&
+    (
+      pathname === "/api/create-payment-intent" ||
+      pathname === "/api/solana-pay/reference" ||
+      pathname === "/api/ath-movil/reference"
+    ) &&
     req.method === "POST"
   ) {
     return storeClosedResponse();
@@ -26,5 +30,10 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/checkout", "/api/create-payment-intent", "/api/solana-pay/reference"],
+  matcher: [
+    "/checkout",
+    "/api/create-payment-intent",
+    "/api/solana-pay/reference",
+    "/api/ath-movil/reference",
+  ],
 };
