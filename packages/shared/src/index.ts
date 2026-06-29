@@ -119,11 +119,6 @@ export { sleep } from "./sleep";
 
 export const DEFAULT_LANGUAGE: Language = "es";
 
-/** @deprecated Prefer `MenuCatalogSurface.resolveLocalizedText`. */
-export function resolveLocalizedText(value: import("./menu-types").LocalizedText, language: Language): string {
-  return value[language] ?? value.en;
-}
-
 export type KitchenCartLineFromMetadata = HydratedCartLine;
 
 /**
