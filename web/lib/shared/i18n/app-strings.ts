@@ -46,6 +46,10 @@ export type AppStrings = {
   languageLabel: string;
   spanishLabel: string;
   englishLabel: string;
+  siteMenuLabel: string;
+  navOrderOnline: string;
+  navFindUs: string;
+  navEmployment: string;
   checkoutSelectPaymentMethod: string;
   paymentMethodStripeLabel: string;
   paymentMethodStripeDescription: string;
@@ -93,6 +97,19 @@ export type AppStrings = {
   openItemAria: string;
   scrollCategoriesLeft: string;
   scrollCategoriesRight: string;
+  findUsTitle: string;
+  findUsIntro: string;
+  findUsMapHeading: string;
+  findUsAddressHeading: string;
+  getDirections: string;
+  findUsPhoneHeading: string;
+  followUs: string;
+  hoursHeading: string;
+  employmentTitle: string;
+  employmentIntro: string;
+  applyNowCta: string;
+  employmentEmbedHint: string;
+  employmentFormEmbedTitle: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -148,6 +165,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Language",
     spanishLabel: "Spanish",
     englishLabel: "English",
+    siteMenuLabel: "Menu",
+    navOrderOnline: "Order online",
+    navFindUs: "Find Us",
+    navEmployment: "Employment",
     checkoutSelectPaymentMethod: "Choose how you would like to pay.",
     paymentMethodStripeLabel: "Card, bank & digital wallets",
     paymentMethodStripeDescription:
@@ -197,6 +218,20 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Customize item",
     scrollCategoriesLeft: "Scroll categories left",
     scrollCategoriesRight: "Scroll categories right",
+    findUsTitle: "Find Us",
+    findUsIntro: "Visit us in person, call the store, or find our social channels.",
+    findUsMapHeading: "RicoS location map",
+    findUsAddressHeading: "Address",
+    getDirections: "Get directions",
+    findUsPhoneHeading: "Phone",
+    followUs: "Follow us",
+    hoursHeading: "Hours",
+    employmentTitle: "Employment",
+    employmentIntro: "Want to join the RicoS team? Complete our application form.",
+    applyNowCta: "Apply now",
+    employmentEmbedHint:
+      "If the embedded form does not load well on your device, use the apply button above.",
+    employmentFormEmbedTitle: "RicoS employment form",
   },
   es: {
     homeTagline: "RicoS",
@@ -251,6 +286,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Idioma",
     spanishLabel: "Español",
     englishLabel: "Inglés",
+    siteMenuLabel: "Menu",
+    navOrderOnline: "Ordenar",
+    navFindUs: "Ubicacion",
+    navEmployment: "Empleo",
     checkoutSelectPaymentMethod: "Elige como quieres pagar.",
     paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",
     paymentMethodStripeDescription:
@@ -301,6 +340,21 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Personalizar articulo",
     scrollCategoriesLeft: "Desplazar categorias a la izquierda",
     scrollCategoriesRight: "Desplazar categorias a la derecha",
+    findUsTitle: "Encuentranos",
+    findUsIntro: "Visitanos, llama a la tienda o visita nuestras redes sociales.",
+    findUsMapHeading: "Mapa de ubicacion de RicoS",
+    findUsAddressHeading: "Direccion",
+    getDirections: "Como llegar",
+    findUsPhoneHeading: "Telefono",
+    followUs: "Siguenos",
+    hoursHeading: "Horario",
+    employmentTitle: "Empleo",
+    employmentIntro:
+      "Si quieres ser parte del equipo de RicoS, completa nuestra solicitud de empleo.",
+    applyNowCta: "Solicitar ahora",
+    employmentEmbedHint:
+      "Si el formulario integrado no carga bien en tu dispositivo, usa el boton de arriba.",
+    employmentFormEmbedTitle: "Formulario de empleo de RicoS",
   },
 };
 

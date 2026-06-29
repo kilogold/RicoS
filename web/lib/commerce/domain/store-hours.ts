@@ -34,33 +34,23 @@ type HoursOverride = "force-open" | "force-closed";
 
 let cachedClock: { openMin: number; lastCallMin: number; closeMin: number } | undefined;
 
-function readHoursOverride(): HoursOverride | null {
-  const raw = process.env.STORE_HOURS_OVERRIDE?.trim();
-  if (!raw) return null;
-  if (raw === "1") return "force-open";
-  if (raw === "2") return "force-closed";
-  console.warn("STORE_HOURS_OVERRIDE invalid value; ignoring:", raw);
-  return null;
-}
-
-/** Minutes since local midnight [0, 1439]. */
-function parseStoreTime(name: string, raw: string | undefined): number {
+/** Minutes since local midnight [0, 1439], or null when input is missing/invalid. */
+export function parseStoreTimeToMinutes(raw: string | undefined): number | null {
   const trimmedRaw = raw?.trim();
-  if (!trimmedRaw) {
-    throw new Error(`${name} is required (HH:MM, 24h).`);
-  }
+  if (!trimmedRaw) return null;
 
-  // Match the whole env value as `H` or `HH`, then `:`, then exactly two minute digits.
-  // Examples: `8:00`, `08:30`. Capture groups are the hour and minute substrings only;
-  // numeric ranges (0–23 / 0–59) are enforced after `Number(...)`, not by the pattern.
+  // Match full value as `H` or `HH`, then `:`, then exactly two minute digits.
+  // Examples: `8:00`, `08:30`. Numeric ranges are validated after Number(...).
   const STORE_TIME_HH_MM_PATTERN = /^(\d{1,2}):(\d{2})$/;
   const timeFormatMatch = STORE_TIME_HH_MM_PATTERN.exec(trimmedRaw);
   if (!timeFormatMatch) {
-    throw new Error(`${name} must be HH:MM (24h), got: ${JSON.stringify(raw)}`);
+    throw new Error(`Store time must be HH:MM (24h), got: ${JSON.stringify(raw)}`);
   }
 
-  const hourPart = timeFormatMatch[1];
-  const minutePart = timeFormatMatch[2];
+  const HOUR_CAPTURE_INDEX = 1;
+  const MINUTE_CAPTURE_INDEX = 2;
+  const hourPart = timeFormatMatch[HOUR_CAPTURE_INDEX];
+  const minutePart = timeFormatMatch[MINUTE_CAPTURE_INDEX];
   const hourNumber = Number(hourPart);
   const minuteNumber = Number(minutePart);
 
@@ -78,9 +68,48 @@ function parseStoreTime(name: string, raw: string | undefined): number {
     minuteNumber < MIN_CLOCK_MINUTE ||
     minuteNumber > MAX_CLOCK_MINUTE
   ) {
-    throw new Error(`${name} out of range (hour 0–23, minute 0–59): ${JSON.stringify(raw)}`);
+    return null;
   }
+
   return hourNumber * MINUTES_PER_CLOCK_HOUR + minuteNumber;
+}
+
+export function parseRequiredStoreTime(name: string, raw: string | undefined): number {
+  const parsed = parseStoreTimeToMinutes(raw);
+  if (parsed === null) {
+    throw new Error(`${name} must be HH:MM (24h), got: ${JSON.stringify(raw)}`);
+  }
+  return parsed;
+}
+
+export function formatStoreMinutesAmPm(totalMinutes: number): string {
+  const MINUTES_PER_HOUR = 60;
+  const HOURS_PER_HALF_DAY = 12;
+  const DISPLAY_WIDTH = 2;
+  const DISPLAY_PAD_CHARACTER = "0";
+  const hours24 = Math.floor(totalMinutes / MINUTES_PER_HOUR);
+  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  const suffix = hours24 >= HOURS_PER_HALF_DAY ? "PM" : "AM";
+  const hours12 = hours24 % HOURS_PER_HALF_DAY || HOURS_PER_HALF_DAY;
+  return `${hours12}:${String(minutes).padStart(DISPLAY_WIDTH, DISPLAY_PAD_CHARACTER)} ${suffix}`;
+}
+
+export function formatStoreMinutes24h(totalMinutes: number): string {
+  const MINUTES_PER_HOUR = 60;
+  const DISPLAY_WIDTH = 2;
+  const DISPLAY_PAD_CHARACTER = "0";
+  const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);
+  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  return `${String(hours).padStart(DISPLAY_WIDTH, DISPLAY_PAD_CHARACTER)}:${String(minutes).padStart(DISPLAY_WIDTH, DISPLAY_PAD_CHARACTER)}`;
+}
+
+function readHoursOverride(): HoursOverride | null {
+  const raw = process.env.STORE_HOURS_OVERRIDE?.trim();
+  if (!raw) return null;
+  if (raw === "1") return "force-open";
+  if (raw === "2") return "force-closed";
+  console.warn("STORE_HOURS_OVERRIDE invalid value; ignoring:", raw);
+  return null;
 }
 
 /**
@@ -89,9 +118,12 @@ function parseStoreTime(name: string, raw: string | undefined): number {
  */
 function storeClock(): { openMin: number; lastCallMin: number; closeMin: number } {
   if (cachedClock) return cachedClock;
-  const openMin = parseStoreTime("STORE_OPEN_TIME", process.env.STORE_OPEN_TIME);
-  const lastCallMin = parseStoreTime("STORE_LAST_CALL_TIME", process.env.STORE_LAST_CALL_TIME);
-  const closeMin = parseStoreTime("STORE_CLOSE_TIME", process.env.STORE_CLOSE_TIME);
+  const openMin = parseRequiredStoreTime("STORE_OPEN_TIME", process.env.STORE_OPEN_TIME);
+  const lastCallMin = parseRequiredStoreTime(
+    "STORE_LAST_CALL_TIME",
+    process.env.STORE_LAST_CALL_TIME,
+  );
+  const closeMin = parseRequiredStoreTime("STORE_CLOSE_TIME", process.env.STORE_CLOSE_TIME);
   if (!(openMin < lastCallMin && lastCallMin < closeMin)) {
     throw new Error(
       `Store times must satisfy OPEN < LAST_CALL < CLOSE (minutes since midnight). Got OPEN=${openMin} LAST=${lastCallMin} CLOSE=${closeMin}.`,
@@ -232,16 +264,18 @@ export function dineInOrderingEnabled(session: StoreSession): boolean {
 }
 
 export function storeClosedResponse(): NextResponse {
+  const FORBIDDEN_STATUS = 403;
   return NextResponse.json(
     { error: "Store is closed for orders.", code: STORE_CLOSED_CODE },
-    { status: 403 },
+    { status: FORBIDDEN_STATUS },
   );
 }
 
 export function dineInUnavailableResponse(): NextResponse {
+  const FORBIDDEN_STATUS = 403;
   return NextResponse.json(
     { error: "Dine-in is unavailable during last call.", code: DINE_IN_UNAVAILABLE_CODE },
-    { status: 403 },
+    { status: FORBIDDEN_STATUS },
   );
 }
 
