@@ -1,23 +1,47 @@
 "use client";
 
-import { CartBar, MenuBoard } from "@/components/menu-board";
+import { CategoryNav, type CategoryNavItem } from "@/components/menu/category-nav";
+import { CartDrawer, FloatingCartButton } from "@/components/menu/cart-drawer";
+import { MenuGrid } from "@/components/menu/menu-grid";
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
+import { useStoreLocalNow } from "@/lib/use-store-local-now";
+import { buildThemedMenuSections } from "@ricos/shared";
+import { useMemo, useState } from "react";
 
 export default function Home() {
   const { language, setLanguage } = useLanguage();
   const { catalog, surface } = useMenuRuntime();
   const copy = getAppStrings(language);
+  const [cartOpen, setCartOpen] = useState(false);
+  const now = useStoreLocalNow();
+
+  const themedSections = useMemo(
+    () => buildThemedMenuSections(catalog, { now }),
+    [catalog, now],
+  );
+
+  const navCategories = useMemo<CategoryNavItem[]>(
+    () =>
+      themedSections.flatMap(({ categories, scheduleActive }) =>
+        categories.map((cat) => ({
+          id: `cat-${cat.id}`,
+          label: surface.resolveLocalizedText(cat.title, language),
+          themeActive: scheduleActive,
+        })),
+      ),
+    [themedSections, surface, language],
+  );
 
   return (
-    <main className="relative pb-32">
+    <main className="relative">
       <StoreHoursBanners />
-      <div className="border-b border-white/10 bg-linear-to-br from-[#0c2340] via-[#0a1f38] to-[#07182b] px-4 py-12 md:px-10">
-        <div className="mx-auto max-w-4xl">
+      <div className="border-b border-white/10 bg-linear-to-br from-surface via-[#0a1f38] to-background px-4 py-12 md:px-10">
+        <div className="mx-auto max-w-6xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#f4c430]">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">
               {copy.homeTagline}
             </p>
             <div className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-black/20 px-2 py-1">
@@ -27,7 +51,7 @@ export default function Home() {
                 onClick={() => setLanguage("es")}
                 className={`rounded px-2 py-1 text-xs ${
                   language === "es"
-                    ? "bg-[#f4c430] text-[#0c2340]"
+                    ? "bg-accent text-surface"
                     : "text-white/75 hover:bg-white/10"
                 }`}
               >
@@ -38,7 +62,7 @@ export default function Home() {
                 onClick={() => setLanguage("en")}
                 className={`rounded px-2 py-1 text-xs ${
                   language === "en"
-                    ? "bg-[#f4c430] text-[#0c2340]"
+                    ? "bg-accent text-surface"
                     : "text-white/75 hover:bg-white/10"
                 }`}
               >
@@ -49,17 +73,18 @@ export default function Home() {
           <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white md:text-5xl">
             {surface.resolveLocalizedText(catalog.menuName, language)}
           </h1>
-          <p className="mt-4 max-w-2xl text-lg text-white/75">
-            {copy.homeSubtitle}
-          </p>
+          <p className="mt-4 max-w-2xl text-lg text-white/75">{copy.homeSubtitle}</p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
-        <MenuBoard catalog={catalog} />
+      <CategoryNav categories={navCategories} />
+
+      <div className="mx-auto max-w-6xl px-4 py-12 md:px-6">
+        <MenuGrid catalog={catalog} />
       </div>
 
-      <CartBar />
+      <FloatingCartButton onOpen={() => setCartOpen(true)} hidden={cartOpen} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </main>
   );
 }

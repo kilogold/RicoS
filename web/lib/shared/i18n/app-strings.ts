@@ -80,6 +80,19 @@ export type AppStrings = {
   lastCallBannerPrefix: string;
   themeScheduleUnavailable: string;
   themeScheduleAvailableWhen: string;
+  allCategories: string;
+  customize: string;
+  viewCart: string;
+  emptyCart: string;
+  closeModal: string;
+  requiredBadge: string;
+  selectN: string;
+  addToCart: string;
+  cartDrawerTitle: string;
+  quickAddAria: string;
+  openItemAria: string;
+  scrollCategoriesLeft: string;
+  scrollCategoriesRight: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -171,6 +184,19 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     lastCallBannerPrefix: "Last call — ordering closes in",
     themeScheduleUnavailable: "Not available for ordering right now.",
     themeScheduleAvailableWhen: "Available",
+    allCategories: "All categories",
+    customize: "Customize",
+    viewCart: "View cart",
+    emptyCart: "Your cart is empty.",
+    closeModal: "Close",
+    requiredBadge: "Required",
+    selectN: "Select {n}",
+    addToCart: "Add to cart",
+    cartDrawerTitle: "Your order",
+    quickAddAria: "Quick add",
+    openItemAria: "Customize item",
+    scrollCategoriesLeft: "Scroll categories left",
+    scrollCategoriesRight: "Scroll categories right",
   },
   es: {
     homeTagline: "RicoS",
@@ -262,6 +288,19 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     lastCallBannerPrefix: "Ultima hora — el pedido en linea cierra en",
     themeScheduleUnavailable: "No disponible para ordenar en este momento.",
     themeScheduleAvailableWhen: "Disponible",
+    allCategories: "Todas las categorias",
+    customize: "Personalizar",
+    viewCart: "Ver carrito",
+    emptyCart: "Tu carrito esta vacio.",
+    closeModal: "Cerrar",
+    requiredBadge: "Requerido",
+    selectN: "Selecciona {n}",
+    addToCart: "Agregar al carrito",
+    cartDrawerTitle: "Tu orden",
+    quickAddAria: "Agregar rapido",
+    openItemAria: "Personalizar articulo",
+    scrollCategoriesLeft: "Desplazar categorias a la izquierda",
+    scrollCategoriesRight: "Desplazar categorias a la derecha",
   },
 };
 
