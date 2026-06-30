@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { emptyEmploymentAvailability } from "@/lib/employment/domain/application-types";
+import {
+  emptyEmploymentAvailability,
+  isAvailabilityShiftSelected,
+  parseEmploymentAvailability,
+  toggleAvailabilityShift,
+} from "@/lib/employment/domain/bitwise-operations";
 import {
   formatAvailabilitySheetCells,
   hasAnyAvailability,
@@ -9,11 +14,11 @@ import {
   validateEmploymentApplication,
 } from "@/lib/employment/domain/validate-application";
 
-function validAvailabilityJson(): string {
-  const availability = emptyEmploymentAvailability();
-  availability.mon.am = true;
-  availability.thu.pm = true;
-  return JSON.stringify(availability);
+function validAvailabilityMask(): string {
+  let availability = emptyEmploymentAvailability();
+  availability = toggleAvailabilityShift(availability, "mon", "am");
+  availability = toggleAvailabilityShift(availability, "thu", "pm");
+  return String(availability);
 }
 
 function buildValidFormData(): FormData {
@@ -21,7 +26,7 @@ function buildValidFormData(): FormData {
   formData.set("fullName", "Ana Rivera");
   formData.set("phone", "(787) 555-1234");
   formData.set("role", "kitchen");
-  formData.set("availability", validAvailabilityJson());
+  formData.set("availability", validAvailabilityMask());
   formData.set("resume", new File(["test"], "resume.pdf", { type: "application/pdf" }));
   return formData;
 }
@@ -33,7 +38,8 @@ describe("validateEmploymentApplication", () => {
     if (!result.ok) return;
     expect(result.value.phone).toBe("(787) 555-1234");
     expect(result.value.role).toBe("kitchen");
-    expect(result.value.availability.mon.am).toBe(true);
+    expect(isAvailabilityShiftSelected(result.value.availability, "mon", "am")).toBe(true);
+    expect(isAvailabilityShiftSelected(result.value.availability, "thu", "pm")).toBe(true);
   });
 
   test("rejects invalid role", () => {
@@ -56,11 +62,20 @@ describe("validateEmploymentApplication", () => {
 
   test("rejects availability with zero selected slots", () => {
     const formData = buildValidFormData();
-    formData.set("availability", JSON.stringify(emptyEmploymentAvailability()));
+    formData.set("availability", String(emptyEmploymentAvailability()));
     const result = validateEmploymentApplication(formData);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.fieldErrors.availability).toBe("Select at least one availability slot.");
+  });
+
+  test("rejects availability with reserved bits", () => {
+    const formData = buildValidFormData();
+    formData.set("availability", "16384");
+    const result = validateEmploymentApplication(formData);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.fieldErrors.availability).toBe("Availability is invalid.");
   });
 
   test("rejects unsupported resume extension", () => {
@@ -85,11 +100,11 @@ describe("validateEmploymentApplication", () => {
 
 describe("formatAvailabilitySheetCells", () => {
   test("maps AM/PM flags to sortable day cells", () => {
-    const availability = emptyEmploymentAvailability();
-    availability.sun.am = true;
-    availability.tue.pm = true;
-    availability.thu.am = true;
-    availability.thu.pm = true;
+    let availability = emptyEmploymentAvailability();
+    availability = toggleAvailabilityShift(availability, "sun", "am");
+    availability = toggleAvailabilityShift(availability, "tue", "pm");
+    availability = toggleAvailabilityShift(availability, "thu", "am");
+    availability = toggleAvailabilityShift(availability, "thu", "pm");
 
     expect(hasAnyAvailability(availability)).toBe(true);
     expect(formatAvailabilitySheetCells(availability)).toEqual([
@@ -101,5 +116,15 @@ describe("formatAvailabilitySheetCells", () => {
       "",
       "",
     ]);
+  });
+});
+
+describe("parseEmploymentAvailability", () => {
+  test("accepts valid day masks and rejects malformed inputs", () => {
+    const validMask = validAvailabilityMask();
+    expect(parseEmploymentAvailability(validMask)).not.toBeNull();
+    expect(parseEmploymentAvailability("")).toBeNull();
+    expect(parseEmploymentAvailability("3.14")).toBeNull();
+    expect(parseEmploymentAvailability("16384")).toBeNull();
   });
 });

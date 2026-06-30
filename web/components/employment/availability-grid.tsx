@@ -6,6 +6,7 @@ import type {
   EmploymentShift,
 } from "@/lib/employment/domain/application-types";
 import { EMPLOYMENT_WEEKDAY_ORDER } from "@/lib/employment/domain/application-types";
+import { isAvailabilityShiftSelected } from "@/lib/employment/domain/bitwise-operations";
 
 type AvailabilityGridProps = {
   availability: EmploymentAvailability;
@@ -37,14 +38,15 @@ export function AvailabilityGrid({
       </thead>
       <tbody>
         {EMPLOYMENT_WEEKDAY_ORDER.map((day) => {
-          const slot = availability[day];
+          const isAmSelected = isAvailabilityShiftSelected(availability, day, "am");
+          const isPmSelected = isAvailabilityShiftSelected(availability, day, "pm");
           return (
             <tr key={day} className="rounded-lg bg-white/5">
               <td className="rounded-l-lg px-4 py-3 text-white">{weekdayLabels[day]}</td>
               <td className="px-4 py-3 text-center">
                 <input
                   type="checkbox"
-                  checked={slot.am}
+                  checked={isAmSelected}
                   onChange={() => onToggle(day, "am")}
                   disabled={disabled}
                   aria-label={`${weekdayLabels[day]} ${amLabel}`}
@@ -54,7 +56,7 @@ export function AvailabilityGrid({
               <td className="rounded-r-lg px-4 py-3 text-center">
                 <input
                   type="checkbox"
-                  checked={slot.pm}
+                  checked={isPmSelected}
                   onChange={() => onToggle(day, "pm")}
                   disabled={disabled}
                   aria-label={`${weekdayLabels[day]} ${pmLabel}`}

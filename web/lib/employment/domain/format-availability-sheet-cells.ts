@@ -2,17 +2,10 @@ import {
   EMPLOYMENT_WEEKDAY_ORDER,
   type EmploymentAvailability,
 } from "@/lib/employment/domain/application-types";
+import { availabilityToDayCellLabel } from "@/lib/employment/domain/bitwise-operations";
 
-export function hasAnyAvailability(availability: EmploymentAvailability): boolean {
-  return EMPLOYMENT_WEEKDAY_ORDER.some((day) => availability[day].am || availability[day].pm);
-}
+export { availabilityHasAnyShift as hasAnyAvailability } from "@/lib/employment/domain/bitwise-operations";
 
 export function formatAvailabilitySheetCells(availability: EmploymentAvailability): string[] {
-  return EMPLOYMENT_WEEKDAY_ORDER.map((day) => {
-    const slot = availability[day];
-    if (slot.am && slot.pm) return "AM/PM";
-    if (slot.am) return "AM";
-    if (slot.pm) return "PM";
-    return "";
-  });
+  return EMPLOYMENT_WEEKDAY_ORDER.map((day) => availabilityToDayCellLabel(availability, day));
 }

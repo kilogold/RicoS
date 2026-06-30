@@ -6,11 +6,10 @@ import {
   toUsLocalPhoneDigits,
 } from "@/lib/commerce/domain/customer-contact";
 import {
-  EMPLOYMENT_WEEKDAY_ORDER,
-  emptyEmploymentAvailability,
   type EmploymentAvailability,
   type EmploymentRole,
 } from "@/lib/employment/domain/application-types";
+import { parseEmploymentAvailability } from "@/lib/employment/domain/bitwise-operations";
 import { hasAnyAvailability } from "@/lib/employment/domain/format-availability-sheet-cells";
 
 export const EMPLOYMENT_RESUME_MAX_BYTES = 5 * 1024 * 1024;
@@ -45,26 +44,6 @@ function readTextField(formData: FormData, field: string): string {
 function fileExtension(fileName: string): string {
   const parts = fileName.toLowerCase().split(".");
   return parts.length > 1 ? parts[parts.length - 1]! : "";
-}
-
-function parseAvailabilityJson(raw: string): EmploymentAvailability | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  const src = parsed as Record<string, unknown>;
-  const availability = emptyEmploymentAvailability();
-  for (const day of EMPLOYMENT_WEEKDAY_ORDER) {
-    const dayValue = src[day];
-    if (!dayValue || typeof dayValue !== "object" || Array.isArray(dayValue)) return null;
-    const dayObj = dayValue as Record<string, unknown>;
-    if (typeof dayObj.am !== "boolean" || typeof dayObj.pm !== "boolean") return null;
-    availability[day] = { am: dayObj.am, pm: dayObj.pm };
-  }
-  return availability;
 }
 
 function validateResumeFile(file: File | null): string | null {
@@ -113,8 +92,8 @@ export function validateEmploymentApplication(formData: FormData): ValidateEmplo
   }
   const role = roleRaw as EmploymentRole;
 
-  const availability = parseAvailabilityJson(availabilityRaw);
-  if (!availability) {
+  const availability = parseEmploymentAvailability(availabilityRaw);
+  if (availability === null) {
     fieldErrors.availability = "Availability is invalid.";
   } else if (!hasAnyAvailability(availability)) {
     fieldErrors.availability = "Select at least one availability slot.";
@@ -123,7 +102,7 @@ export function validateEmploymentApplication(formData: FormData): ValidateEmplo
   const resumeError = validateResumeFile(resume);
   if (resumeError) fieldErrors.resume = resumeError;
 
-  if (Object.keys(fieldErrors).length > 0 || !availability || !resume) {
+  if (Object.keys(fieldErrors).length > 0 || availability === null || !resume) {
     return { ok: false, error: "invalid_application", fieldErrors };
   }
 

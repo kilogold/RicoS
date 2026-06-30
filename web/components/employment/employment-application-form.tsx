@@ -11,8 +11,11 @@ import {
   type EmploymentAvailability,
   type EmploymentShift,
   type EmploymentRole,
-  emptyEmploymentAvailability,
 } from "@/lib/employment/domain/application-types";
+import {
+  emptyEmploymentAvailability,
+  toggleAvailabilityShift,
+} from "@/lib/employment/domain/bitwise-operations";
 import { hasAnyAvailability } from "@/lib/employment/domain/format-availability-sheet-cells";
 import type { ApplicationFieldErrors } from "@/lib/employment/domain/validate-application";
 import { getAppStrings } from "@/lib/i18n";
@@ -23,30 +26,6 @@ type ApiErrorPayload = {
   error?: string;
   fieldErrors?: ApplicationFieldErrors;
 };
-
-function nextAvailabilityAfterToggle(
-  current: EmploymentAvailability,
-  day: Weekday,
-  shift: EmploymentShift,
-): EmploymentAvailability {
-  const currentDay = current[day];
-  let nextAm = currentDay.am;
-  let nextPm = currentDay.pm;
-
-  if (shift === "am") {
-    nextAm = !currentDay.am;
-  } else {
-    nextPm = !currentDay.pm;
-  }
-
-  return {
-    ...current,
-    [day]: {
-      am: nextAm,
-      pm: nextPm,
-    },
-  };
-}
 
 export function EmploymentApplicationForm() {
   const { language } = useLanguage();
@@ -65,7 +44,7 @@ export function EmploymentApplicationForm() {
   const hasAvailabilitySelection = hasAnyAvailability(availability);
 
   const toggleAvailability = (day: Weekday, shift: EmploymentShift) => {
-    setAvailability((current) => nextAvailabilityAfterToggle(current, day, shift));
+    setAvailability((current) => toggleAvailabilityShift(current, day, shift));
   };
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -86,7 +65,7 @@ export function EmploymentApplicationForm() {
     formData.set("fullName", fullName);
     formData.set("phone", phone);
     formData.set("role", role);
-    formData.set("availability", JSON.stringify(availability));
+    formData.set("availability", String(availability));
     formData.set("resume", resume);
 
     const response = await fetch("/api/employment/apply", {
