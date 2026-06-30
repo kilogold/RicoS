@@ -16,7 +16,7 @@ export function SitePageShell({ title, description, children }: SitePageShellPro
   const copy = getAppStrings(language);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-6">
       <Link href="/" className="text-sm text-[#f4c430] hover:underline">
         ← {copy.backToMenu}
       </Link>

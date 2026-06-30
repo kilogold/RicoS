@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/site/site-header";
 import { SitePageShell } from "@/components/site/site-page-shell";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
-import { STORE_INFO, formatStoreHoursLabel } from "@/lib/site/store-info";
+import { STORE_INFO, formatStoreHoursLines } from "@/lib/site/store-info";
 import { FaFacebookF, FaInstagram } from "react-icons/fa";
 
 function SocialIconLinks() {
@@ -36,7 +36,7 @@ function SocialIconLinks() {
 export default function FindUsPage() {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
-  const hoursLabel = formatStoreHoursLabel(language);
+  const hoursLines = formatStoreHoursLines(language);
 
   return (
     <>
@@ -93,7 +93,11 @@ export default function FindUsPage() {
 
         <section className="rounded-xl border border-white/10 bg-[#0c2340]/60 p-5">
           <h2 className="text-lg font-semibold text-[#f4c430]">{copy.hoursHeading}</h2>
-          <p className="mt-3 text-sm text-white/85">{hoursLabel}</p>
+          <div className="mt-3 space-y-1 text-sm text-white/85">
+            {hoursLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
         </section>
       </SitePageShell>
     </>
