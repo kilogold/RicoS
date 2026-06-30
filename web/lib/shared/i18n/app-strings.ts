@@ -1,4 +1,5 @@
 import type { Language } from "@ricos/shared";
+import type { Weekday } from "@ricos/shared";
 
 export type AppStrings = {
   homeTagline: string;
@@ -107,9 +108,22 @@ export type AppStrings = {
   hoursHeading: string;
   employmentTitle: string;
   employmentIntro: string;
-  applyNowCta: string;
-  employmentEmbedHint: string;
-  employmentFormEmbedTitle: string;
+  employmentFullNameLabel: string;
+  employmentPhoneLabel: string;
+  employmentRoleLabel: string;
+  employmentRoleKitchen: string;
+  employmentRoleWaiter: string;
+  employmentAvailabilityLabel: string;
+  employmentAvailabilityDayLabel: string;
+  employmentAvailabilityWeekdayLabels: Record<Weekday, string>;
+  employmentAvailabilityRequired: string;
+  employmentResumeLabel: string;
+  employmentResumeHint: string;
+  employmentResumeRequired: string;
+  employmentSubmitCta: string;
+  employmentSubmitSubmitting: string;
+  employmentSubmitSuccess: string;
+  employmentSubmitError: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -227,11 +241,31 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     followUs: "Follow us",
     hoursHeading: "Hours",
     employmentTitle: "Employment",
-    employmentIntro: "Want to join the RicoS team? Complete our application form.",
-    applyNowCta: "Apply now",
-    employmentEmbedHint:
-      "If the embedded form does not load well on your device, use the apply button above.",
-    employmentFormEmbedTitle: "RicoS employment form",
+    employmentIntro: "Want to join the RicoS team? Complete our application form below.",
+    employmentFullNameLabel: "Full name",
+    employmentPhoneLabel: "Phone number",
+    employmentRoleLabel: "Role",
+    employmentRoleKitchen: "Kitchen",
+    employmentRoleWaiter: "Waiter",
+    employmentAvailabilityLabel: "Availability",
+    employmentAvailabilityDayLabel: "Day",
+    employmentAvailabilityWeekdayLabels: {
+      sun: "Sunday",
+      mon: "Monday",
+      tue: "Tuesday",
+      wed: "Wednesday",
+      thu: "Thursday",
+      fri: "Friday",
+      sat: "Saturday",
+    },
+    employmentAvailabilityRequired: "Select at least one availability slot.",
+    employmentResumeLabel: "Resume",
+    employmentResumeHint: "Accepted formats: PDF, DOC, DOCX. Maximum size: 5 MB.",
+    employmentResumeRequired: "Resume is required.",
+    employmentSubmitCta: "Submit application",
+    employmentSubmitSubmitting: "Submitting...",
+    employmentSubmitSuccess: "Application submitted successfully. We will contact you if there is a fit.",
+    employmentSubmitError: "We could not submit your application. Please try again.",
   },
   es: {
     homeTagline: "RicoS",
@@ -349,12 +383,32 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     followUs: "Siguenos",
     hoursHeading: "Horario",
     employmentTitle: "Empleo",
-    employmentIntro:
-      "Si quieres ser parte del equipo de RicoS, completa nuestra solicitud de empleo.",
-    applyNowCta: "Solicitar ahora",
-    employmentEmbedHint:
-      "Si el formulario integrado no carga bien en tu dispositivo, usa el boton de arriba.",
-    employmentFormEmbedTitle: "Formulario de empleo de RicoS",
+    employmentIntro: "Si quieres ser parte del equipo de RicoS, completa la solicitud abajo.",
+    employmentFullNameLabel: "Nombre completo",
+    employmentPhoneLabel: "Numero de telefono",
+    employmentRoleLabel: "Rol",
+    employmentRoleKitchen: "Cocina",
+    employmentRoleWaiter: "Mesero",
+    employmentAvailabilityLabel: "Disponibilidad",
+    employmentAvailabilityDayLabel: "Dia",
+    employmentAvailabilityWeekdayLabels: {
+      sun: "Domingo",
+      mon: "Lunes",
+      tue: "Martes",
+      wed: "Miercoles",
+      thu: "Jueves",
+      fri: "Viernes",
+      sat: "Sabado",
+    },
+    employmentAvailabilityRequired: "Selecciona al menos un horario disponible.",
+    employmentResumeLabel: "Resume",
+    employmentResumeHint: "Formatos aceptados: PDF, DOC, DOCX. Tamano maximo: 5 MB.",
+    employmentResumeRequired: "El resume es obligatorio.",
+    employmentSubmitCta: "Enviar solicitud",
+    employmentSubmitSubmitting: "Enviando...",
+    employmentSubmitSuccess:
+      "Solicitud enviada con exito. Te contactaremos si hay una oportunidad.",
+    employmentSubmitError: "No se pudo enviar la solicitud. Intentalo de nuevo.",
   },
 };
 

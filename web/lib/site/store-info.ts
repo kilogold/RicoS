@@ -14,7 +14,6 @@ export type StoreInfo = {
   googleMapsDirectionsUrl: string;
   instagramUrl: string;
   facebookUrl: string;
-  employmentFormUrl: string;
 };
 
 export const STORE_INFO: StoreInfo = {
@@ -28,7 +27,6 @@ export const STORE_INFO: StoreInfo = {
     "https://maps.google.com/?q=123%20Calle%20Principal%2C%20Aguadilla%2C%20PR%2000603",
   instagramUrl: "https://instagram.com/ricos",
   facebookUrl: "https://facebook.com/ricos",
-  employmentFormUrl: "https://docs.google.com/forms/d/e/PLACEHOLDER/viewform",
 };
 
 export function formatStoreHoursLabel(language: Language): string {

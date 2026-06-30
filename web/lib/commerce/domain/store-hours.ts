@@ -5,12 +5,12 @@ import {
 } from "@/lib/commerce/domain/order-service-mode";
 
 /** RicoS store wall clock (IANA). Used only for “what time is it at the store?”. */
-const STORE_ZONE = "America/Puerto_Rico";
+export const STORE_ZONE = "America/Puerto_Rico";
 /**
  * Atlantic Standard Time offset for Puerto Rico (no DST).
  * Used to build “today STORE_CLOSE_TIME at the store” without a timezone search.
  */
-const STORE_UTC_OFFSET = "-04:00";
+export const STORE_UTC_OFFSET = "-04:00";
 
 export const STORE_CLOSED_CODE = "STORE_CLOSED" as const;
 export const DINE_IN_UNAVAILABLE_CODE = "DINE_IN_UNAVAILABLE" as const;
@@ -138,14 +138,16 @@ export function __resetStoreHoursCacheForTests(): void {
   cachedClock = undefined;
 }
 
-function storeLocalFields(now: Date): {
+export type StoreLocalFields = {
   calendarYear: number;
   calendarMonth: number;
   dayOfMonth: number;
   hourOfDay: number;
   minuteOfHour: number;
   secondOfMinute: number;
-} {
+};
+
+export function storeLocalFields(now: Date): StoreLocalFields {
   const FORMAT_LOCALE = "en-US";
   const storeWallClockFormatter = new Intl.DateTimeFormat(FORMAT_LOCALE, {
     timeZone: STORE_ZONE,
@@ -175,6 +177,18 @@ function storeLocalFields(now: Date): {
     minuteOfHour: parsePartToInteger("minute"),
     secondOfMinute: parsePartToInteger("second"),
   };
+}
+
+export function storeLocalIsoTimestamp(now: Date): string {
+  const pad2 = (value: number): string => String(value).padStart(2, "0");
+  const fields = storeLocalFields(now);
+  const year = String(fields.calendarYear);
+  const month = pad2(fields.calendarMonth);
+  const day = pad2(fields.dayOfMonth);
+  const hour = pad2(fields.hourOfDay);
+  const minute = pad2(fields.minuteOfHour);
+  const second = pad2(fields.secondOfMinute);
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${STORE_UTC_OFFSET}`;
 }
 
 function localSecondsSinceMidnight(now: Date): number {
