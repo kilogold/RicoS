@@ -4,12 +4,7 @@ import { requiredEnv } from "@/lib/shared/config/server-env";
 
 const EMPLOYMENT_SHEET_NAME = "Applications";
 
-type ServiceAccountCredentials = {
-  client_email: string;
-  private_key: string;
-};
-
-let authCache: InstanceType<typeof google.auth.GoogleAuth> | null = null;
+let authCache: InstanceType<typeof google.auth.OAuth2> | null = null;
 
 /**
  * Keep names human-readable while removing characters that break file names.
@@ -35,41 +30,17 @@ function sanitizeFileNameSegment(value: string): string {
   return cleaned || "Applicant";
 }
 
-function parseServiceAccountCredentials(): ServiceAccountCredentials {
-  const raw = requiredEnv("GOOGLE_SERVICE_ACCOUNT_JSON");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON must be a JSON object");
-  }
-  const record = parsed as Record<string, unknown>;
-  const clientEmail = typeof record.client_email === "string" ? record.client_email.trim() : "";
-  const privateKeyRaw = typeof record.private_key === "string" ? record.private_key.trim() : "";
-  if (!clientEmail) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email");
-  if (!privateKeyRaw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing private_key");
-  return {
-    client_email: clientEmail,
-    private_key: privateKeyRaw.replace(/\\n/g, "\n"),
-  };
-}
-
 function googleAuth() {
   if (authCache) return authCache;
-  const credentials = parseServiceAccountCredentials();
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: credentials.client_email,
-      private_key: credentials.private_key,
-    },
-    scopes: [
-      "https://www.googleapis.com/auth/drive.file",
-      "https://www.googleapis.com/auth/spreadsheets",
-    ],
+
+  const auth = new google.auth.OAuth2(
+    requiredEnv("GOOGLE_OAUTH_CLIENT_ID"),
+    requiredEnv("GOOGLE_OAUTH_CLIENT_SECRET"),
+  );
+  auth.setCredentials({
+    refresh_token: requiredEnv("GOOGLE_OAUTH_REFRESH_TOKEN"),
   });
+
   authCache = auth;
   return authCache;
 }
@@ -121,12 +92,13 @@ export async function uploadResume(params: {
 
 export async function appendApplicationRow(values: string[]): Promise<void> {
   const spreadsheetId = requiredEnv("GOOGLE_EMPLOYMENT_SPREADSHEET_ID");
+  const sheetName = process.env.GOOGLE_EMPLOYMENT_SHEET_NAME?.trim() || EMPLOYMENT_SHEET_NAME;
   const auth = googleAuth();
   const sheets = google.sheets({ version: "v4", auth });
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${EMPLOYMENT_SHEET_NAME}!A:L`,
+    range: `'${sheetName.replaceAll("'", "''")}'!A:L`,
     valueInputOption: "RAW",
     requestBody: {
       values: [values],
