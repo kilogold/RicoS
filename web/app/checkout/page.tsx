@@ -3,6 +3,7 @@
 import { AthMovilStub } from "@/components/ath-movil-stub";
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
+import { SiteHeader } from "@/components/site/site-header";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { useStoreSession } from "@/app/_client/store-session-context";
@@ -266,35 +267,37 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-10">
-      <StoreHoursBanners />
-      <div className="mb-8">
-        <Link href="/" className="text-sm text-[#f4c430] hover:underline">
-          ← {copy.backToMenu}
-        </Link>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">
-          {copy.payForPickup}
-        </h1>
-        <p className="mt-2 text-white/70">
-          {phase === "service" ? (
-            copy.checkoutPhaseServiceIntro
-          ) : phase === "contact" ? (
-            copy.checkoutPhaseContactIntro
-          ) : selectedMethod === null ? (
-            copy.checkoutPhasePaymentIntro
-          ) : (
-            <>
-              {copy.guestCheckoutMessage} {copy.grandTotalLabel}{" "}
-              <span className="font-semibold text-[#f4c430]">
-                {formatUsd(displayTotalCents, language)}
-              </span>
-              .
-            </>
-          )}
-        </p>
-      </div>
+    <>
+      <SiteHeader />
+      <div className="mx-auto max-w-lg px-4 py-10">
+        <StoreHoursBanners />
+        <div className="mb-8">
+          <Link href="/" className="text-sm text-[#f4c430] hover:underline">
+            ← {copy.backToMenu}
+          </Link>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">
+            {copy.payForPickup}
+          </h1>
+          <p className="mt-2 text-white/70">
+            {phase === "service" ? (
+              copy.checkoutPhaseServiceIntro
+            ) : phase === "contact" ? (
+              copy.checkoutPhaseContactIntro
+            ) : selectedMethod === null ? (
+              copy.checkoutPhasePaymentIntro
+            ) : (
+              <>
+                {copy.guestCheckoutMessage} {copy.grandTotalLabel}{" "}
+                <span className="font-semibold text-[#f4c430]">
+                  {formatUsd(displayTotalCents, language)}
+                </span>
+                .
+              </>
+            )}
+          </p>
+        </div>
 
-      <CheckoutOrderSummary lines={lines} />
+        <CheckoutOrderSummary lines={lines} />
 
       {phase === "service" ? (
         <section className="mb-8 rounded-xl border border-white/10 bg-[#0c2340]/60 p-4">
@@ -598,6 +601,7 @@ export default function CheckoutPage() {
           ) : null}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

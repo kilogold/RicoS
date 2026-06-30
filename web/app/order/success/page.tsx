@@ -4,6 +4,7 @@ import {
   parseOrderConfirmationProvider,
   type OrderConfirmationProvider,
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
+import { SiteHeader } from "@/components/site/site-header";
 import { useCart } from "@/lib/cart-context";
 import {
   ORDER_CONFIRMATION_ERROR_CODE,
@@ -256,12 +257,15 @@ function paymentRefForProvider(
 
 export default function OrderSuccessPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="py-24 text-center text-white/70">{getAppStrings("es").loading}</div>
-      }
-    >
-      <SuccessContent />
-    </Suspense>
+    <>
+      <SiteHeader />
+      <Suspense
+        fallback={
+          <div className="py-24 text-center text-white/70">{getAppStrings("es").loading}</div>
+        }
+      >
+        <SuccessContent />
+      </Suspense>
+    </>
   );
 }

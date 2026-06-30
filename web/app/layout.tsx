@@ -1,4 +1,5 @@
 import { Providers } from "@/components/providers";
+import { HiringAnnouncementRibbon } from "@/components/site/hiring-announcement-ribbon";
 import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
 import type { Metadata } from "next";
@@ -33,6 +34,7 @@ export default async function RootLayout({
   await connection();
   const menu = await getLatestMenuRuntime();
   const session = getStoreSession(new Date());
+  const hiringAnnouncementMessage = process.env.HIRING_ANNOUNCEMENT_MESSAGE;
   const storeSession = {
     status: session.status,
     shoppingEnabled: shoppingEnabled(session),
@@ -50,6 +52,7 @@ export default async function RootLayout({
           storeSession={storeSession}
         >
           {children}
+          <HiringAnnouncementRibbon message={hiringAnnouncementMessage} />
         </Providers>
       </body>
     </html>

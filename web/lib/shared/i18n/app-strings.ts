@@ -1,4 +1,5 @@
 import type { Language } from "@ricos/shared";
+import type { Weekday } from "@ricos/shared";
 
 export type AppStrings = {
   homeTagline: string;
@@ -46,6 +47,10 @@ export type AppStrings = {
   languageLabel: string;
   spanishLabel: string;
   englishLabel: string;
+  siteMenuLabel: string;
+  navOrderOnline: string;
+  navFindUs: string;
+  navEmployment: string;
   checkoutSelectPaymentMethod: string;
   paymentMethodStripeLabel: string;
   paymentMethodStripeDescription: string;
@@ -80,6 +85,45 @@ export type AppStrings = {
   lastCallBannerPrefix: string;
   themeScheduleUnavailable: string;
   themeScheduleAvailableWhen: string;
+  allCategories: string;
+  customize: string;
+  viewCart: string;
+  emptyCart: string;
+  closeModal: string;
+  requiredBadge: string;
+  selectN: string;
+  addToCart: string;
+  cartDrawerTitle: string;
+  quickAddAria: string;
+  openItemAria: string;
+  scrollCategoriesLeft: string;
+  scrollCategoriesRight: string;
+  findUsTitle: string;
+  findUsIntro: string;
+  findUsMapHeading: string;
+  findUsAddressHeading: string;
+  getDirections: string;
+  findUsPhoneHeading: string;
+  followUs: string;
+  hoursHeading: string;
+  employmentTitle: string;
+  employmentIntro: string;
+  employmentFullNameLabel: string;
+  employmentPhoneLabel: string;
+  employmentRoleLabel: string;
+  employmentRoleKitchen: string;
+  employmentRoleWaiter: string;
+  employmentAvailabilityLabel: string;
+  employmentAvailabilityDayLabel: string;
+  employmentAvailabilityWeekdayLabels: Record<Weekday, string>;
+  employmentAvailabilityRequired: string;
+  employmentResumeLabel: string;
+  employmentResumeHint: string;
+  employmentResumeRequired: string;
+  employmentSubmitCta: string;
+  employmentSubmitSubmitting: string;
+  employmentSubmitSuccess: string;
+  employmentSubmitError: string;
 };
 
 const APP_STRINGS: Record<Language, AppStrings> = {
@@ -135,6 +179,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Language",
     spanishLabel: "Spanish",
     englishLabel: "English",
+    siteMenuLabel: "Menu",
+    navOrderOnline: "Order online",
+    navFindUs: "Find Us",
+    navEmployment: "Employment",
     checkoutSelectPaymentMethod: "Choose how you would like to pay.",
     paymentMethodStripeLabel: "Card, bank & digital wallets",
     paymentMethodStripeDescription:
@@ -171,6 +219,53 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     lastCallBannerPrefix: "Last call — ordering closes in",
     themeScheduleUnavailable: "Not available for ordering right now.",
     themeScheduleAvailableWhen: "Available",
+    allCategories: "All categories",
+    customize: "Customize",
+    viewCart: "View cart",
+    emptyCart: "Your cart is empty.",
+    closeModal: "Close",
+    requiredBadge: "Required",
+    selectN: "Select {n}",
+    addToCart: "Add to cart",
+    cartDrawerTitle: "Your order",
+    quickAddAria: "Quick add",
+    openItemAria: "Customize item",
+    scrollCategoriesLeft: "Scroll categories left",
+    scrollCategoriesRight: "Scroll categories right",
+    findUsTitle: "Find Us",
+    findUsIntro: "Visit us in person, call the store, or find our social channels.",
+    findUsMapHeading: "RicoS location map",
+    findUsAddressHeading: "Address",
+    getDirections: "Get directions",
+    findUsPhoneHeading: "Phone",
+    followUs: "Follow us",
+    hoursHeading: "Hours",
+    employmentTitle: "Employment",
+    employmentIntro: "Want to join the RicoS team? Complete our application form below.",
+    employmentFullNameLabel: "Full name",
+    employmentPhoneLabel: "Phone number",
+    employmentRoleLabel: "Role",
+    employmentRoleKitchen: "Kitchen",
+    employmentRoleWaiter: "Waiter",
+    employmentAvailabilityLabel: "Availability",
+    employmentAvailabilityDayLabel: "Day",
+    employmentAvailabilityWeekdayLabels: {
+      sun: "Sunday",
+      mon: "Monday",
+      tue: "Tuesday",
+      wed: "Wednesday",
+      thu: "Thursday",
+      fri: "Friday",
+      sat: "Saturday",
+    },
+    employmentAvailabilityRequired: "Select at least one availability slot.",
+    employmentResumeLabel: "Resume",
+    employmentResumeHint: "Accepted formats: PDF, DOC, DOCX. Maximum size: 5 MB.",
+    employmentResumeRequired: "Resume is required.",
+    employmentSubmitCta: "Submit application",
+    employmentSubmitSubmitting: "Submitting...",
+    employmentSubmitSuccess: "Application submitted successfully. We will contact you if there is a fit.",
+    employmentSubmitError: "We could not submit your application. Please try again.",
   },
   es: {
     homeTagline: "RicoS",
@@ -225,6 +320,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     languageLabel: "Idioma",
     spanishLabel: "Español",
     englishLabel: "Inglés",
+    siteMenuLabel: "Menu",
+    navOrderOnline: "Ordenar",
+    navFindUs: "Ubicacion",
+    navEmployment: "Empleo",
     checkoutSelectPaymentMethod: "Elige como quieres pagar.",
     paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",
     paymentMethodStripeDescription:
@@ -262,6 +361,54 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     lastCallBannerPrefix: "Ultima hora — el pedido en linea cierra en",
     themeScheduleUnavailable: "No disponible para ordenar en este momento.",
     themeScheduleAvailableWhen: "Disponible",
+    allCategories: "Todas las categorias",
+    customize: "Personalizar",
+    viewCart: "Ver carrito",
+    emptyCart: "Tu carrito esta vacio.",
+    closeModal: "Cerrar",
+    requiredBadge: "Requerido",
+    selectN: "Selecciona {n}",
+    addToCart: "Agregar al carrito",
+    cartDrawerTitle: "Tu orden",
+    quickAddAria: "Agregar rapido",
+    openItemAria: "Personalizar articulo",
+    scrollCategoriesLeft: "Desplazar categorias a la izquierda",
+    scrollCategoriesRight: "Desplazar categorias a la derecha",
+    findUsTitle: "Encuentranos",
+    findUsIntro: "Visitanos, llama a la tienda o visita nuestras redes sociales.",
+    findUsMapHeading: "Mapa de ubicacion de RicoS",
+    findUsAddressHeading: "Direccion",
+    getDirections: "Como llegar",
+    findUsPhoneHeading: "Telefono",
+    followUs: "Siguenos",
+    hoursHeading: "Horario",
+    employmentTitle: "Empleo",
+    employmentIntro: "Si quieres ser parte del equipo de RicoS, completa la solicitud abajo.",
+    employmentFullNameLabel: "Nombre completo",
+    employmentPhoneLabel: "Numero de telefono",
+    employmentRoleLabel: "Rol",
+    employmentRoleKitchen: "Cocina",
+    employmentRoleWaiter: "Mesero",
+    employmentAvailabilityLabel: "Disponibilidad",
+    employmentAvailabilityDayLabel: "Dia",
+    employmentAvailabilityWeekdayLabels: {
+      sun: "Domingo",
+      mon: "Lunes",
+      tue: "Martes",
+      wed: "Miercoles",
+      thu: "Jueves",
+      fri: "Viernes",
+      sat: "Sabado",
+    },
+    employmentAvailabilityRequired: "Selecciona al menos un horario disponible.",
+    employmentResumeLabel: "Resume",
+    employmentResumeHint: "Formatos aceptados: PDF, DOC, DOCX. Tamano maximo: 5 MB.",
+    employmentResumeRequired: "El resume es obligatorio.",
+    employmentSubmitCta: "Enviar solicitud",
+    employmentSubmitSubmitting: "Enviando...",
+    employmentSubmitSuccess:
+      "Solicitud enviada con exito. Te contactaremos si hay una oportunidad.",
+    employmentSubmitError: "No se pudo enviar la solicitud. Intentalo de nuevo.",
   },
 };
 
