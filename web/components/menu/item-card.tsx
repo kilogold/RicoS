@@ -1,8 +1,18 @@
 "use client";
 
 import { getAppStrings } from "@/lib/i18n";
+import {
+  getMenuBlobBaseUrl,
+  shouldShowMenuThumbnail,
+} from "@/lib/menu-thumbnail-display";
 import { formatUsd } from "@/lib/pricing";
-import type { Language, MenuCatalogSurface, MenuItem } from "@ricos/shared";
+import {
+  resolveMenuThumbnailUrl,
+  type Language,
+  type MenuCatalogSurface,
+  type MenuItem,
+} from "@ricos/shared";
+import Image from "next/image";
 import type { MouseEvent } from "react";
 
 type ItemCardProps = {
@@ -29,6 +39,13 @@ export function ItemCard({
   const description = surface.resolveLocalizedText(item.description, language);
   const priceLabel = `${formatUsd(item.priceCents, language)}${hasModifiers ? "+" : ""}`;
 
+  const showThumbnail = shouldShowMenuThumbnail(item.thumbnailPathname);
+  const blobBaseUrl = getMenuBlobBaseUrl();
+  const thumbnailUrl =
+    showThumbnail && blobBaseUrl
+      ? resolveMenuThumbnailUrl(item.thumbnailPathname, blobBaseUrl)
+      : null;
+
   const handleCardClick = () => {
     if (browseOnly) return;
     if (hasModifiers) onOpenModal();
@@ -40,11 +57,30 @@ export function ItemCard({
     onQuickAdd();
   };
 
+  const quickAddButton = !hasModifiers ? (
+    <button
+      type="button"
+      disabled={browseOnly}
+      aria-disabled={browseOnly}
+      onClick={handleQuickAdd}
+      aria-label={`${copy.quickAddAria}: ${name}`}
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-surface shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      +
+    </button>
+  ) : null;
+
+  const customizeBadge = hasModifiers ? (
+    <span className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent">
+      {copy.customize}
+    </span>
+  ) : null;
+
   return (
     <article
-      className={`group relative flex h-full flex-col rounded-xl border border-white/10 bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
-        hasModifiers && !browseOnly ? "cursor-pointer" : ""
-      } ${browseOnly ? "opacity-60" : ""}`}
+      className={`group relative flex h-full rounded-xl border border-white/10 bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
+        thumbnailUrl ? "flex-row gap-3 p-3" : "flex-col p-4"
+      } ${hasModifiers && !browseOnly ? "cursor-pointer" : ""} ${browseOnly ? "opacity-60" : ""}`}
       onClick={handleCardClick}
       onKeyDown={(event) => {
         if (browseOnly || !hasModifiers) return;
@@ -57,27 +93,37 @@ export function ItemCard({
       tabIndex={hasModifiers && !browseOnly ? 0 : undefined}
       aria-label={hasModifiers ? `${copy.openItemAria}: ${name}` : undefined}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h4 className="text-base font-semibold leading-snug text-white">{name}</h4>
-        {!hasModifiers ? (
-          <button
-            type="button"
-            disabled={browseOnly}
-            aria-disabled={browseOnly}
-            onClick={handleQuickAdd}
-            aria-label={`${copy.quickAddAria}: ${name}`}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-surface shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            +
-          </button>
-        ) : (
-          <span className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent">
-            {copy.customize}
-          </span>
-        )}
+      <div className={`flex min-w-0 flex-1 flex-col ${thumbnailUrl ? "py-0.5" : ""}`}>
+        <div className="flex items-start justify-between gap-3">
+          <h4 className="text-base font-semibold leading-snug text-white">{name}</h4>
+          {thumbnailUrl ? customizeBadge : !hasModifiers ? quickAddButton : customizeBadge}
+        </div>
+        <p
+          className={`mt-2 line-clamp-2 text-sm leading-relaxed text-white/70 ${
+            thumbnailUrl ? "" : "flex-1"
+          }`}
+        >
+          {description}
+        </p>
+        <p className="mt-3 text-sm font-semibold text-accent">{priceLabel}</p>
       </div>
-      <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-white/70">{description}</p>
-      <p className="mt-3 text-sm font-semibold text-accent">{priceLabel}</p>
+
+      {thumbnailUrl ? (
+        <div className="relative w-[42%] max-w-44 shrink-0 self-stretch">
+          <div className="relative aspect-3/2 w-full overflow-hidden rounded-lg">
+            <Image
+              src={thumbnailUrl}
+              alt={name}
+              fill
+              sizes="(max-width: 640px) 42vw, (max-width: 1024px) 20vw, 11rem"
+              className="object-cover"
+            />
+          </div>
+          {!hasModifiers ? (
+            <div className="absolute bottom-1 right-1">{quickAddButton}</div>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

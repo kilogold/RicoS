@@ -1,6 +1,6 @@
 /**
  * Menu item thumbnail pathnames resolve against the linked public Vercel Blob store.
- * Catalogs store pathnames only; the web app joins MENU_BLOB_BASE_URL at render time.
+ * Catalogs store pathnames only; the web app joins NEXT_PUBLIC_MENU_BLOB_BASE_URL at render time.
  */
 
 /** Well-known pathname for the shared fallback thumbnail blob. */
