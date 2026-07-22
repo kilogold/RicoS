@@ -13,6 +13,7 @@ const minimalItem = {
   priceCents: 100,
   salesTaxRate: 0.1,
   municipalTaxRate: 0.01,
+  thumbnailPathname: "menu-thumbnails/fallback.webp",
 };
 
 const defaultThemes = { T: ["cat_1"] };
@@ -488,5 +489,92 @@ describe("parseMenuCatalogFile themeAvailability", () => {
     expect(compact.themeAvailability).toEqual(source.themeAvailability);
     const parsed = parseMenuCatalogFile(compact);
     expect(parsed.catalog.themeAvailability).toEqual(source.themeAvailability);
+  });
+});
+
+describe("parseMenuCatalogFile thumbnailPathname", () => {
+  test("rejects item without thumbnailPathname", () => {
+    const { thumbnailPathname: _, ...withoutThumb } = minimalItem;
+    expect(() =>
+      parseMenuCatalogFile(catalogWithItem({ ...withoutThumb, station: "B" })),
+    ).toThrow(/thumbnailPathname/);
+  });
+
+  test("rejects empty thumbnailPathname", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({ ...minimalItem, station: "B", thumbnailPathname: "" }),
+      ),
+    ).toThrow(/thumbnailPathname/);
+  });
+
+  test("rejects absolute URL thumbnailPathname", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({
+          ...minimalItem,
+          station: "B",
+          thumbnailPathname: "https://example.public.blob.vercel-storage.com/x.webp",
+        }),
+      ),
+    ).toThrow(/relative blob pathname/);
+  });
+
+  test("rejects leading-slash thumbnailPathname", () => {
+    expect(() =>
+      parseMenuCatalogFile(
+        catalogWithItem({
+          ...minimalItem,
+          station: "B",
+          thumbnailPathname: "/menu-thumbnails/fallback.webp",
+        }),
+      ),
+    ).toThrow(/must not start with/);
+  });
+
+  test("accepts relative thumbnailPathname", () => {
+    const parsed = parseMenuCatalogFile(
+      catalogWithItem({
+        ...minimalItem,
+        station: "B",
+        thumbnailPathname: "menu-thumbnails/custom.webp",
+      }),
+    );
+    expect(parsed.catalog.categories[0]?.items[0]?.thumbnailPathname).toBe(
+      "menu-thumbnails/custom.webp",
+    );
+  });
+
+  test("compact round-trip preserves thumbnailPathname", () => {
+    const source = {
+      catalogVersion: 1,
+      publishedAt: "2026-01-01T00:00:00.000Z",
+      restaurant: { en: "R", es: "R" },
+      menuName: { en: "M", es: "M" },
+      themes: defaultThemes,
+      orderFees: { serviceFeeRate: 0.05 },
+      categories: [
+        {
+          id: "cat_1",
+          title: { en: "C", es: "C" },
+          notes: [],
+          items: [
+            {
+              ...minimalItem,
+              station: "B" as const,
+              thumbnailPathname: "menu-thumbnails/custom.webp",
+            },
+          ],
+        },
+      ],
+    };
+    const compact = compactMenuCatalogForDisk(source);
+    expect(compact.categories[0]?.items[0]?.thumbnailPathname).toBe(
+      "menu-thumbnails/custom.webp",
+    );
+    const parsed = parseMenuCatalogFile(compact);
+    expect(parsed.catalog.categories[0]?.items[0]?.thumbnailPathname).toBe(
+      "menu-thumbnails/custom.webp",
+    );
   });
 });

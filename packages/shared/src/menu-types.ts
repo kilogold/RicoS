@@ -51,6 +51,8 @@ export type MenuItem = ItemTaxRates & {
   description: LocalizedText;
   priceCents: number;
   station: PrintStation;
+  /** Relative Vercel Blob pathname (not a URL). Required on every item. */
+  thumbnailPathname: string;
   modifierGroups?: ModifierGroup[];
 };
 

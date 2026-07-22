@@ -94,6 +94,12 @@ export {
 } from "./menu-catalog-surface";
 
 export {
+  MENU_FALLBACK_THUMBNAIL_PATHNAME,
+  parseThumbnailPathname,
+  resolveMenuThumbnailUrl,
+} from "./menu-thumbnail";
+
+export {
   buildThemedMenuSections,
   type BuildThemedMenuSectionsOptions,
   type ThemedMenuSection,

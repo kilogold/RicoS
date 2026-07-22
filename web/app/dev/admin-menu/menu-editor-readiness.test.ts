@@ -23,6 +23,7 @@ function minimalMenu(overrides: Partial<MenuCatalogFile> = {}): MenuCatalogFile 
             salesTaxRate: 0.105,
             municipalTaxRate: 0.01,
             station: "default",
+            thumbnailPathname: "menu-thumbnails/fallback.webp",
           },
         ],
       },
