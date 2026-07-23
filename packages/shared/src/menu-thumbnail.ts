@@ -3,8 +3,11 @@
  * Catalogs store pathnames only; the web app joins NEXT_PUBLIC_MENU_BLOB_BASE_URL at render time.
  */
 
+/** Blob store prefix for menu item thumbnails (list/upload/delete scope). */
+export const MENU_THUMBNAIL_BLOB_PREFIX = "menu-thumbnails/";
+
 /** Well-known pathname for the shared fallback thumbnail blob. */
-export const MENU_FALLBACK_THUMBNAIL_PATHNAME = "menu-thumbnails/fallback.webp";
+export const MENU_FALLBACK_THUMBNAIL_PATHNAME = `${MENU_THUMBNAIL_BLOB_PREFIX}fallback.webp`;
 
 /**
  * Validate a catalog thumbnail pathname (relative blob path, not a URL).

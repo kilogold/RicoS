@@ -30,6 +30,10 @@ export function MenuEditorItemChrome() {
               <p className={`mt-2 text-sm ${theme.mutedText}`}>
                 Update price and taxes, then publish when ready.
               </p>
+            ) : editorTab === "gallery" ? (
+              <p className={`mt-2 text-sm ${theme.mutedText}`}>
+                Upload, pick, or clear this item&apos;s thumbnail. Publish to update the live catalog.
+              </p>
             ) : (
               <p className={`mt-2 text-sm ${theme.mutedText}`}>
                 Full item setup: names, descriptions, choices, and rules.

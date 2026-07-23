@@ -7,13 +7,14 @@ import {
 } from "@/lib/menu-thumbnail-display";
 import { formatUsd } from "@/lib/pricing";
 import {
+  MENU_FALLBACK_THUMBNAIL_PATHNAME,
   resolveMenuThumbnailUrl,
   type Language,
   type MenuCatalogSurface,
   type MenuItem,
 } from "@ricos/shared";
 import Image from "next/image";
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 
 type ItemCardProps = {
   item: MenuItem;
@@ -41,10 +42,29 @@ export function ItemCard({
 
   const showThumbnail = shouldShowMenuThumbnail(item.thumbnailPathname);
   const blobBaseUrl = getMenuBlobBaseUrl();
-  const thumbnailUrl =
+  const catalogThumbnailUrl =
     showThumbnail && blobBaseUrl
       ? resolveMenuThumbnailUrl(item.thumbnailPathname, blobBaseUrl)
       : null;
+
+  const [imageSrc, setImageSrc] = useState<string | null>(catalogThumbnailUrl);
+
+  useEffect(() => {
+    setImageSrc(catalogThumbnailUrl);
+  }, [catalogThumbnailUrl]);
+
+  const handleImageError = () => {
+    if (!imageSrc || !blobBaseUrl) return;
+    const fallbackUrl = resolveMenuThumbnailUrl(MENU_FALLBACK_THUMBNAIL_PATHNAME, blobBaseUrl);
+    if (imageSrc === fallbackUrl) {
+      console.error("Menu fallback thumbnail failed to load:", fallbackUrl);
+      return;
+    }
+    // Missing custom blob → same display rules as a fallback-designated item.
+    setImageSrc(
+      shouldShowMenuThumbnail(MENU_FALLBACK_THUMBNAIL_PATHNAME) ? fallbackUrl : null,
+    );
+  };
 
   const handleCardClick = () => {
     if (browseOnly) return;
@@ -79,7 +99,7 @@ export function ItemCard({
   return (
     <article
       className={`group relative flex h-full rounded-xl border border-white/10 bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
-        thumbnailUrl ? "flex-row gap-3 p-3" : "flex-col p-4"
+        imageSrc ? "flex-row gap-3 p-3" : "flex-col p-4"
       } ${hasModifiers && !browseOnly ? "cursor-pointer" : ""} ${browseOnly ? "opacity-60" : ""}`}
       onClick={handleCardClick}
       onKeyDown={(event) => {
@@ -93,14 +113,14 @@ export function ItemCard({
       tabIndex={hasModifiers && !browseOnly ? 0 : undefined}
       aria-label={hasModifiers ? `${copy.openItemAria}: ${name}` : undefined}
     >
-      <div className={`flex min-w-0 flex-1 flex-col ${thumbnailUrl ? "py-0.5" : ""}`}>
+      <div className={`flex min-w-0 flex-1 flex-col ${imageSrc ? "py-0.5" : ""}`}>
         <div className="flex items-start justify-between gap-3">
           <h4 className="text-base font-semibold leading-snug text-white">{name}</h4>
-          {thumbnailUrl ? customizeBadge : !hasModifiers ? quickAddButton : customizeBadge}
+          {imageSrc ? customizeBadge : !hasModifiers ? quickAddButton : customizeBadge}
         </div>
         <p
           className={`mt-2 line-clamp-2 text-sm leading-relaxed text-white/70 ${
-            thumbnailUrl ? "" : "flex-1"
+            imageSrc ? "" : "flex-1"
           }`}
         >
           {description}
@@ -108,15 +128,16 @@ export function ItemCard({
         <p className="mt-3 text-sm font-semibold text-accent">{priceLabel}</p>
       </div>
 
-      {thumbnailUrl ? (
+      {imageSrc ? (
         <div className="relative w-[42%] max-w-44 shrink-0 self-stretch">
           <div className="relative aspect-3/2 w-full overflow-hidden rounded-lg">
             <Image
-              src={thumbnailUrl}
+              src={imageSrc}
               alt={name}
               fill
               sizes="(max-width: 640px) 42vw, (max-width: 1024px) 20vw, 11rem"
               className="object-cover"
+              onError={handleImageError}
             />
           </div>
           {!hasModifiers ? (

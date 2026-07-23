@@ -1,6 +1,6 @@
 import type { MenuCatalogFile, MenuItem, ModifierGroup } from "@ricos/shared";
 
-export type EditorTab = "basic-edit" | "organize-edit" | "advanced-setup";
+export type EditorTab = "basic-edit" | "organize-edit" | "gallery" | "advanced-setup";
 
 export type ReadinessIssue = {
   id: string;

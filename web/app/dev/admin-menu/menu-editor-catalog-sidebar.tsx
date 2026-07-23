@@ -26,7 +26,9 @@ export function MenuEditorCatalogSidebar() {
         <p className={`mt-1 text-xs ${theme.mutedText}`}>
           {editorTab === "advanced-setup"
             ? "Pick an item to edit, or add a new one."
-            : "Pick an item to update its price."}
+            : editorTab === "gallery"
+              ? "Pick an item to set its thumbnail."
+              : "Pick an item to update its price."}
         </p>
         {editorTab === "advanced-setup" ? (
           <button

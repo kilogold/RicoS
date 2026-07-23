@@ -670,6 +670,7 @@ export function WorkAreaTabs({
   const tabs: { id: EditorTab; label: string; hint: string }[] = [
     { id: "basic-edit", label: "Edit", hint: "Prices & taxes" },
     { id: "organize-edit", label: "Organize", hint: "Themes & categories" },
+    { id: "gallery", label: "Gallery", hint: "Thumbnails" },
     { id: "advanced-setup", label: "Advanced setup", hint: "Full customization" },
   ];
 

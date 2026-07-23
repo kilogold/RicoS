@@ -5,6 +5,7 @@ import { MenuEditorAdvancedPane } from "./menu-editor-advanced-pane";
 import { MenuEditorBasicEditPane } from "./menu-editor-basic-edit-pane";
 import { MenuEditorCatalogSidebar } from "./menu-editor-catalog-sidebar";
 import { MenuEditorFeedback } from "./menu-editor-feedback";
+import { MenuEditorGalleryPane } from "./menu-editor-gallery-pane";
 import { MenuEditorItemChrome } from "./menu-editor-item-chrome";
 import { StatusBanner } from "./menu-editor-fields";
 import { MenuStructurePane } from "./menu-editor-panels";
@@ -66,6 +67,7 @@ export function MenuEditorWorkspace() {
           <>
             <MenuEditorItemChrome />
             {editorTab === "basic-edit" ? <MenuEditorBasicEditPane /> : null}
+            {editorTab === "gallery" ? <MenuEditorGalleryPane /> : null}
             {editorTab === "advanced-setup" ? <MenuEditorAdvancedPane /> : null}
           </>
         ) : null}

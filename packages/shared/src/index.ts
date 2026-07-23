@@ -95,6 +95,7 @@ export {
 
 export {
   MENU_FALLBACK_THUMBNAIL_PATHNAME,
+  MENU_THUMBNAIL_BLOB_PREFIX,
   parseThumbnailPathname,
   resolveMenuThumbnailUrl,
 } from "./menu-thumbnail";
