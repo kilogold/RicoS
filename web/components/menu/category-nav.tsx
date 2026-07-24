@@ -21,7 +21,6 @@ export function CategoryNav({ categories }: CategoryNavProps) {
   const copy = getAppStrings(language);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(categories[0]?.id ?? null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -77,7 +76,6 @@ export function CategoryNav({ categories }: CategoryNavProps) {
     const top = el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET_PX;
     window.scrollTo({ top, behavior: "smooth" });
     setActiveId(id);
-    setDropdownOpen(false);
   };
 
   const scrollByAmount = (direction: "left" | "right") => {
@@ -138,42 +136,6 @@ export function CategoryNav({ categories }: CategoryNavProps) {
             ›
           </button>
         ) : null}
-
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((open) => !open)}
-            aria-expanded={dropdownOpen}
-            className="rounded-lg border border-white/20 px-2 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10"
-          >
-            {copy.allCategories}
-          </button>
-          {dropdownOpen ? (
-            <>
-              <button
-                type="button"
-                aria-label={copy.closeModal}
-                className="fixed inset-0 z-40"
-                onClick={() => setDropdownOpen(false)}
-              />
-              <ul className="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/15 bg-surface py-1 shadow-xl">
-                {categories.map((cat) => (
-                  <li key={cat.id}>
-                    <button
-                      type="button"
-                      onClick={() => scrollToCategory(cat.id)}
-                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${
-                        activeId === cat.id ? "text-accent" : "text-white/80"
-                      } ${!cat.themeActive ? "opacity-50" : ""}`}
-                    >
-                      {cat.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </div>
       </div>
     </nav>
   );
