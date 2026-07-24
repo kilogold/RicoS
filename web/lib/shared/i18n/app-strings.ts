@@ -98,6 +98,11 @@ export type AppStrings = {
   openItemAria: string;
   scrollCategoriesLeft: string;
   scrollCategoriesRight: string;
+  menuSearchLabel: string;
+  menuSearchPlaceholder: string;
+  menuSearchClear: string;
+  menuSearchShowingResults: string;
+  menuSearchNoResults: string;
   findUsTitle: string;
   findUsIntro: string;
   findUsMapHeading: string;
@@ -232,6 +237,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Customize item",
     scrollCategoriesLeft: "Scroll categories left",
     scrollCategoriesRight: "Scroll categories right",
+    menuSearchLabel: "Search menu",
+    menuSearchPlaceholder: "Search menu",
+    menuSearchClear: "Clear search",
+    menuSearchShowingResults: "Showing {count} items for '{query}'",
+    menuSearchNoResults: "No results for '{query}'",
     findUsTitle: "Find Us",
     findUsIntro: "Visit us in person, call the store, or find our social channels.",
     findUsMapHeading: "RicoS location map",
@@ -374,6 +384,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Personalizar articulo",
     scrollCategoriesLeft: "Desplazar categorias a la izquierda",
     scrollCategoriesRight: "Desplazar categorias a la derecha",
+    menuSearchLabel: "Buscar menu",
+    menuSearchPlaceholder: "Buscar menu",
+    menuSearchClear: "Borrar busqueda",
+    menuSearchShowingResults: "Mostrando {count} articulos para '{query}'",
+    menuSearchNoResults: "Sin resultados para '{query}'",
     findUsTitle: "Encuentranos",
     findUsIntro: "Visitanos, llama a la tienda o visita nuestras redes sociales.",
     findUsMapHeading: "Mapa de ubicacion de RicoS",

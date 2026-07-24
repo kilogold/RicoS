@@ -5,22 +5,22 @@ import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
 import { useStoreSession } from "@/app/_client/store-session-context";
-import { useStoreLocalNow } from "@/lib/use-store-local-now";
 import {
-  buildThemedMenuSections,
   formatThemeAvailabilityLabel,
   type MenuDocument,
   type MenuItem,
+  type ThemedMenuSection,
 } from "@ricos/shared";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ItemCard } from "./item-card";
 import { ItemModal } from "./item-modal";
 
 type MenuGridProps = {
   catalog: MenuDocument;
+  sections: ThemedMenuSection[];
 };
 
-export function MenuGrid({ catalog }: MenuGridProps) {
+export function MenuGrid({ catalog, sections }: MenuGridProps) {
   const { addItem } = useCart();
   const { language } = useLanguage();
   const { surface } = useMenuRuntime();
@@ -32,16 +32,10 @@ export function MenuGrid({ catalog }: MenuGridProps) {
     browseOnly: boolean;
   } | null>(null);
 
-  const now = useStoreLocalNow();
-  const themedSections = useMemo(
-    () => buildThemedMenuSections(catalog, { now }),
-    [catalog, now],
-  );
-
   return (
     <>
       <div className="space-y-16">
-        {themedSections.map(({ theme, categories, scheduleActive }) => {
+        {sections.map(({ theme, categories, scheduleActive }) => {
           const themeBrowseOnly = browseOnly || !scheduleActive;
           const availability = catalog.themeAvailability?.[theme];
           const scheduleLabel =
