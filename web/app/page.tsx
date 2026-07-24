@@ -4,6 +4,7 @@ import { CategoryNav, type CategoryNavItem } from "@/components/menu/category-na
 import { CartDrawer, FloatingCartButton } from "@/components/menu/cart-drawer";
 import { MenuGrid } from "@/components/menu/menu-grid";
 import { MenuSearch } from "@/components/menu/menu-search";
+import { AnnouncementCard } from "@/components/site/announcement-card";
 import { SiteHeader } from "@/components/site/site-header";
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { getAppStrings } from "@/lib/i18n";
@@ -76,6 +77,8 @@ export default function Home() {
           <p className="mt-4 max-w-2xl text-lg text-white/75">{copy.homeSubtitle}</p>
         </div>
       </div>
+
+      <AnnouncementCard />
 
       <MenuSearch value={searchQuery} onChange={setSearchQuery} />
 

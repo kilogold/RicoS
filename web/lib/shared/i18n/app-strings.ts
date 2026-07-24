@@ -103,6 +103,8 @@ export type AppStrings = {
   menuSearchClear: string;
   menuSearchShowingResults: string;
   menuSearchNoResults: string;
+  announcementCtaDefault: string;
+  announcementDismiss: string;
   findUsTitle: string;
   findUsIntro: string;
   findUsMapHeading: string;
@@ -242,6 +244,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     menuSearchClear: "Clear search",
     menuSearchShowingResults: "Showing {count} items for '{query}'",
     menuSearchNoResults: "No results for '{query}'",
+    announcementCtaDefault: "Learn more",
+    announcementDismiss: "Dismiss announcement",
     findUsTitle: "Find Us",
     findUsIntro: "Visit us in person, call the store, or find our social channels.",
     findUsMapHeading: "RicoS location map",
@@ -389,6 +393,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     menuSearchClear: "Borrar busqueda",
     menuSearchShowingResults: "Mostrando {count} articulos para '{query}'",
     menuSearchNoResults: "Sin resultados para '{query}'",
+    announcementCtaDefault: "Ver mas",
+    announcementDismiss: "Cerrar anuncio",
     findUsTitle: "Encuentranos",
     findUsIntro: "Visitanos, llama a la tienda o visita nuestras redes sociales.",
     findUsMapHeading: "Mapa de ubicacion de RicoS",
