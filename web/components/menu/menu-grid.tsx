@@ -53,11 +53,11 @@ export function MenuGrid({ catalog, sections }: MenuGridProps) {
               </h2>
               {!scheduleActive && scheduleLabel ? (
                 <p
-                  className="rounded-lg border border-amber-400/40 bg-amber-950/40 px-4 py-3 text-sm text-amber-100"
+                  className="rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm text-amber-900"
                   role="status"
                 >
                   {copy.themeScheduleUnavailable}{" "}
-                  <span className="font-medium text-amber-50">
+                  <span className="font-medium text-amber-800">
                     {copy.themeScheduleAvailableWhen} {scheduleLabel}
                   </span>
                 </p>

@@ -158,7 +158,7 @@ function SuccessContent() {
 
   const signatureBlock =
     provider === "solana" && transactionSignature ? (
-      <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/80 break-all">
+      <p className="mt-2 rounded-lg bg-background px-3 py-2 font-mono text-xs text-muted break-all">
         {copy.transactionSignatureLabel}: {transactionSignature}
       </p>
     ) : null;
@@ -166,8 +166,8 @@ function SuccessContent() {
   if (state.phase === "loading") {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
-          <p className="text-white/75">{copy.orderConfirmationVerifying}</p>
+        <div className="rounded-2xl border border-accent/30 bg-surface p-10 shadow-2xl">
+          <p className="text-muted">{copy.orderConfirmationVerifying}</p>
         </div>
       </div>
     );
@@ -176,26 +176,26 @@ function SuccessContent() {
   if (state.phase === "error") {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <div className="rounded-2xl border border-red-400/50 bg-[#0c2340]/90 p-10 shadow-2xl">
-          <p className="text-sm font-medium uppercase tracking-widest text-red-300">
+        <div className="rounded-2xl border border-red-400/50 bg-surface p-10 shadow-2xl">
+          <p className="text-sm font-medium uppercase tracking-widest text-accent">
             RicoS
           </p>
-          <h1 className="mt-3 text-3xl font-bold text-white" role="alert">
+          <h1 className="mt-3 text-3xl font-bold text-foreground" role="alert">
             {copy.orderConfirmationErrorTitle}
           </h1>
-          <p className="mt-4 text-left text-white/85" role="alert">
+          <p className="mt-4 text-left text-foreground/85" role="alert">
             {state.message}
           </p>
           {paymentRefBlock}
           {signatureBlock}
           {redirectStatus ? (
-            <p className="mt-2 text-xs text-white/50">
+            <p className="mt-2 text-xs text-muted">
               {copy.statusLabel}: {redirectStatus}
             </p>
           ) : null}
           <Link
             href="/"
-            className="mt-10 inline-flex rounded-xl bg-[#f4c430] px-6 py-3 font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
+            className="mt-10 inline-flex rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg hover:brightness-95"
           >
             {copy.backToMenu}
           </Link>
@@ -206,22 +206,22 @@ function SuccessContent() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-20 text-center">
-      <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
-        <p className="text-sm font-medium uppercase tracking-widest text-[#f4c430]">
+      <div className="rounded-2xl border border-accent/30 bg-surface p-10 shadow-2xl">
+        <p className="text-sm font-medium uppercase tracking-widest text-accent">
           RicoS
         </p>
-        <h1 className="mt-3 text-3xl font-bold text-white">{copy.orderConfirmed}</h1>
-        <p className="mt-4 text-white/75">{copy.orderConfirmedMessage}</p>
+        <h1 className="mt-3 text-3xl font-bold text-foreground">{copy.orderConfirmed}</h1>
+        <p className="mt-4 text-muted">{copy.orderConfirmedMessage}</p>
         {paymentRefBlock}
         {signatureBlock}
         {redirectStatus ? (
-          <p className="mt-2 text-xs text-white/50">
+          <p className="mt-2 text-xs text-muted">
             {copy.statusLabel}: {redirectStatus}
           </p>
         ) : null}
         <Link
           href="/"
-          className="mt-10 inline-flex rounded-xl bg-[#f4c430] px-6 py-3 font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
+          className="mt-10 inline-flex rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg hover:brightness-95"
         >
           {copy.orderMore}
         </Link>
@@ -240,14 +240,14 @@ function paymentRefForProvider(
 ) {
   if (provider === "stripe" && refs.paymentIntent) {
     return (
-      <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90">
+      <p className="mt-6 rounded-lg bg-background px-3 py-2 font-mono text-sm text-foreground/90 break-all">
         {refs.copy.paymentIntentLabel}: {refs.paymentIntent}
       </p>
     );
   }
   if ((provider === "solana" || provider === "ath-movil") && refs.paymentReference) {
     return (
-      <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90 break-all">
+      <p className="mt-6 rounded-lg bg-background px-3 py-2 font-mono text-sm text-foreground/90">
         {refs.copy.orderReferenceLabel}: {refs.paymentReference}
       </p>
     );
@@ -261,7 +261,7 @@ export default function OrderSuccessPage() {
       <SiteHeader />
       <Suspense
         fallback={
-          <div className="py-24 text-center text-white/70">{getAppStrings("es").loading}</div>
+          <div className="py-24 text-center text-muted">{getAppStrings("es").loading}</div>
         }
       >
         <SuccessContent />

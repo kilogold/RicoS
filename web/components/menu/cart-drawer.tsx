@@ -39,8 +39,6 @@ export function FloatingCartButton({
       setAnim(null);
       return;
     }
-    // First appearance (0 -> N) slides in; later additions grow/shrink.
-    // Exactly one phase is active at a time so the effects never stack.
     let next: "in" | "pop" | null = null;
     if (previous < 1) next = "in";
     else if (count > previous) next = "pop";
@@ -53,26 +51,24 @@ export function FloatingCartButton({
   if (!shoppingEnabled || hidden || count < 1) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:justify-end sm:px-0">
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={copy.viewCart}
-        className={`pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl bg-accent px-5 py-3.5 font-semibold text-surface shadow-[0_10px_30px_rgba(0,0,0,0.45)] ring-1 ring-black/10 transition hover:brightness-95 sm:w-auto ${
-          anim === "in" ? "animate-cart-in" : anim === "pop" ? "animate-cart-pop" : ""
-        }`}
-      >
-        <span className="flex items-center gap-2.5">
-          <span className="relative flex items-center" aria-hidden>
-            <span className="text-lg leading-none">🛒</span>
-            <span className="absolute -right-2.5 -top-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-category px-1 text-xs font-bold text-white">
-              {count}
-            </span>
-          </span>
-          <span>{copy.viewCart}</span>
+    <div
+      className={`pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-6 ${
+        anim === "in" ? "animate-cart-in" : anim === "pop" ? "animate-cart-pop" : ""
+      }`}
+    >
+      <div className="pointer-events-auto flex w-full max-w-lg items-center justify-between gap-4 rounded-2xl bg-ink px-4 py-3 text-white shadow-[0_10px_30px_rgba(0,0,0,0.25)] sm:max-w-md">
+        <span className="text-sm font-medium tabular-nums sm:text-base">
+          {count} {count === 1 ? copy.cartItemSingular : copy.cartItemPlural} · {formatUsd(sum, language)}
         </span>
-        <span className="tabular-nums">{formatUsd(sum, language)}</span>
-      </button>
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={copy.viewCart}
+          className="shrink-0 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95"
+        >
+          {copy.viewCart}
+        </button>
+      </div>
     </div>
   );
 }
@@ -114,17 +110,17 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-drawer-title"
-        className="relative flex h-full w-full max-w-md flex-col border-l border-white/10 bg-surface shadow-2xl sm:max-w-sm"
+        className="relative flex h-full w-full max-w-md flex-col border-l border-foreground/10 bg-surface shadow-2xl sm:max-w-sm"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 id="cart-drawer-title" className="text-lg font-bold text-white">
+        <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
+          <h2 id="cart-drawer-title" className="text-lg font-bold text-foreground">
             {copy.cartDrawerTitle}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={copy.closeModal}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-white/70 hover:bg-white/10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/15 text-foreground/70 hover:bg-foreground/5"
           >
             ×
           </button>
@@ -132,7 +128,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {count === 0 ? (
-            <p className="py-8 text-center text-sm text-white/60">{copy.emptyCart}</p>
+            <p className="py-8 text-center text-sm text-muted">{copy.emptyCart}</p>
           ) : (
             <ul className="space-y-4">
               {lines.map((line) => {
@@ -149,11 +145,11 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                 return (
                   <li
                     key={lineKey}
-                    className="rounded-lg border border-white/10 bg-black/15 p-3"
+                    className="rounded-lg border border-foreground/10 bg-background p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-white">{name}</p>
+                        <p className="font-semibold text-foreground">{name}</p>
                         {selectionRows.length > 0 ? (
                           <p className="mt-1 text-xs text-muted">{selectionRows.join(" · ")}</p>
                         ) : null}
@@ -165,7 +161,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                         type="button"
                         onClick={() => removeItem(line.id, line.selections)}
                         aria-label={`${copy.remove} ${name}`}
-                        className="shrink-0 text-xs text-red-300 hover:underline"
+                        className="shrink-0 text-xs text-accent hover:underline"
                       >
                         {copy.remove}
                       </button>
@@ -175,18 +171,18 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                         type="button"
                         onClick={() => setQuantity(line.id, line.selections, line.quantity - 1)}
                         aria-label={`${copy.decreaseItemAria} ${name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 text-white hover:bg-white/10"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-foreground/15 text-foreground hover:bg-foreground/5"
                       >
                         −
                       </button>
-                      <span className="w-6 text-center font-mono text-sm text-white">
+                      <span className="w-6 text-center font-mono text-sm text-foreground">
                         {line.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => setQuantity(line.id, line.selections, line.quantity + 1)}
                         aria-label={`${copy.increaseItemAria} ${name}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 text-white hover:bg-white/10"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-foreground/15 text-foreground hover:bg-foreground/5"
                       >
                         +
                       </button>
@@ -198,16 +194,16 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
           )}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
+        <div className="shrink-0 border-t border-foreground/10 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
           <div className="mb-3 flex items-center justify-between text-sm">
-            <span className="text-white/70">{copy.subtotalLabel}</span>
-            <span className="font-semibold text-white">{formatUsd(sum, language)}</span>
+            <span className="text-muted">{copy.subtotalLabel}</span>
+            <span className="font-semibold text-foreground">{formatUsd(sum, language)}</span>
           </div>
           {count > 0 ? (
             <Link
               href="/checkout"
               onClick={onClose}
-              className="block w-full rounded-xl bg-accent py-3.5 text-center font-semibold text-surface shadow-lg transition hover:brightness-95"
+              className="block w-full rounded-xl bg-accent py-3.5 text-center font-semibold text-white shadow-lg transition hover:brightness-95"
             >
               {copy.checkout}
             </Link>
@@ -215,7 +211,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
             <button
               type="button"
               disabled
-              className="block w-full cursor-not-allowed rounded-xl bg-accent/40 py-3.5 text-center font-semibold text-surface/60"
+              className="block w-full cursor-not-allowed rounded-xl bg-accent/40 py-3.5 text-center font-semibold text-white/60"
             >
               {copy.checkout}
             </button>

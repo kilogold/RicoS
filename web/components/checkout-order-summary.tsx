@@ -15,24 +15,24 @@ export function CheckoutOrderSummary({ lines }: { lines: CartLine[] }) {
   const totals = orderTotalsForCart(lines, surface, catalog.orderFees);
 
   return (
-    <div className="mb-6 rounded-xl border border-white/10 bg-black/20 p-4">
-      <p className="text-sm font-semibold uppercase tracking-wide text-[#b8d4f0]">
+    <div className="mb-6 rounded-xl border border-foreground/10 bg-surface p-4">
+      <p className="text-sm font-semibold uppercase tracking-wide text-muted">
         {copy.orderSummary}
       </p>
-      <ul className="mt-3 space-y-2 text-sm text-white/85">
+      <ul className="mt-3 space-y-2 text-sm text-foreground/85">
         {summaryLines.map(({ line, item }) => {
           const selections = surface.getSelectionDisplayLines(line.id, line.selections, language);
           return (
             <li
               key={`${line.id}-${JSON.stringify(line.selections)}`}
-              className="rounded-md bg-white/5 px-3 py-2"
+              className="rounded-md bg-background px-3 py-2"
             >
               <p>
                 {line.quantity}x {surface.resolveLocalizedText(item.name, language)} ·{" "}
                 {formatUsd(lineTotalCents(line, surface), language)}
               </p>
               {selections.length > 0 ? (
-                <p className="mt-1 text-xs text-[#b8d4f0]">{selections.join(" · ")}</p>
+                <p className="mt-1 text-xs text-muted">{selections.join(" · ")}</p>
               ) : null}
             </li>
           );

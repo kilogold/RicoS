@@ -15,7 +15,7 @@ function SocialIconLinks() {
         href={STORE_INFO.instagramUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white hover:bg-white/10"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-foreground/15 text-foreground hover:bg-foreground/5"
         aria-label="Instagram"
       >
         <FaInstagram aria-hidden className="h-5 w-5" />
@@ -24,7 +24,7 @@ function SocialIconLinks() {
         href={STORE_INFO.facebookUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white hover:bg-white/10"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-foreground/15 text-foreground hover:bg-foreground/5"
         aria-label="Facebook"
       >
         <FaFacebookF aria-hidden className="h-5 w-5" />
@@ -43,7 +43,7 @@ export default function FindUsPage() {
       <SiteHeader />
       <StoreHoursBanners />
       <SitePageShell title={copy.findUsTitle} description={copy.findUsIntro}>
-        <section className="overflow-hidden rounded-xl border border-white/10 bg-[#0c2340]/60">
+        <section className="overflow-hidden rounded-xl border border-foreground/10 bg-surface">
           <div className="aspect-video w-full">
             <iframe
               title={copy.findUsMapHeading}
@@ -57,9 +57,9 @@ export default function FindUsPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">
-          <article className="rounded-xl border border-white/10 bg-[#0c2340]/60 p-5">
-            <h2 className="text-lg font-semibold text-[#f4c430]">{copy.findUsAddressHeading}</h2>
-            <address className="mt-3 space-y-1 text-sm not-italic text-white/85">
+          <article className="rounded-xl border border-foreground/10 bg-surface p-5">
+            <h2 className="text-lg font-semibold text-accent">{copy.findUsAddressHeading}</h2>
+            <address className="mt-3 space-y-1 text-sm not-italic text-foreground/85">
               {STORE_INFO.addressLines.map((line) => (
                 <p key={line}>{line}</p>
               ))}
@@ -68,21 +68,21 @@ export default function FindUsPage() {
               href={STORE_INFO.googleMapsDirectionsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex rounded-lg bg-[#f4c430] px-4 py-2 text-sm font-semibold text-[#0c2340] hover:brightness-95"
+              className="mt-4 inline-flex rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:brightness-95"
             >
               {copy.getDirections}
             </a>
           </article>
 
-          <article className="rounded-xl border border-white/10 bg-[#0c2340]/60 p-5">
-            <h2 className="text-lg font-semibold text-[#f4c430]">{copy.findUsPhoneHeading}</h2>
+          <article className="rounded-xl border border-foreground/10 bg-surface p-5">
+            <h2 className="text-lg font-semibold text-accent">{copy.findUsPhoneHeading}</h2>
             <a
               href={`tel:${STORE_INFO.phoneDial}`}
-              className="mt-3 inline-flex text-base text-white/90 hover:text-[#f4c430]"
+              className="mt-3 inline-flex text-base text-foreground/90 hover:text-accent"
             >
               {STORE_INFO.phoneDisplay}
             </a>
-            <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-white/70">
+            <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-muted">
               {copy.followUs}
             </h3>
             <div className="mt-3">
@@ -91,9 +91,9 @@ export default function FindUsPage() {
           </article>
         </section>
 
-        <section className="rounded-xl border border-white/10 bg-[#0c2340]/60 p-5">
-          <h2 className="text-lg font-semibold text-[#f4c430]">{copy.hoursHeading}</h2>
-          <div className="mt-3 space-y-1 text-sm text-white/85">
+        <section className="rounded-xl border border-foreground/10 bg-surface p-5">
+          <h2 className="text-lg font-semibold text-accent">{copy.hoursHeading}</h2>
+          <div className="mt-3 space-y-1 text-sm text-foreground/85">
             {hoursLines.map((line) => (
               <p key={line}>{line}</p>
             ))}

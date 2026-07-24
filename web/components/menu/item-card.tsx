@@ -84,7 +84,7 @@ export function ItemCard({
       aria-disabled={browseOnly}
       onClick={handleQuickAdd}
       aria-label={`${copy.quickAddAria}: ${name}`}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-surface shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-white shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
     >
       +
     </button>
@@ -98,7 +98,7 @@ export function ItemCard({
 
   return (
     <article
-      className={`group relative flex h-full rounded-xl border border-white/10 bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
+      className={`group relative flex h-full rounded-xl border border-foreground/10 bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
         imageSrc ? "flex-row gap-3 p-3" : "flex-col p-4"
       } ${hasModifiers && !browseOnly ? "cursor-pointer" : ""} ${browseOnly ? "opacity-60" : ""}`}
       onClick={handleCardClick}
@@ -115,11 +115,11 @@ export function ItemCard({
     >
       <div className={`flex min-w-0 flex-1 flex-col ${imageSrc ? "py-0.5" : ""}`}>
         <div className="flex items-start justify-between gap-3">
-          <h4 className="text-base font-semibold leading-snug text-white">{name}</h4>
+          <h4 className="text-base font-semibold leading-snug text-foreground">{name}</h4>
           {imageSrc ? customizeBadge : !hasModifiers ? quickAddButton : customizeBadge}
         </div>
         <p
-          className={`mt-2 line-clamp-2 text-sm leading-relaxed text-white/70 ${
+          className={`mt-2 line-clamp-2 text-sm leading-relaxed text-muted ${
             imageSrc ? "" : "flex-1"
           }`}
         >

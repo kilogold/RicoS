@@ -253,13 +253,13 @@ export function AthMovilStub({
   }, [phase, reference, copy]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
+    <div className="rounded-xl border border-foreground/10 bg-surface p-6 text-foreground">
       <header className="flex items-baseline justify-between gap-4">
-        <h2 className="text-lg font-semibold text-[#f4c430]">{copy.athMovilStubTitle}</h2>
+        <h2 className="text-lg font-semibold text-accent">{copy.athMovilStubTitle}</h2>
         <StatusPill phase={phase} />
       </header>
 
-      <p className="mt-2 text-sm text-white/75">
+      <p className="mt-2 text-sm text-muted">
         {snapshot.grandTotalCents > 0
           ? copy.athMovilStubBody.replace(
               "{total}",
@@ -270,23 +270,23 @@ export function AthMovilStub({
 
       {error ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-red-300">{error}</p>
+          <p className="text-sm text-accent">{error}</p>
           <button
             type="button"
             onClick={() => setRetryKey((n) => n + 1)}
-            className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white hover:border-[#f4c430]/60"
+            className="rounded-lg border border-foreground/15 px-3 py-2 text-xs text-foreground hover:border-accent/60"
           >
             Retry
           </button>
         </div>
       ) : phase === "preparing" ? (
-        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+        <div className="mt-4 rounded-lg border border-dashed border-foreground/15 bg-background p-4 text-xs text-muted">
           {copy.preparingSecureCheckout}
         </div>
       ) : reference ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-white/80">{copy.athMovilWaitingHint}</p>
-          <p className="break-all rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/70">
+          <p className="text-sm text-foreground/80">{copy.athMovilWaitingHint}</p>
+          <p className="break-all rounded-lg bg-background px-3 py-2 font-mono text-xs text-muted">
             {copy.orderReferenceLabel}: {reference}
           </p>
         </div>
@@ -303,7 +303,7 @@ function StatusPill({ phase }: { phase: AthPaymentPhase }) {
         ? "Waiting for payment"
         : "Error";
   return (
-    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/70">
+    <span className="rounded-full border border-foreground/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted">
       {label}
     </span>
   );

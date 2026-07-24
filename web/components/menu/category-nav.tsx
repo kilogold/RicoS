@@ -89,7 +89,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
   return (
     <nav
       aria-label={copy.allCategories}
-      className="sticky top-0 z-40 border-b border-white/10 bg-background/95 backdrop-blur"
+      className="sticky top-0 z-40 border-b border-foreground/10 bg-background/95 backdrop-blur"
     >
       <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2 md:px-6">
         {canScrollLeft ? (
@@ -97,7 +97,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
             type="button"
             onClick={() => scrollByAmount("left")}
             aria-label={copy.scrollCategoriesLeft}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80 hover:bg-white/10 sm:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/15 text-foreground/80 hover:bg-foreground/5 sm:flex"
           >
             ‹
           </button>
@@ -114,10 +114,10 @@ export function CategoryNav({ categories }: CategoryNavProps) {
                 key={cat.id}
                 type="button"
                 onClick={() => scrollToCategory(cat.id)}
-                className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
                   isActive
-                    ? "border-accent text-accent"
-                    : "border-transparent text-white/70 hover:text-white"
+                    ? "bg-accent text-white"
+                    : "text-foreground/70 hover:text-foreground"
                 } ${!cat.themeActive ? "opacity-50" : ""}`}
               >
                 {cat.label}
@@ -131,7 +131,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
             type="button"
             onClick={() => scrollByAmount("right")}
             aria-label={copy.scrollCategoriesRight}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80 hover:bg-white/10 sm:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/15 text-foreground/80 hover:bg-foreground/5 sm:flex"
           >
             ›
           </button>

@@ -78,7 +78,7 @@ export function StoreHoursBanners() {
     return (
       <div
         role="status"
-        className={`${stickyBar} border-amber-400/40 bg-amber-950/90 font-medium text-amber-50`}
+        className={`${stickyBar} border-amber-400/40 bg-amber-50 font-medium text-amber-900`}
       >
         {copy.storeClosedBanner}
       </div>
@@ -89,7 +89,7 @@ export function StoreHoursBanners() {
     return (
       <div
         role="status"
-        className={`${stickyBar} border-red-500/50 bg-red-950/90 font-semibold text-red-50`}
+        className={`${stickyBar} border-red-300/50 bg-red-50 font-semibold text-red-900`}
       >
         {copy.lastCallBannerPrefix}{" "}
         <span className="tabular-nums">{formatCountdownMs(remainingMs)}</span>

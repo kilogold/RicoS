@@ -24,7 +24,7 @@ export function MenuSearch({ value, onChange }: MenuSearchProps) {
   const copy = getAppStrings(language);
 
   return (
-    <div className="sticky top-16 z-30 border-b border-white/10 bg-[#07182b]/95 backdrop-blur">
+    <div className="sticky top-16 z-30 border-b border-foreground/10 bg-background/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
         {/*
           form + preventDefault: Enter must not reload the page.
@@ -49,7 +49,7 @@ export function MenuSearch({ value, onChange }: MenuSearchProps) {
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={copy.menuSearchPlaceholder}
-            className="w-full rounded-lg border border-white/20 bg-black/30 py-2.5 pl-4 pr-12 text-sm text-white placeholder:text-white/45 outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 [&::-ms-clear]:hidden [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+            className="w-full rounded-lg border border-foreground/15 bg-surface py-2.5 pl-4 pr-12 text-sm text-foreground placeholder:text-muted outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 [&::-ms-clear]:hidden [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           {/* Clear only when there is something to clear — resets parent to full menu. */}
           {value.length > 0 ? (
@@ -57,7 +57,7 @@ export function MenuSearch({ value, onChange }: MenuSearchProps) {
               type="button"
               onClick={() => onChange("")}
               aria-label={copy.menuSearchClear}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
             >
               ✕
             </button>

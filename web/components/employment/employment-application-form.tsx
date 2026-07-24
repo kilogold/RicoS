@@ -94,16 +94,16 @@ export function EmploymentApplicationForm() {
 
   if (submitted) {
     return (
-      <section className="rounded-xl border border-emerald-300/30 bg-emerald-900/20 p-5">
-        <p className="text-base text-emerald-100">{copy.employmentSubmitSuccess}</p>
+      <section className="rounded-xl border border-emerald-300/40 bg-emerald-50 p-5">
+        <p className="text-base text-emerald-900">{copy.employmentSubmitSuccess}</p>
       </section>
     );
   }
 
   return (
-    <section className="rounded-xl border border-white/10 bg-[#0c2340]/60 p-5">
+    <section className="rounded-xl border border-foreground/10 bg-surface p-5">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm text-white/90">
+        <label className="flex flex-col gap-1 text-sm text-foreground/90">
           <span>{copy.employmentFullNameLabel}</span>
           <input
             type="text"
@@ -112,11 +112,11 @@ export function EmploymentApplicationForm() {
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             required
-            className="rounded-lg border border-white/15 bg-[#0c2340] px-3 py-2 text-white placeholder:text-white/40 focus:border-[#f4c430]/50 focus:outline-none"
+            className="rounded-lg border border-foreground/15 bg-background px-3 py-2 text-foreground placeholder:text-muted focus:border-accent/50 focus:outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-white/90">
+        <label className="flex flex-col gap-1 text-sm text-foreground/90">
           <span>{copy.employmentPhoneLabel}</span>
           <input
             type="tel"
@@ -128,13 +128,13 @@ export function EmploymentApplicationForm() {
             value={phone}
             onChange={(event) => setPhone(formatUsPhoneInput(event.target.value))}
             required
-            className="rounded-lg border border-white/15 bg-[#0c2340] px-3 py-2 text-white placeholder:text-white/40 focus:border-[#f4c430]/50 focus:outline-none"
+            className="rounded-lg border border-foreground/15 bg-background px-3 py-2 text-foreground placeholder:text-muted focus:border-accent/50 focus:outline-none"
           />
         </label>
 
-        <fieldset className="rounded-lg border border-white/10 p-4">
-          <legend className="px-1 text-sm text-white/90">{copy.employmentRoleLabel}</legend>
-          <div className="mt-2 flex flex-col gap-2 text-sm text-white/90 md:flex-row md:gap-6">
+        <fieldset className="rounded-lg border border-foreground/10 p-4">
+          <legend className="px-1 text-sm text-foreground/90">{copy.employmentRoleLabel}</legend>
+          <div className="mt-2 flex flex-col gap-2 text-sm text-foreground/90 md:flex-row md:gap-6">
             <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
@@ -143,7 +143,7 @@ export function EmploymentApplicationForm() {
                 checked={role === "kitchen"}
                 onChange={() => setRole("kitchen")}
                 required
-                className="h-4 w-4 accent-[#0f7f6f]"
+                className="h-4 w-4 accent-accent"
               />
               {copy.employmentRoleKitchen}
             </label>
@@ -155,15 +155,15 @@ export function EmploymentApplicationForm() {
                 checked={role === "waiter"}
                 onChange={() => setRole("waiter")}
                 required
-                className="h-4 w-4 accent-[#0f7f6f]"
+                className="h-4 w-4 accent-accent"
               />
               {copy.employmentRoleWaiter}
             </label>
           </div>
         </fieldset>
 
-        <fieldset className="rounded-lg border border-white/10 p-4">
-          <legend className="px-1 text-sm text-white/90">{copy.employmentAvailabilityLabel}</legend>
+        <fieldset className="rounded-lg border border-foreground/10 p-4">
+          <legend className="px-1 text-sm text-foreground/90">{copy.employmentAvailabilityLabel}</legend>
           <div className="mt-2">
             <AvailabilityGrid
               availability={availability}
@@ -177,7 +177,7 @@ export function EmploymentApplicationForm() {
           </div>
         </fieldset>
 
-        <label className="flex flex-col gap-1 text-sm text-white/90">
+        <label className="flex flex-col gap-1 text-sm text-foreground/90">
           <span>{copy.employmentResumeLabel}</span>
           <input
             type="file"
@@ -185,13 +185,13 @@ export function EmploymentApplicationForm() {
             accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             required
             onChange={(event) => setResume(event.target.files?.[0] ?? null)}
-            className="rounded-lg border border-white/15 bg-[#0c2340] px-3 py-2 text-white file:mr-3 file:rounded-md file:border-0 file:bg-[#f4c430] file:px-3 file:py-1.5 file:text-[#0c2340]"
+            className="rounded-lg border border-foreground/15 bg-background px-3 py-2 text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-white"
           />
-          <span className="text-xs text-white/60">{copy.employmentResumeHint}</span>
+          <span className="text-xs text-muted">{copy.employmentResumeHint}</span>
         </label>
 
         {submitError ? (
-          <p className="text-sm text-red-300" role="alert">
+          <p className="text-sm text-accent" role="alert">
             {submitError}
           </p>
         ) : null}
@@ -199,7 +199,7 @@ export function EmploymentApplicationForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[#f4c430] px-4 py-3 text-base font-semibold text-[#0c2340] shadow-lg transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-accent px-4 py-3 text-base font-semibold text-white shadow-lg transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {submitting ? copy.employmentSubmitSubmitting : copy.employmentSubmitCta}
         </button>

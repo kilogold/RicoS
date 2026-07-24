@@ -30,7 +30,7 @@ export function AvailabilityGrid({
   return (
     <table className="w-full border-separate border-spacing-y-2 text-left text-sm">
       <thead>
-        <tr className="text-white/80">
+        <tr className="text-muted">
           <th className="font-medium">{dayLabel}</th>
           <th className="w-20 text-center font-medium">{amLabel}</th>
           <th className="w-20 text-center font-medium">{pmLabel}</th>
@@ -41,8 +41,8 @@ export function AvailabilityGrid({
           const isAmSelected = isAvailabilityShiftSelected(availability, day, "am");
           const isPmSelected = isAvailabilityShiftSelected(availability, day, "pm");
           return (
-            <tr key={day} className="rounded-lg bg-white/5">
-              <td className="rounded-l-lg px-4 py-3 text-white">{weekdayLabels[day]}</td>
+            <tr key={day} className="rounded-lg bg-background">
+              <td className="rounded-l-lg px-4 py-3 text-foreground">{weekdayLabels[day]}</td>
               <td className="px-4 py-3 text-center">
                 <input
                   type="checkbox"
@@ -50,7 +50,7 @@ export function AvailabilityGrid({
                   onChange={() => onToggle(day, "am")}
                   disabled={disabled}
                   aria-label={`${weekdayLabels[day]} ${amLabel}`}
-                  className="h-6 w-6 accent-[#0f7f6f]"
+                  className="h-6 w-6 accent-accent"
                 />
               </td>
               <td className="rounded-r-lg px-4 py-3 text-center">
@@ -60,7 +60,7 @@ export function AvailabilityGrid({
                   onChange={() => onToggle(day, "pm")}
                   disabled={disabled}
                   aria-label={`${weekdayLabels[day]} ${pmLabel}`}
-                  className="h-6 w-6 accent-[#0f7f6f]"
+                  className="h-6 w-6 accent-accent"
                 />
               </td>
             </tr>

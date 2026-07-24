@@ -418,15 +418,15 @@ export function SolanaPayStub({
   }, [qr, rpc, amountMinor, referenceAddress]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
+    <div className="rounded-xl border border-foreground/10 bg-surface p-6 text-foreground">
       <header className="flex items-baseline justify-between gap-4">
-        <h2 className="text-lg font-semibold text-[#f4c430]">
+        <h2 className="text-lg font-semibold text-accent">
           {copy.solanaPayStubTitle}
         </h2>
         <StatusPill status={payment.status} />
       </header>
 
-      <p className="mt-2 text-sm text-white/75">
+      <p className="mt-2 text-sm text-muted">
         {cents > 0
           ? `Scan with a Solana wallet to pay ${formatUsd(cents, language)} in USDC (${SOLANA_CLUSTER}).`
           : copy.solanaPayStubBody}
@@ -434,7 +434,7 @@ export function SolanaPayStub({
 
       {payment.error ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-red-300">{payment.error}</p>
+          <p className="text-sm text-accent">{payment.error}</p>
           {payment.canRetry ? (
             <button
               type="button"
@@ -442,14 +442,14 @@ export function SolanaPayStub({
                 payment.retry();
                 setRetryKey((n) => n + 1);
               }}
-              className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white hover:border-[#f4c430]/60"
+              className="rounded-lg border border-foreground/15 px-3 py-2 text-xs text-foreground hover:border-accent/60"
             >
               Retry
             </button>
           ) : null}
         </div>
       ) : payment.status === "confirming" ? (
-        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+        <div className="mt-4 rounded-lg border border-dashed border-foreground/15 bg-background p-4 text-xs text-muted">
           {copy.loading}
         </div>
       ) : qr && url ? (
@@ -465,23 +465,23 @@ export function SolanaPayStub({
           {isAndroid ? (
             <a
               href={url.toString()}
-              className="text-xs text-[#f4c430] underline underline-offset-4"
+              className="text-xs text-accent underline underline-offset-4"
             >
               Open in wallet
             </a>
           ) : null}
           {signature ? (
-            <p className="break-all text-center font-mono text-[10px] text-white/50">
+            <p className="break-all text-center font-mono text-[10px] text-muted">
               sig: {signature}
             </p>
           ) : null}
         </div>
       ) : cents > 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+        <div className="mt-4 rounded-lg border border-dashed border-foreground/15 bg-background p-4 text-xs text-muted">
           {copy.loading}
         </div>
       ) : (
-        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+        <div className="mt-4 rounded-lg border border-dashed border-foreground/15 bg-background p-4 text-xs text-muted">
           Add items to your cart to generate a payment request.
         </div>
       )}
@@ -501,7 +501,7 @@ function StatusPill({ status }: { status: string }) {
               ? "Timed out"
               : "Ready";
   return (
-    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/70">
+    <span className="rounded-full border border-foreground/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted">
       {label}
     </span>
   );

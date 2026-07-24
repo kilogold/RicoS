@@ -66,7 +66,7 @@ export default function Home() {
     <main className="relative">
       <SiteHeader />
       <StoreHoursBanners />
-      <div className="border-b border-white/10 bg-linear-to-br from-surface via-[#0a1f38] to-background px-4 py-12 md:px-10">
+      <div className="bg-ink px-4 py-12 md:px-10">
         <div className="mx-auto max-w-6xl">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">
             {copy.homeTagline}
@@ -84,7 +84,7 @@ export default function Home() {
 
       {resultStatus ? (
         <div className="mx-auto max-w-6xl px-4 pt-4 md:px-6">
-          <p className="text-sm text-white/70" role="status">
+          <p className="text-sm text-muted" role="status">
             {resultStatus}
           </p>
         </div>

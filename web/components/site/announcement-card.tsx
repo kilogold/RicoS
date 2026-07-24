@@ -37,25 +37,25 @@ export function AnnouncementCard() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-3 pt-4 md:px-6">
       <div
-        className="relative rounded-2xl border border-white/10 bg-[#07182b] p-5 pr-12 text-white shadow-lg"
+        className="relative rounded-2xl border border-accent/20 bg-accent p-5 pr-12 text-white shadow-lg"
         role="status"
       >
         <button
           type="button"
           onClick={dismiss}
           aria-label={copy.announcementDismiss}
-          className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+          className="absolute right-3 top-3 rounded-md px-2 py-1 text-sm text-white/80 hover:bg-white/10 hover:text-white"
         >
           ✕
         </button>
-        <p className="text-lg font-bold leading-snug text-[#f4c430] md:text-xl">
+        <p className="text-lg font-bold leading-snug md:text-xl">
           {announcement.message}
         </p>
         {announcement.ctaUrl ? (
           <div className="mt-4">
             <Link
               href={announcement.ctaUrl}
-              className="inline-flex rounded-xl bg-[#f4c430] px-4 py-2.5 text-sm font-black text-[#0c2340] hover:brightness-95"
+              className="inline-flex rounded-xl bg-white px-4 py-2.5 text-sm font-black text-accent hover:brightness-95"
             >
               {ctaLabel}
             </Link>
