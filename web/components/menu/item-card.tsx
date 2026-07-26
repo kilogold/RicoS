@@ -14,7 +14,8 @@ import {
   type MenuItem,
 } from "@ricos/shared";
 import Image from "next/image";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
+import { HiPencilSquare } from "react-icons/hi2";
 
 type ItemCardProps = {
   item: MenuItem;
@@ -25,6 +26,9 @@ type ItemCardProps = {
   onQuickAdd: () => void;
   onOpenModal: () => void;
 };
+
+const actionButtonClassName =
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-white shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45";
 
 export function ItemCard({
   item,
@@ -66,85 +70,62 @@ export function ItemCard({
     );
   };
 
-  const handleCardClick = () => {
-    if (browseOnly) return;
-    if (hasModifiers) onOpenModal();
-  };
-
-  const handleQuickAdd = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    if (browseOnly) return;
-    onQuickAdd();
-  };
-
-  const quickAddButton = !hasModifiers ? (
+  const actionButton = hasModifiers ? (
     <button
       type="button"
       disabled={browseOnly}
       aria-disabled={browseOnly}
-      onClick={handleQuickAdd}
+      onClick={() => {
+        if (browseOnly) return;
+        onOpenModal();
+      }}
+      aria-label={`${copy.openItemAria}: ${name}`}
+      className={actionButtonClassName}
+    >
+      <HiPencilSquare className="h-5 w-5" aria-hidden />
+    </button>
+  ) : (
+    <button
+      type="button"
+      disabled={browseOnly}
+      aria-disabled={browseOnly}
+      onClick={() => {
+        if (browseOnly) return;
+        onQuickAdd();
+      }}
       aria-label={`${copy.quickAddAria}: ${name}`}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-white shadow transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-45"
+      className={actionButtonClassName}
     >
       +
     </button>
-  ) : null;
-
-  const customizeBadge = hasModifiers ? (
-    <span className="shrink-0 rounded-md border border-accent/40 bg-accent/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent">
-      {copy.customize}
-    </span>
-  ) : null;
+  );
 
   return (
     <article
-      className={`group relative flex h-full rounded-xl border border-foreground/10 bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
-        imageSrc ? "flex-row gap-3 p-3" : "flex-col p-4"
-      } ${hasModifiers && !browseOnly ? "cursor-pointer" : ""} ${browseOnly ? "opacity-60" : ""}`}
-      onClick={handleCardClick}
-      onKeyDown={(event) => {
-        if (browseOnly || !hasModifiers) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpenModal();
-        }
-      }}
-      role={hasModifiers ? "button" : undefined}
-      tabIndex={hasModifiers && !browseOnly ? 0 : undefined}
-      aria-label={hasModifiers ? `${copy.openItemAria}: ${name}` : undefined}
+      className={`group relative flex h-full flex-row items-center gap-3 rounded-xl border border-foreground/10 bg-surface p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md ${
+        browseOnly ? "opacity-60" : ""
+      }`}
     >
-      <div className={`flex min-w-0 flex-1 flex-col ${imageSrc ? "py-0.5" : ""}`}>
-        <div className="flex items-start justify-between gap-3">
-          <h4 className="text-base font-semibold leading-snug text-foreground">{name}</h4>
-          {imageSrc ? customizeBadge : !hasModifiers ? quickAddButton : customizeBadge}
+      {imageSrc ? (
+        <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg sm:w-24">
+          <Image
+            src={imageSrc}
+            alt={name}
+            fill
+            sizes="(max-width: 640px) 5rem, 6rem"
+            className="object-cover"
+            onError={handleImageError}
+          />
         </div>
-        <p
-          className={`mt-2 line-clamp-2 text-sm leading-relaxed text-muted ${
-            imageSrc ? "" : "flex-1"
-          }`}
-        >
-          {description}
-        </p>
+      ) : null}
+
+      <div className="flex min-w-0 flex-1 flex-col py-0.5">
+        <h4 className="text-base font-semibold leading-snug text-foreground">{name}</h4>
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{description}</p>
         <p className="mt-3 text-sm font-semibold text-accent">{priceLabel}</p>
       </div>
 
-      {imageSrc ? (
-        <div className="relative w-[42%] max-w-44 shrink-0 self-stretch">
-          <div className="relative aspect-3/2 w-full overflow-hidden rounded-lg">
-            <Image
-              src={imageSrc}
-              alt={name}
-              fill
-              sizes="(max-width: 640px) 42vw, (max-width: 1024px) 20vw, 11rem"
-              className="object-cover"
-              onError={handleImageError}
-            />
-          </div>
-          {!hasModifiers ? (
-            <div className="absolute bottom-1 right-1">{quickAddButton}</div>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="shrink-0 self-center">{actionButton}</div>
     </article>
   );
 }
