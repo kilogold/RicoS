@@ -17,11 +17,16 @@ import {
 } from "@/lib/commerce/domain/store-hours";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/domain/menu-version-policy";
 import { ORDER_CONFIRMATION_ERROR_CODE } from "@/lib/commerce/order-confirmation";
+import { athReferenceErrorMessageForCode } from "@/lib/commerce/ath-movil-client";
 import {
   errorMessageForCode,
   fetchOrderConfirmationStatus,
   isOrderConfirmed,
 } from "@/lib/commerce/order-confirmation-client";
+import {
+  ATH_PAYMENT_ERROR_CODE,
+  type AthPaymentErrorCode,
+} from "@/lib/commerce/web-api/ath-movil/domain/ath-payment-error-codes";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
@@ -31,6 +36,12 @@ import { formatUsd, orderTotalsForCart } from "@/lib/pricing";
 const ATH_MIN_GRAND_TOTAL_CENTS = 100;
 const ATH_MAX_GRAND_TOTAL_CENTS = 150000;
 const ATH_POLL_INTERVAL_MS = 1_000;
+
+const ATH_PAYMENT_ERROR_CODES = new Set<string>(Object.values(ATH_PAYMENT_ERROR_CODE));
+
+function isAthPaymentErrorCode(code: string | undefined): code is AthPaymentErrorCode {
+  return typeof code === "string" && ATH_PAYMENT_ERROR_CODES.has(code);
+}
 
 type AthPaymentPhase = "preparing" | "waiting" | "error";
 
@@ -129,7 +140,7 @@ export function AthMovilStub({
       });
       const referenceBody = (await referenceRes.json().catch(() => null)) as {
         error?: string;
-        code?: string;
+        code?: AthPaymentErrorCode | typeof MENU_VERSION_CONFLICT_CODE;
         reference?: string;
       } | null;
 
@@ -151,7 +162,11 @@ export function AthMovilStub({
           setPhase("error");
           return;
         }
-        setError(referenceBody?.error ?? copy.checkoutErrorTitle);
+        setError(
+          isAthPaymentErrorCode(referenceBody?.code)
+            ? athReferenceErrorMessageForCode(referenceBody.code, copy)
+            : (referenceBody?.error ?? copy.checkoutErrorTitle),
+        );
         setPhase("error");
         return;
       }

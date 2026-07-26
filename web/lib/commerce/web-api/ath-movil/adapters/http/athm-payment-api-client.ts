@@ -125,8 +125,16 @@ async function postAthEnvelope(params: {
   }
 
   const json = (await res.json().catch(() => null)) as AthApiEnvelope | null;
-  if (!res.ok || !json || !isRecord(json)) {
-    throw new AthPaymentApiError(`ATH ${params.phase} failed with non-JSON or HTTP error`, {
+  if (!json || !isRecord(json)) {
+    console.error(
+      JSON.stringify({
+        scope: "ath_api_bad_response",
+        phase: params.phase,
+        path: params.path,
+        httpStatus: res.status,
+      }),
+    );
+    throw new AthPaymentApiError(`ATH ${params.phase} failed with non-JSON HTTP response`, {
       code: "bad_response",
       status: res.status,
       phase: params.phase,
@@ -134,16 +142,26 @@ async function postAthEnvelope(params: {
   }
 
   const statusValue = String(json.status ?? "").trim().toLowerCase();
-  if (statusValue !== "success") {
-    throw new AthPaymentApiError(
-      `ATH ${params.phase} API error: ${json.message ?? "unknown ATH API error"}`,
-      {
-        code: "api_error",
-        status: res.status,
-        errorCode: typeof json.errorcode === "string" ? json.errorcode : undefined,
+  if (!res.ok || statusValue !== "success") {
+    const message = json.message ?? "unknown ATH API error";
+    const errorCode = typeof json.errorcode === "string" ? json.errorcode : undefined;
+    console.error(
+      JSON.stringify({
+        scope: "ath_api_error",
         phase: params.phase,
-      },
+        path: params.path,
+        httpStatus: res.status,
+        athStatus: json.status,
+        athMessage: message,
+        athErrorCode: errorCode,
+      }),
     );
+    throw new AthPaymentApiError(`ATH ${params.phase} API error: ${message}`, {
+      code: "api_error",
+      status: res.status,
+      errorCode,
+      phase: params.phase,
+    });
   }
 
   return json;

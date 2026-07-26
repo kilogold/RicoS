@@ -70,6 +70,7 @@ export type AppStrings = {
   athMovilStubTitle: string;
   athMovilStubBody: string;
   athMovilWaitingHint: string;
+  athMovilCustomerOwnPhoneError: string;
   pickupContactHeading: string;
   customerNameLabel: string;
   customerPhoneLabel: string;
@@ -210,6 +211,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     athMovilStubTitle: "ATH Móvil",
     athMovilStubBody: "Pay {total} with ATH Móvil on the phone number you entered.",
     athMovilWaitingHint: "Open the ATH Móvil app and approve the payment request. This page updates automatically once payment is confirmed.",
+    athMovilCustomerOwnPhoneError:
+      "This phone number can't be used for ATH Móvil checkout. Enter a personal ATH Móvil number that is not the same as the business account, or use a different customer's phone number.",
     pickupContactHeading: "Contact info",
     customerNameLabel: "Name",
     customerPhoneLabel: "Phone",
@@ -358,6 +361,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     athMovilStubTitle: "ATH Movil",
     athMovilStubBody: "Paga {total} con ATH Movil usando el telefono que ingresaste.",
     athMovilWaitingHint: "Abre la app ATH Movil y aprueba la solicitud de pago. Esta pagina se actualizara automaticamente cuando se confirme el pago.",
+    athMovilCustomerOwnPhoneError:
+      "Este numero no se puede usar para pagar con ATH Movil. Ingresa un numero personal de ATH Movil que no sea el mismo de la cuenta del negocio, o usa el telefono de otro cliente.",
     pickupContactHeading: "Informacion de contacto",
     customerNameLabel: "Nombre",
     customerPhoneLabel: "Telefono",
