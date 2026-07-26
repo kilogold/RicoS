@@ -140,7 +140,7 @@ export function AthMovilStub({
       });
       const referenceBody = (await referenceRes.json().catch(() => null)) as {
         error?: string;
-        code?: AthPaymentErrorCode | typeof MENU_VERSION_CONFLICT_CODE;
+        code?: string;
         reference?: string;
       } | null;
 
