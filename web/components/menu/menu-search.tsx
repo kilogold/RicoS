@@ -24,7 +24,7 @@ export function MenuSearch({ value, onChange }: MenuSearchProps) {
   const copy = getAppStrings(language);
 
   return (
-    <div className="sticky top-16 z-30 border-b border-foreground/10 bg-background/95 backdrop-blur">
+    <div className="top-16 z-30 border-b border-foreground/10 bg-background/95 backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 py-3 md:px-6">
         {/*
           form + preventDefault: Enter must not reload the page.
