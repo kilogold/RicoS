@@ -15,11 +15,11 @@ export function SiteHeader() {
   return (
     <>
       <header className="top-0 z-40 border-b border-foreground/10 bg-surface/95 backdrop-blur">
-        <div className="site-container flex h-16 items-center justify-between gap-3 px-4 md:px-6">
+        <div className="site-container grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 md:px-6">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-white shadow-md shadow-accent/30 transition hover:brightness-95"
+            className="inline-flex h-10 w-10 items-center justify-center justify-self-start rounded-lg bg-accent text-white shadow-md shadow-accent/30 transition hover:brightness-95"
             aria-label={copy.siteMenuLabel}
           >
             <span className="text-xl leading-none" aria-hidden="true">☰</span>
@@ -27,7 +27,7 @@ export function SiteHeader() {
           <Link href="/" aria-label="RicoS" className="text-foreground">
             <RicoSLogo height={60} />
           </Link>
-          <div className="inline-flex items-center gap-1 rounded-lg border border-foreground/15 bg-background p-1">
+          <div className="inline-flex items-center justify-self-end gap-1 rounded-lg border border-foreground/15 bg-background p-1">
             <button
               type="button"
               onClick={() => setLanguage("es")}
