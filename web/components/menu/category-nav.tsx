@@ -91,7 +91,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
       aria-label={copy.allCategories}
       className="sticky top-0 z-40 border-b border-foreground/10 bg-background/95 backdrop-blur"
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2 md:px-6">
+      <div className="site-container flex items-center gap-1 px-4 py-2 md:px-6">
         {canScrollLeft ? (
           <button
             type="button"

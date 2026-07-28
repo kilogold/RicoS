@@ -85,7 +85,7 @@ export function MenuGrid({ catalog, sections }: MenuGridProps) {
                       ))}
                     </ul>
                   ) : null}
-                  <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {cat.items.map((item) => {
                       const modifierGroups = surface.getModifierGroupsForItem(item.id);
                       const hasModifiers = modifierGroups.length > 0;

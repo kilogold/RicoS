@@ -67,7 +67,7 @@ export default function Home() {
       <SiteHeader />
       <StoreHoursBanners />
       <div className="bg-ink px-4 py-12 md:px-10">
-        <div className="mx-auto max-w-6xl">
+        <div className="site-container">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">
             {copy.homeTagline}
           </p>
@@ -83,7 +83,7 @@ export default function Home() {
       <MenuSearch value={searchQuery} onChange={setSearchQuery} />
 
       {resultStatus ? (
-        <div className="mx-auto max-w-6xl px-4 pt-4 md:px-6">
+        <div className="site-container px-4 pt-4 md:px-6">
           <p className="text-sm text-muted" role="status">
             {resultStatus}
           </p>
@@ -92,7 +92,7 @@ export default function Home() {
 
       {!isSearching ? <CategoryNav categories={navCategories} /> : null}
 
-      <div className="mx-auto max-w-6xl px-4 py-12 md:px-6">
+      <div className="site-container px-4 py-12 md:px-6">
         <MenuGrid catalog={catalog} sections={visibleSections} />
       </div>
 

@@ -35,7 +35,7 @@ export function AnnouncementCard() {
       : announcement.ctaLabelEs?.trim() || copy.announcementCtaDefault;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-3 pt-4 md:px-6">
+    <div className="site-container px-4 pb-3 pt-4 md:px-6">
       <div
         className="relative rounded-2xl border border-accent/20 bg-accent p-5 pr-12 text-white shadow-lg"
         role="status"

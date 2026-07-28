@@ -30,6 +30,12 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+@utility site-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: min(100% - 2rem, 100rem);
+}
+
 @keyframes cart-in {
   0% {
     opacity: 0;

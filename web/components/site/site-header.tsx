@@ -14,8 +14,8 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-foreground/10 bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 md:px-6">
+      <header className="top-0 z-40 border-b border-foreground/10 bg-surface/95 backdrop-blur">
+        <div className="site-container flex h-16 items-center justify-between gap-3 px-4 md:px-6">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
