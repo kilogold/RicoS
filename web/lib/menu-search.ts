@@ -17,7 +17,6 @@
  */
 
 import type {
-  Language,
   LocalizedText,
   MenuCategory,
   MenuItem,
@@ -34,22 +33,18 @@ export function normalizeMenuSearchQuery(query: string): string {
 }
 
 /**
- * Pick the string we search against for a bilingual field.
- * Prefer the active language; if that slot is blank, fall back to the other.
- * Example: language "es" and name.es is empty → use name.en.
+ * Both language slots for a bilingual field, trimmed and without blanks.
+ * Search always checks English and Spanish regardless of UI language.
  */
-function localizedForSearch(value: LocalizedText, language: Language): string {
-  const primary = value[language]?.trim();
-  if (primary) return primary;
-  const fallback = language === "en" ? value.es : value.en;
-  return fallback?.trim() ?? "";
+function localizedHaystacks(value: LocalizedText): string[] {
+  return [value.en, value.es].map((text) => text?.trim() ?? "").filter(Boolean);
 }
 
 /**
  * Does this item belong in the search results?
  *
  * We treat the query as a substring against three fields (any one is enough):
- *   1. item name         — "burger" matches "Classic Burger"
+ *   1. item name         — "burger" or "hamburguesa" matches either locale
  *   2. item description  — "patty" matches "Beef patty with cheese"
  *   3. category title    — "salads" keeps every item under Salads
  *
@@ -60,7 +55,6 @@ export function menuItemMatchesSearch(
   item: MenuItem,
   category: MenuCategory,
   query: string,
-  language: Language,
 ): boolean {
   const q = normalizeMenuSearchQuery(query);
 
@@ -71,9 +65,9 @@ export function menuItemMatchesSearch(
   if (!q) return true;
 
   const haystacks = [
-    localizedForSearch(item.name, language),
-    localizedForSearch(item.description, language),
-    localizedForSearch(category.title, language),
+    ...localizedHaystacks(item.name),
+    ...localizedHaystacks(item.description),
+    ...localizedHaystacks(category.title),
   ];
 
   return haystacks.some((text) => text.toLowerCase().includes(q));
@@ -93,7 +87,6 @@ export function menuItemMatchesSearch(
 export function filterThemedMenuSections(
   sections: ThemedMenuSection[],
   query: string,
-  language: Language,
 ): ThemedMenuSection[] {
   const q = normalizeMenuSearchQuery(query);
   if (!q) return sections;
@@ -109,8 +102,7 @@ export function filterThemedMenuSections(
           ...category, // e.g. id, title, notes — unchanged
           items: category.items
             // Keep only items whose name, description, or category title matches q.
-            .filter((item) => menuItemMatchesSearch(item, category, q, language),
-          ),
+            .filter((item) => menuItemMatchesSearch(item, category, q)),
         }))
         // Drop categories that have no matching items left (empty headings).
         .filter((category) => category.items.length > 0),

@@ -33,8 +33,8 @@ export default function Home() {
   );
 
   const visibleSections = useMemo(
-    () => filterThemedMenuSections(themedSections, searchQuery, language),
-    [themedSections, searchQuery, language],
+    () => filterThemedMenuSections(themedSections, searchQuery),
+    [themedSections, searchQuery],
   );
 
   const navCategories = useMemo<CategoryNavItem[]>(

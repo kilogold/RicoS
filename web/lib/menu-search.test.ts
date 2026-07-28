@@ -40,6 +40,12 @@ const salad = item({
   description: { en: "Fresh greens", es: "Verduras frescas" },
 });
 
+const chicken = item({
+  id: "item_asopao_pollo",
+  name: { en: "Chicken", es: "Pollo" },
+  description: { en: "", es: "" },
+});
+
 const burgersCat = category({
   id: "cat_burgers",
   title: { en: "Burgers", es: "Hamburguesas" },
@@ -50,6 +56,12 @@ const saladsCat = category({
   id: "cat_salads",
   title: { en: "Salads", es: "Ensaladas" },
   items: [salad],
+});
+
+const asopaoCat = category({
+  id: "cat_asopao",
+  title: { en: "Asopao", es: "Asopao" },
+  items: [chicken],
 });
 
 const sections: ThemedMenuSection[] = [
@@ -75,34 +87,46 @@ describe("normalizeMenuSearchQuery", () => {
 
 describe("menuItemMatchesSearch", () => {
   test("matches item name", () => {
-    expect(menuItemMatchesSearch(burger, burgersCat, "burger", "en")).toBe(true);
+    expect(menuItemMatchesSearch(burger, burgersCat, "burger")).toBe(true);
   });
 
   test("matches description only", () => {
-    expect(menuItemMatchesSearch(burger, burgersCat, "patty", "en")).toBe(true);
+    expect(menuItemMatchesSearch(burger, burgersCat, "patty")).toBe(true);
   });
 
   test("matches category title", () => {
-    expect(menuItemMatchesSearch(salad, saladsCat, "salads", "en")).toBe(true);
+    expect(menuItemMatchesSearch(salad, saladsCat, "salads")).toBe(true);
   });
 
   test("is case insensitive", () => {
-    expect(menuItemMatchesSearch(burger, burgersCat, "CLASSIC", "en")).toBe(true);
+    expect(menuItemMatchesSearch(burger, burgersCat, "CLASSIC")).toBe(true);
   });
 
   test("returns false when nothing matches", () => {
-    expect(menuItemMatchesSearch(burger, burgersCat, "pizza", "en")).toBe(false);
+    expect(menuItemMatchesSearch(burger, burgersCat, "pizza")).toBe(false);
+  });
+
+  test("matches Spanish name when query is Spanish", () => {
+    expect(menuItemMatchesSearch(chicken, asopaoCat, "Pollo")).toBe(true);
+  });
+
+  test("matches English name when query is English", () => {
+    expect(menuItemMatchesSearch(chicken, asopaoCat, "Chicken")).toBe(true);
+  });
+
+  test("matches Spanish category title", () => {
+    expect(menuItemMatchesSearch(burger, burgersCat, "Hamburguesas")).toBe(true);
   });
 });
 
 describe("filterThemedMenuSections", () => {
   test("empty query returns original sections reference", () => {
-    const result = filterThemedMenuSections(sections, "   ", "en");
+    const result = filterThemedMenuSections(sections, "   ");
     expect(result).toBe(sections);
   });
 
   test("name match keeps item and parent category/theme", () => {
-    const result = filterThemedMenuSections(sections, "burger", "en");
+    const result = filterThemedMenuSections(sections, "burger");
     expect(result).toHaveLength(1);
     expect(result[0]?.theme).toBe("Lunch");
     expect(result[0]?.categories).toHaveLength(1);
@@ -111,22 +135,38 @@ describe("filterThemedMenuSections", () => {
   });
 
   test("description-only match", () => {
-    const result = filterThemedMenuSections(sections, "greens", "en");
+    const result = filterThemedMenuSections(sections, "greens");
     expect(result[0]?.categories[0]?.items.map((i) => i.id)).toEqual(["salad"]);
   });
 
   test("category title match includes all items in that category", () => {
-    const result = filterThemedMenuSections(sections, "salads", "en");
+    const result = filterThemedMenuSections(sections, "salads");
     expect(result[0]?.categories[0]?.id).toBe("cat_salads");
     expect(result[0]?.categories[0]?.items.map((i) => i.id)).toEqual(["salad"]);
   });
 
+  test("Spanish name match", () => {
+    const bilingualSections: ThemedMenuSection[] = [
+      { theme: "Lunch", categories: [asopaoCat], scheduleActive: true },
+    ];
+    const result = filterThemedMenuSections(bilingualSections, "Pollo");
+    expect(result[0]?.categories[0]?.items.map((i) => i.id)).toEqual(["item_asopao_pollo"]);
+  });
+
+  test("English name match for bilingual item", () => {
+    const bilingualSections: ThemedMenuSection[] = [
+      { theme: "Lunch", categories: [asopaoCat], scheduleActive: true },
+    ];
+    const result = filterThemedMenuSections(bilingualSections, "Chicken");
+    expect(result[0]?.categories[0]?.items.map((i) => i.id)).toEqual(["item_asopao_pollo"]);
+  });
+
   test("non-matching query returns empty array", () => {
-    expect(filterThemedMenuSections(sections, "xyz-nope", "en")).toEqual([]);
+    expect(filterThemedMenuSections(sections, "xyz-nope")).toEqual([]);
   });
 
   test("prunes empty categories and themes", () => {
-    const result = filterThemedMenuSections(sections, "burger", "en");
+    const result = filterThemedMenuSections(sections, "burger");
     expect(result.some((s) => s.theme === "Sides")).toBe(false);
     expect(result[0]?.categories.some((c) => c.id === "cat_salads")).toBe(false);
   });
@@ -135,6 +175,6 @@ describe("filterThemedMenuSections", () => {
 describe("countItemsInThemedSections", () => {
   test("sums items across sections", () => {
     expect(countItemsInThemedSections(sections)).toBe(2);
-    expect(countItemsInThemedSections(filterThemedMenuSections(sections, "burger", "en"))).toBe(1);
+    expect(countItemsInThemedSections(filterThemedMenuSections(sections, "burger"))).toBe(1);
   });
 });
