@@ -51,6 +51,8 @@ export type AppStrings = {
   navOrderOnline: string;
   navFindUs: string;
   navEmployment: string;
+  themeToggleToDark: string;
+  themeToggleToLight: string;
   checkoutSelectPaymentMethod: string;
   paymentMethodStripeLabel: string;
   paymentMethodStripeDescription: string;
@@ -191,6 +193,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     navOrderOnline: "Order online",
     navFindUs: "Find Us",
     navEmployment: "Employment",
+    themeToggleToDark: "Switch to dark mode",
+    themeToggleToLight: "Switch to light mode",
     checkoutSelectPaymentMethod: "Choose how you would like to pay.",
     paymentMethodStripeLabel: "Card, bank & digital wallets",
     paymentMethodStripeDescription:
@@ -341,6 +345,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     navOrderOnline: "Ordenar",
     navFindUs: "Encuentranos",
     navEmployment: "Empleo",
+    themeToggleToDark: "Cambiar a modo oscuro",
+    themeToggleToLight: "Cambiar a modo claro",
     checkoutSelectPaymentMethod: "Elige como quieres pagar.",
     paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",
     paymentMethodStripeDescription:

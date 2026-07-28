@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #f5f2ed;
   --foreground: #212529;
   --surface: #ffffff;
@@ -9,6 +10,19 @@
   --muted: #6b7280;
   --selection: #fde8e8;
   --ink: #212529;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #141210;
+  --foreground: #f5f2ed;
+  --surface: #1f1c19;
+  --accent: #e03542;
+  --category: #e03542;
+  --muted: #a39e97;
+  --selection: #3a181c;
+  /* Stays dark: used as a band behind white text (hero, cart bar). */
+  --ink: #0c0b0a;
 }
 
 @theme inline {

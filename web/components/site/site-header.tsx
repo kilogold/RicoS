@@ -24,7 +24,7 @@ export function SiteHeader() {
           >
             <span className="text-xl leading-none" aria-hidden="true">☰</span>
           </button>
-          <Link href="/" aria-label="RicoS">
+          <Link href="/" aria-label="RicoS" className="text-foreground">
             <RicoSLogo height={60} />
           </Link>
           <div className="inline-flex items-center gap-1 rounded-lg border border-foreground/15 bg-background p-1">

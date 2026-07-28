@@ -2,9 +2,11 @@
 
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { useTheme } from "@/lib/theme-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { HiMoon, HiSun } from "react-icons/hi2";
 
 type SiteNavDrawerProps = {
   open: boolean;
@@ -20,6 +22,7 @@ const NAV_LINKS = [
 export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
   const pathname = usePathname();
   const { language } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const copy = getAppStrings(language);
 
   useEffect(() => {
@@ -62,7 +65,7 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
             ×
           </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-2 p-4">
+        <nav className="relative flex flex-1 flex-col gap-2 p-4">
           {NAV_LINKS.map((item) => {
             const active = pathname === item.href;
             return (
@@ -80,6 +83,18 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? copy.themeToggleToLight : copy.themeToggleToDark}
+            className="absolute bottom-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-foreground/15 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
+          >
+            {theme === "dark" ? (
+              <HiSun className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <HiMoon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
         </nav>
       </aside>
     </div>
