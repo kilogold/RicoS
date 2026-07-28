@@ -68,6 +68,25 @@ export function CategoryNav({ categories }: CategoryNavProps) {
     };
   }, [syncHorizontalOverflowArrows]);
 
+  // Keep the active pill visible as vertical scroll changes the selection.
+  useEffect(() => {
+    if (!activeId) return;
+
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    const activePill = pillStrip.querySelector<HTMLButtonElement>(
+      `[data-category-id="${CSS.escape(activeId)}"]`,
+    );
+    if (!activePill) return;
+
+    activePill.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeId]);
+
   const releaseScrollLock = () => {
     scrollLockedRef.current = false;
     scrollLockCleanupRef.current?.();
@@ -203,6 +222,7 @@ export function CategoryNav({ categories }: CategoryNavProps) {
               <button
                 key={cat.id}
                 type="button"
+                data-category-id={cat.id}
                 onClick={() => scrollToCategory(cat.id)}
                 className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
                   isActive
