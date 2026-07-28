@@ -15,67 +15,157 @@ type CategoryNavProps = {
 };
 
 const STICKY_OFFSET_PX = 120;
+const SCROLL_IDLE_MS = 150;
+const SCROLL_INTERRUPT_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+]);
 
 export function CategoryNav({ categories }: CategoryNavProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollLockedRef = useRef(false);
+  const scrollLockCleanupRef = useRef<(() => void) | null>(null);
   const [activeId, setActiveId] = useState<string | null>(categories[0]?.id ?? null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const updateScrollButtons = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  const syncHorizontalOverflowArrows = useCallback(() => {
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    const scrollEdgeTolerancePx = 4;
+    const hasHiddenPillsOnLeft = pillStrip.scrollLeft > scrollEdgeTolerancePx;
+    const hasHiddenPillsOnRight =
+      pillStrip.scrollLeft + pillStrip.clientWidth <
+      pillStrip.scrollWidth - scrollEdgeTolerancePx;
+
+    setCanScrollLeft(hasHiddenPillsOnLeft);
+    setCanScrollRight(hasHiddenPillsOnRight);
   }, []);
 
+  // Show left/right arrows only when the pill strip overflows horizontally.
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollButtons();
-    el.addEventListener("scroll", updateScrollButtons, { passive: true });
-    const observer = new ResizeObserver(updateScrollButtons);
-    observer.observe(el);
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    syncHorizontalOverflowArrows();
+
+    pillStrip.addEventListener("scroll", syncHorizontalOverflowArrows, { passive: true });
+
+    const resizeObserver = new ResizeObserver(syncHorizontalOverflowArrows);
+    resizeObserver.observe(pillStrip);
+
     return () => {
-      el.removeEventListener("scroll", updateScrollButtons);
-      observer.disconnect();
+      pillStrip.removeEventListener("scroll", syncHorizontalOverflowArrows);
+      resizeObserver.disconnect();
     };
-  }, [categories, updateScrollButtons]);
+  }, [syncHorizontalOverflowArrows]);
+
+  const releaseScrollLock = () => {
+    scrollLockedRef.current = false;
+    scrollLockCleanupRef.current?.();
+    scrollLockCleanupRef.current = null;
+  };
+
+  const acquireScrollLock = () => {
+    // Restart lock lifecycle when the user clicks another category mid-scroll.
+    scrollLockCleanupRef.current?.();
+    scrollLockedRef.current = true;
+
+    const abortController = new AbortController();
+    const listenerOptions = { signal: abortController.signal, passive: true } as const;
+    let idleTimeout: ReturnType<typeof setTimeout>;
+
+    const releaseIfLocked = () => {
+      if (!scrollLockedRef.current) return;
+      releaseScrollLock();
+    };
+
+    const restartIdleTimeout = () => {
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(releaseIfLocked, SCROLL_IDLE_MS);
+    };
+
+    const onUserInterrupt = () => {
+      releaseIfLocked();
+    };
+
+    const onScrollKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_INTERRUPT_KEYS.has(event.key)) {
+        releaseIfLocked();
+      }
+    };
+
+    window.addEventListener("scrollend", releaseIfLocked, {
+      signal: abortController.signal,
+    });
+    window.addEventListener("scroll", restartIdleTimeout, listenerOptions);
+    window.addEventListener("wheel", onUserInterrupt, listenerOptions);
+    window.addEventListener("touchstart", onUserInterrupt, listenerOptions);
+    window.addEventListener("touchmove", onUserInterrupt, listenerOptions);
+    window.addEventListener("keydown", onScrollKeyDown, listenerOptions);
+
+    restartIdleTimeout();
+
+    scrollLockCleanupRef.current = () => {
+      clearTimeout(idleTimeout);
+      abortController.abort();
+    };
+  };
+
+  // Nav unmounts while a smooth scroll is still running (e.g. user opens search).
+  useEffect(() => () => releaseScrollLock(), []);
 
   useEffect(() => {
-    const elements = categories
-      .map((cat) => document.getElementById(cat.id))
-      .filter((el): el is HTMLElement => el !== null);
+    const categoryHeaders = categories
+      .map((category) => document.getElementById(category.id))
+      .filter((element): element is HTMLElement => element !== null);
 
-    if (elements.length === 0) return;
+    if (categoryHeaders.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveId(visible[0].target.id);
-        }
-      },
-      {
-        rootMargin: `-${STICKY_OFFSET_PX}px 0px -60% 0px`,
-        threshold: 0,
-      },
-    );
+    const syncActiveCategoryWithViewport = (entries: IntersectionObserverEntry[]) => {
+      // Ignore viewport changes during programmatic scroll-to-category.
+      if (scrollLockedRef.current) return;
 
-    for (const el of elements) observer.observe(el);
+      const visibleHeaders = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+      if (visibleHeaders.length > 0) {
+        setActiveId(visibleHeaders[0].target.id);
+      }
+    };
+
+    const observer = new IntersectionObserver(syncActiveCategoryWithViewport, {
+      rootMargin: `-${STICKY_OFFSET_PX}px 0px -60% 0px`,
+      threshold: 0,
+    });
+
+    for (const header of categoryHeaders) {
+      observer.observe(header);
+    }
+
     return () => observer.disconnect();
-  }, [categories]);
+    // Category list is fixed for this mount.
+  }, []);
 
   const scrollToCategory = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET_PX;
-    window.scrollTo({ top, behavior: "smooth" });
+    const target = document.getElementById(id);
+    if (!target) return;
+
     setActiveId(id);
+    acquireScrollLock();
+
+    const top =
+      target.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET_PX;
+    window.scrollTo({ top, behavior: "smooth" });
   };
 
   const scrollByAmount = (direction: "left" | "right") => {
