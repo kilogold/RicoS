@@ -52,8 +52,7 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
         aria-label={copy.siteMenuLabel}
         className="relative flex h-full w-full max-w-xs flex-col border-r border-foreground/10 bg-surface shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
-          <h2 className="text-lg font-bold text-foreground">{copy.siteMenuLabel}</h2>
+        <div className="flex items-center justify-end border-b border-foreground/10 px-5 py-4">
           <button
             type="button"
             onClick={onClose}

@@ -339,7 +339,7 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     englishLabel: "Inglés",
     siteMenuLabel: "Menu",
     navOrderOnline: "Ordenar",
-    navFindUs: "Ubicacion",
+    navFindUs: "Encuentranos",
     navEmployment: "Empleo",
     checkoutSelectPaymentMethod: "Elige como quieres pagar.",
     paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",

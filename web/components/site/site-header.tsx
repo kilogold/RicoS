@@ -18,11 +18,10 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-foreground/15 px-3 py-2 text-sm font-medium text-foreground/90 hover:bg-foreground/5"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-white shadow-md shadow-accent/30 transition hover:brightness-95"
             aria-label={copy.siteMenuLabel}
           >
-            <span className="text-base leading-none">☰</span>
-            {copy.siteMenuLabel}
+            <span className="text-xl leading-none" aria-hidden="true">☰</span>
           </button>
           <Link href="/" className="text-lg font-bold tracking-wide">
             <span className="text-foreground">Rico</span>
