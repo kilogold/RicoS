@@ -1,5 +1,6 @@
 "use client";
 
+import { RicoSLogo } from "@/components/site/ricos-logo";
 import { SiteNavDrawer } from "@/components/site/site-nav-drawer";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
@@ -23,9 +24,8 @@ export function SiteHeader() {
           >
             <span className="text-xl leading-none" aria-hidden="true">☰</span>
           </button>
-          <Link href="/" className="text-lg font-bold tracking-wide">
-            <span className="text-foreground">Rico</span>
-            <span className="text-accent">S</span>
+          <Link href="/" aria-label="RicoS">
+            <RicoSLogo height={60} />
           </Link>
           <div className="inline-flex items-center gap-1 rounded-lg border border-foreground/15 bg-background p-1">
             <button
