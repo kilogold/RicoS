@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@ricos/shared"],
+  async rewrites() {
+    return [
+      { source: "/menu", destination: "/legacy-menu/menu.html" },
+      { source: "/menu/", destination: "/legacy-menu/menu.html" },
+    ];
+  },
   images: {
     remotePatterns: [
       {
