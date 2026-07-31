@@ -307,17 +307,17 @@ export default function CheckoutPage() {
               {error}
             </p>
           ) : null}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:items-stretch">
             <button
               type="button"
               onClick={() => handleSelectServiceMode(ORDER_SERVICE_MODE_TAKEOUT)}
-              className="min-h-40 rounded-xl border border-foreground/15 bg-surface px-5 py-5 text-left text-foreground shadow-lg transition hover:border-accent/50 hover:bg-surface"
+              className="flex min-h-40 flex-col rounded-xl border border-foreground/15 bg-surface px-5 py-5 text-left text-foreground shadow-lg transition hover:border-accent/50 hover:bg-surface sm:h-full"
             >
-              <span className="mb-4 flex h-20 w-full items-center justify-center rounded-lg bg-background text-accent">
+              <span className="mb-4 flex h-20 w-full shrink-0 items-center justify-center rounded-lg bg-background text-accent">
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 96 96"
-                  className="h-16 w-16"
+                  className="h-16 w-16 shrink-0"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
@@ -330,10 +330,10 @@ export default function CheckoutPage() {
                   <path d="M38 64h20" />
                 </svg>
               </span>
-              <span className="block text-xl font-semibold text-accent">
+              <span className="text-xl font-semibold leading-tight text-accent">
                 {copy.takeoutLabel}
               </span>
-              <span className="mt-2 block text-sm text-muted">
+              <span className="mt-2 min-h-10 text-sm leading-snug text-muted">
                 {copy.takeoutDescription}
               </span>
             </button>
@@ -341,13 +341,13 @@ export default function CheckoutPage() {
               type="button"
               disabled={dineInUnavailable}
               onClick={() => handleSelectServiceMode(ORDER_SERVICE_MODE_DINE_IN)}
-              className="min-h-40 rounded-xl border border-foreground/15 bg-surface px-5 py-5 text-left text-foreground shadow-lg transition hover:border-accent/50 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex min-h-40 flex-col rounded-xl border border-foreground/15 bg-surface px-5 py-5 text-left text-foreground shadow-lg transition hover:border-accent/50 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 sm:h-full"
             >
-              <span className="mb-4 flex h-20 w-full items-center justify-center rounded-lg bg-background text-accent">
+              <span className="mb-4 flex h-20 w-full shrink-0 items-center justify-center rounded-lg bg-background text-accent">
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 96 96"
-                  className="h-16 w-16"
+                  className="h-16 w-16 shrink-0"
                   fill="none"
                   stroke="currentColor"
                   strokeLinecap="round"
@@ -364,10 +364,10 @@ export default function CheckoutPage() {
                   <path d="M77 16c9 7 9 21 0 28" />
                 </svg>
               </span>
-              <span className="block text-xl font-semibold text-accent">
+              <span className="text-xl font-semibold leading-tight text-accent">
                 {copy.dineInLabel}
               </span>
-              <span className="mt-2 block text-sm text-muted">
+              <span className="mt-2 min-h-10 text-sm leading-snug text-muted">
                 {copy.dineInDescription}
               </span>
             </button>
