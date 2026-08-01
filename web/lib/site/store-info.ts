@@ -23,8 +23,8 @@ const PUBLIC_STORE_HOURS = {
 export const STORE_INFO: StoreInfo = {
   name: "RicoS",
   addressLines: ["2030 Albizu Campos", "Suite 1", "Aguadilla PR, 00603"],
-  phoneDisplay: "(787) 555-0100",
-  phoneDial: "+17875550100",
+  phoneDisplay: "(787) 882-4675",
+  phoneDial: "+17878824675",
   googleMapsEmbedUrl:
     "https://maps.google.com/maps?q=18.4608411%2C-67.1531894%20%28RicoS%29&z=16&output=embed",
   googleMapsDirectionsUrl: "https://maps.app.goo.gl/1DRvHJQFyWhtDUxw9",

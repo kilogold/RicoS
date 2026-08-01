@@ -31,6 +31,7 @@ export type AppStrings = {
   paymentUnexpectedError: string;
   orderConfirmed: string;
   orderConfirmedMessage: string;
+  orderConfirmedCallStore: string;
   orderConfirmationVerifying: string;
   orderConfirmationErrorTitle: string;
   orderConfirmationMissingOrder: string;
@@ -38,10 +39,10 @@ export type AppStrings = {
   orderConfirmationPaymentFailed: string;
   orderConfirmationPaymentExpired: string;
   orderConfirmationInvalidSession: string;
-  paymentIntentLabel: string;
+  orderConfirmationUnknownTitle: string;
+  orderConfirmationUnknownMessage: string;
+  orderConfirmationCallStore: string;
   orderReferenceLabel: string;
-  transactionSignatureLabel: string;
-  statusLabel: string;
   orderMore: string;
   loading: string;
   languageLabel: string;
@@ -166,8 +167,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentFailedFallback: "Payment failed",
     paymentUnexpectedError: "Something went wrong. Please try again.",
     orderConfirmed: "Order confirmed",
-    orderConfirmedMessage:
-      "Thanks for your order. We'll start preparing it. Bring this confirmation if helpful for the cashier.",
+    orderConfirmedMessage: "Thanks for your order. We'll start preparing it.",
+    orderConfirmedCallStore:
+      "Call us at {phone} if you need updates or changes to your order.",
     orderConfirmationVerifying: "Verifying your order…",
     orderConfirmationErrorTitle: "There is a problem with your order",
     orderConfirmationMissingOrder:
@@ -180,10 +182,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "Your ATH Móvil payment request expired before we could confirm your order. You were not charged for a confirmed order. Please return to the menu and check out again.",
     orderConfirmationInvalidSession:
       "This confirmation link is incomplete or invalid. Please return to the menu and start checkout again.",
-    paymentIntentLabel: "Payment intent",
+    orderConfirmationUnknownTitle: "We could not confirm your order",
+    orderConfirmationUnknownMessage:
+      "Your payment may have gone through, but we could not verify your order. Call us before ordering again.",
+    orderConfirmationCallStore: "Call us at {phone} to check your order status.",
     orderReferenceLabel: "Order reference",
-    transactionSignatureLabel: "Transaction",
-    statusLabel: "Status",
     orderMore: "Order more",
     loading: "Loading…",
     languageLabel: "Language",
@@ -318,8 +321,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentFailedFallback: "El pago fallo",
     paymentUnexpectedError: "Algo salio mal. Intentalo de nuevo.",
     orderConfirmed: "Orden confirmada",
-    orderConfirmedMessage:
-      "Gracias por tu orden. Empezaremos a prepararla. Puedes mostrar esta confirmacion en caja si hace falta.",
+    orderConfirmedMessage: "Gracias por tu orden. Empezaremos a prepararla.",
+    orderConfirmedCallStore:
+      "Llamanos al {phone} si necesitas actualizaciones o cambios a tu orden.",
     orderConfirmationVerifying: "Verificando tu orden…",
     orderConfirmationErrorTitle: "Hay un problema con tu orden",
     orderConfirmationMissingOrder:
@@ -332,10 +336,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "La solicitud de pago con ATH Móvil venció antes de que pudiéramos confirmar tu orden. No se te cobró una orden confirmada. Vuelve al menú e inicia el pago de nuevo.",
     orderConfirmationInvalidSession:
       "Este enlace de confirmacion esta incompleto o no es valido. Vuelve al menu e inicia el pago de nuevo.",
-    paymentIntentLabel: "Intento de pago",
+    orderConfirmationUnknownTitle: "No pudimos confirmar tu orden",
+    orderConfirmationUnknownMessage:
+      "Es posible que el pago se haya procesado, pero no pudimos verificar tu orden. Llamanos antes de ordenar de nuevo.",
+    orderConfirmationCallStore: "Llamanos al {phone} para verificar el estado de tu orden.",
     orderReferenceLabel: "Referencia de orden",
-    transactionSignatureLabel: "Transacción",
-    statusLabel: "Estado",
     orderMore: "Ordenar mas",
     loading: "Cargando…",
     languageLabel: "Idioma",
