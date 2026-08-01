@@ -44,7 +44,7 @@ export default function FindUsPage() {
       <StoreHoursBanners />
       <SitePageShell title={copy.findUsTitle} description={copy.findUsIntro}>
         <section className="overflow-hidden rounded-xl border border-foreground/10 bg-surface">
-          <div className="aspect-video w-full">
+          <div className="h-56 w-full sm:h-72 md:h-80">
             <iframe
               title={copy.findUsMapHeading}
               src={STORE_INFO.googleMapsEmbedUrl}
