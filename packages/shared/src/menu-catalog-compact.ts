@@ -154,6 +154,7 @@ export function compactMenuCatalogForDisk(file: ExpandedMenuCatalogFile): MenuCa
         description: deepClone(item.description),
         priceCents: item.priceCents,
         station: item.station,
+        thumbnailPathname: item.thumbnailPathname,
         salesTaxRate: item.salesTaxRate,
         municipalTaxRate: item.municipalTaxRate,
       };

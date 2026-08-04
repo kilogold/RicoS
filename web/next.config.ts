@@ -3,6 +3,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@ricos/shared"],
+  async rewrites() {
+    return [
+      { source: "/menu", destination: "/legacy-menu/menu.html" },
+      { source: "/menu/", destination: "/legacy-menu/menu.html" },
+    ];
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
+  },
   // LAN origins allowed to hit the dev server (mobile device testing over
   // Wi-Fi). Next blocks cross-origin dev requests by default since 15.x.
   // Extend via NEXT_DEV_ALLOWED_ORIGINS="ip1,ip2,*.local" without a code edit.

@@ -6,6 +6,7 @@
 import { canonicalJson } from "./menu-versions/index";
 import { resolveMenuCatalogRaw } from "./menu-catalog-compact";
 import { parseThemeAvailability } from "./menu-theme-availability-parse";
+import { parseThumbnailPathname } from "./menu-thumbnail";
 import type {
   LocalizedText,
   MenuCategory,
@@ -131,6 +132,7 @@ function parseMenuItem(raw: unknown, ctx: string): MenuItem {
     description: it.description,
     priceCents: it.priceCents,
     station: parsePrintStation(it.station, `${ctx}.station`),
+    thumbnailPathname: parseThumbnailPathname(it.thumbnailPathname, `${ctx}.thumbnailPathname`),
     salesTaxRate: parseDecimalFeeRate(it.salesTaxRate, `${ctx}.salesTaxRate`),
     municipalTaxRate: parseDecimalFeeRate(it.municipalTaxRate, `${ctx}.municipalTaxRate`),
   };

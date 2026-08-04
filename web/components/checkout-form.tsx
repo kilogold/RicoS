@@ -44,18 +44,18 @@ export function CheckoutForm({ grandTotalCents }: { grandTotalCents: number }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <div className="rounded-xl border border-white/10 bg-[#0c2340]/80 p-4">
+      <div className="rounded-xl border border-foreground/10 bg-surface p-4">
         <PaymentElement />
       </div>
       {errorMessage ? (
-        <p className="text-sm text-red-300" role="alert">
+        <p className="text-sm text-accent" role="alert">
           {errorMessage}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="rounded-xl bg-[#f4c430] px-4 py-3 text-lg font-semibold text-[#0c2340] shadow-lg transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-xl bg-accent px-4 py-3 text-lg font-semibold text-white shadow-lg transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
           ? copy.processing

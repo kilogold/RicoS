@@ -15,69 +15,176 @@ type CategoryNavProps = {
 };
 
 const STICKY_OFFSET_PX = 120;
+const SCROLL_IDLE_MS = 150;
+const SCROLL_INTERRUPT_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+]);
 
 export function CategoryNav({ categories }: CategoryNavProps) {
   const { language } = useLanguage();
   const copy = getAppStrings(language);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollLockedRef = useRef(false);
+  const scrollLockCleanupRef = useRef<(() => void) | null>(null);
   const [activeId, setActiveId] = useState<string | null>(categories[0]?.id ?? null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const updateScrollButtons = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  const syncHorizontalOverflowArrows = useCallback(() => {
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    const scrollEdgeTolerancePx = 4;
+    const hasHiddenPillsOnLeft = pillStrip.scrollLeft > scrollEdgeTolerancePx;
+    const hasHiddenPillsOnRight =
+      pillStrip.scrollLeft + pillStrip.clientWidth <
+      pillStrip.scrollWidth - scrollEdgeTolerancePx;
+
+    setCanScrollLeft(hasHiddenPillsOnLeft);
+    setCanScrollRight(hasHiddenPillsOnRight);
   }, []);
 
+  // Show left/right arrows only when the pill strip overflows horizontally.
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollButtons();
-    el.addEventListener("scroll", updateScrollButtons, { passive: true });
-    const observer = new ResizeObserver(updateScrollButtons);
-    observer.observe(el);
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    syncHorizontalOverflowArrows();
+
+    pillStrip.addEventListener("scroll", syncHorizontalOverflowArrows, { passive: true });
+
+    const resizeObserver = new ResizeObserver(syncHorizontalOverflowArrows);
+    resizeObserver.observe(pillStrip);
+
     return () => {
-      el.removeEventListener("scroll", updateScrollButtons);
-      observer.disconnect();
+      pillStrip.removeEventListener("scroll", syncHorizontalOverflowArrows);
+      resizeObserver.disconnect();
     };
-  }, [categories, updateScrollButtons]);
+  }, [syncHorizontalOverflowArrows]);
+
+  // Keep the active pill visible as vertical scroll changes the selection.
+  useEffect(() => {
+    if (!activeId) return;
+
+    const pillStrip = scrollRef.current;
+    if (!pillStrip) return;
+
+    const activePill = pillStrip.querySelector<HTMLButtonElement>(
+      `[data-category-id="${CSS.escape(activeId)}"]`,
+    );
+    if (!activePill) return;
+
+    activePill.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [activeId]);
+
+  const releaseScrollLock = () => {
+    scrollLockedRef.current = false;
+    scrollLockCleanupRef.current?.();
+    scrollLockCleanupRef.current = null;
+  };
+
+  const acquireScrollLock = () => {
+    // Restart lock lifecycle when the user clicks another category mid-scroll.
+    scrollLockCleanupRef.current?.();
+    scrollLockedRef.current = true;
+
+    const abortController = new AbortController();
+    const listenerOptions = { signal: abortController.signal, passive: true } as const;
+    let idleTimeout: ReturnType<typeof setTimeout>;
+
+    const releaseIfLocked = () => {
+      if (!scrollLockedRef.current) return;
+      releaseScrollLock();
+    };
+
+    const restartIdleTimeout = () => {
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(releaseIfLocked, SCROLL_IDLE_MS);
+    };
+
+    const onUserInterrupt = () => {
+      releaseIfLocked();
+    };
+
+    const onScrollKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_INTERRUPT_KEYS.has(event.key)) {
+        releaseIfLocked();
+      }
+    };
+
+    window.addEventListener("scrollend", releaseIfLocked, {
+      signal: abortController.signal,
+    });
+    window.addEventListener("scroll", restartIdleTimeout, listenerOptions);
+    window.addEventListener("wheel", onUserInterrupt, listenerOptions);
+    window.addEventListener("touchstart", onUserInterrupt, listenerOptions);
+    window.addEventListener("touchmove", onUserInterrupt, listenerOptions);
+    window.addEventListener("keydown", onScrollKeyDown, listenerOptions);
+
+    restartIdleTimeout();
+
+    scrollLockCleanupRef.current = () => {
+      clearTimeout(idleTimeout);
+      abortController.abort();
+    };
+  };
+
+  // Nav unmounts while a smooth scroll is still running (e.g. user opens search).
+  useEffect(() => () => releaseScrollLock(), []);
 
   useEffect(() => {
-    const elements = categories
-      .map((cat) => document.getElementById(cat.id))
-      .filter((el): el is HTMLElement => el !== null);
+    const categoryHeaders = categories
+      .map((category) => document.getElementById(category.id))
+      .filter((element): element is HTMLElement => element !== null);
 
-    if (elements.length === 0) return;
+    if (categoryHeaders.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          setActiveId(visible[0].target.id);
-        }
-      },
-      {
-        rootMargin: `-${STICKY_OFFSET_PX}px 0px -60% 0px`,
-        threshold: 0,
-      },
-    );
+    const syncActiveCategoryWithViewport = (entries: IntersectionObserverEntry[]) => {
+      // Ignore viewport changes during programmatic scroll-to-category.
+      if (scrollLockedRef.current) return;
 
-    for (const el of elements) observer.observe(el);
+      const visibleHeaders = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+      if (visibleHeaders.length > 0) {
+        setActiveId(visibleHeaders[0].target.id);
+      }
+    };
+
+    const observer = new IntersectionObserver(syncActiveCategoryWithViewport, {
+      rootMargin: `-${STICKY_OFFSET_PX}px 0px -60% 0px`,
+      threshold: 0,
+    });
+
+    for (const header of categoryHeaders) {
+      observer.observe(header);
+    }
+
     return () => observer.disconnect();
-  }, [categories]);
+    // Category list is fixed for this mount.
+  }, []);
 
   const scrollToCategory = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET_PX;
-    window.scrollTo({ top, behavior: "smooth" });
+    const target = document.getElementById(id);
+    if (!target) return;
+
     setActiveId(id);
-    setDropdownOpen(false);
+    acquireScrollLock();
+
+    const top =
+      target.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET_PX;
+    window.scrollTo({ top, behavior: "smooth" });
   };
 
   const scrollByAmount = (direction: "left" | "right") => {
@@ -91,15 +198,15 @@ export function CategoryNav({ categories }: CategoryNavProps) {
   return (
     <nav
       aria-label={copy.allCategories}
-      className="sticky top-0 z-40 border-b border-white/10 bg-background/95 backdrop-blur"
+      className="sticky top-0 z-40 border-b border-foreground/10 bg-background/95 backdrop-blur"
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2 md:px-6">
+      <div className="site-container flex items-center gap-1 px-4 py-2 md:px-6">
         {canScrollLeft ? (
           <button
             type="button"
             onClick={() => scrollByAmount("left")}
             aria-label={copy.scrollCategoriesLeft}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80 hover:bg-white/10 sm:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/15 text-foreground/80 hover:bg-foreground/5 sm:flex"
           >
             ‹
           </button>
@@ -115,11 +222,12 @@ export function CategoryNav({ categories }: CategoryNavProps) {
               <button
                 key={cat.id}
                 type="button"
+                data-category-id={cat.id}
                 onClick={() => scrollToCategory(cat.id)}
-                className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition ${
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap transition ${
                   isActive
-                    ? "border-accent text-accent"
-                    : "border-transparent text-white/70 hover:text-white"
+                    ? "bg-accent text-white"
+                    : "text-foreground/70 hover:text-foreground"
                 } ${!cat.themeActive ? "opacity-50" : ""}`}
               >
                 {cat.label}
@@ -133,47 +241,11 @@ export function CategoryNav({ categories }: CategoryNavProps) {
             type="button"
             onClick={() => scrollByAmount("right")}
             aria-label={copy.scrollCategoriesRight}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80 hover:bg-white/10 sm:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-foreground/15 text-foreground/80 hover:bg-foreground/5 sm:flex"
           >
             ›
           </button>
         ) : null}
-
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((open) => !open)}
-            aria-expanded={dropdownOpen}
-            className="rounded-lg border border-white/20 px-2 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10"
-          >
-            {copy.allCategories}
-          </button>
-          {dropdownOpen ? (
-            <>
-              <button
-                type="button"
-                aria-label={copy.closeModal}
-                className="fixed inset-0 z-40"
-                onClick={() => setDropdownOpen(false)}
-              />
-              <ul className="absolute right-0 z-50 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-white/15 bg-surface py-1 shadow-xl">
-                {categories.map((cat) => (
-                  <li key={cat.id}>
-                    <button
-                      type="button"
-                      onClick={() => scrollToCategory(cat.id)}
-                      className={`block w-full px-3 py-2 text-left text-sm hover:bg-white/10 ${
-                        activeId === cat.id ? "text-accent" : "text-white/80"
-                      } ${!cat.themeActive ? "opacity-50" : ""}`}
-                    >
-                      {cat.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </div>
       </div>
     </nav>
   );

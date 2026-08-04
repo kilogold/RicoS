@@ -2,9 +2,11 @@
 
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { useTheme } from "@/lib/theme-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { HiMoon, HiSun } from "react-icons/hi2";
 
 type SiteNavDrawerProps = {
   open: boolean;
@@ -20,6 +22,7 @@ const NAV_LINKS = [
 export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
   const pathname = usePathname();
   const { language } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const copy = getAppStrings(language);
 
   useEffect(() => {
@@ -50,20 +53,19 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-label={copy.siteMenuLabel}
-        className="relative flex h-full w-full max-w-xs flex-col border-r border-white/10 bg-surface shadow-2xl"
+        className="relative flex h-full w-full max-w-xs flex-col border-r border-foreground/10 bg-surface shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-lg font-bold text-white">{copy.siteMenuLabel}</h2>
+        <div className="flex items-center justify-end border-b border-foreground/10 px-5 py-4">
           <button
             type="button"
             onClick={onClose}
             aria-label={copy.closeModal}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-white/70 hover:bg-white/10"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/15 text-foreground/70 hover:bg-foreground/5"
           >
             ×
           </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-2 p-4">
+        <nav className="relative flex flex-1 flex-col gap-2 p-4">
           {NAV_LINKS.map((item) => {
             const active = pathname === item.href;
             return (
@@ -73,14 +75,26 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
                 onClick={onClose}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-[#f4c430] text-[#0c2340]"
-                    : "text-white/85 hover:bg-white/10"
+                    ? "bg-accent text-white"
+                    : "text-foreground/85 hover:bg-foreground/5"
                 }`}
               >
                 {copy[item.key]}
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? copy.themeToggleToLight : copy.themeToggleToDark}
+            className="absolute bottom-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-foreground/15 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
+          >
+            {theme === "dark" ? (
+              <HiSun className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <HiMoon className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
         </nav>
       </aside>
     </div>

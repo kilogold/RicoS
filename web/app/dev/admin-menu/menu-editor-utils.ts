@@ -1,4 +1,5 @@
 import type { MenuCatalogFile, MenuCategory, MenuItem, ModifierGroup, ModifierOption } from "@ricos/shared";
+import { MENU_FALLBACK_THUMBNAIL_PATHNAME } from "@ricos/shared";
 
 export const CENTS_PER_DOLLAR = 100;
 export const DOLLAR_STEP = "0.05";
@@ -57,6 +58,7 @@ export function makeNewItem(existingItems: MenuItem[]): MenuItem {
     salesTaxRate: 0.105,
     municipalTaxRate: 0.01,
     station: "default",
+    thumbnailPathname: MENU_FALLBACK_THUMBNAIL_PATHNAME,
     modifierGroups: [],
   };
 }

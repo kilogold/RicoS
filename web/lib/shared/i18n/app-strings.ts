@@ -31,6 +31,7 @@ export type AppStrings = {
   paymentUnexpectedError: string;
   orderConfirmed: string;
   orderConfirmedMessage: string;
+  orderConfirmedCallStore: string;
   orderConfirmationVerifying: string;
   orderConfirmationErrorTitle: string;
   orderConfirmationMissingOrder: string;
@@ -38,10 +39,10 @@ export type AppStrings = {
   orderConfirmationPaymentFailed: string;
   orderConfirmationPaymentExpired: string;
   orderConfirmationInvalidSession: string;
-  paymentIntentLabel: string;
+  orderConfirmationUnknownTitle: string;
+  orderConfirmationUnknownMessage: string;
+  orderConfirmationCallStore: string;
   orderReferenceLabel: string;
-  transactionSignatureLabel: string;
-  statusLabel: string;
   orderMore: string;
   loading: string;
   languageLabel: string;
@@ -51,6 +52,8 @@ export type AppStrings = {
   navOrderOnline: string;
   navFindUs: string;
   navEmployment: string;
+  themeToggleToDark: string;
+  themeToggleToLight: string;
   checkoutSelectPaymentMethod: string;
   paymentMethodStripeLabel: string;
   paymentMethodStripeDescription: string;
@@ -70,6 +73,7 @@ export type AppStrings = {
   athMovilStubTitle: string;
   athMovilStubBody: string;
   athMovilWaitingHint: string;
+  athMovilCustomerOwnPhoneError: string;
   pickupContactHeading: string;
   customerNameLabel: string;
   customerPhoneLabel: string;
@@ -98,6 +102,13 @@ export type AppStrings = {
   openItemAria: string;
   scrollCategoriesLeft: string;
   scrollCategoriesRight: string;
+  menuSearchLabel: string;
+  menuSearchPlaceholder: string;
+  menuSearchClear: string;
+  menuSearchShowingResults: string;
+  menuSearchNoResults: string;
+  announcementCtaDefault: string;
+  announcementDismiss: string;
   findUsTitle: string;
   findUsIntro: string;
   findUsMapHeading: string;
@@ -156,8 +167,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentFailedFallback: "Payment failed",
     paymentUnexpectedError: "Something went wrong. Please try again.",
     orderConfirmed: "Order confirmed",
-    orderConfirmedMessage:
-      "Thanks for your order. We'll start preparing it. Bring this confirmation if helpful for the cashier.",
+    orderConfirmedMessage: "Thanks for your order. We'll start preparing it.",
+    orderConfirmedCallStore:
+      "Call us at {phone} if you need updates or changes to your order.",
     orderConfirmationVerifying: "Verifying your order…",
     orderConfirmationErrorTitle: "There is a problem with your order",
     orderConfirmationMissingOrder:
@@ -170,10 +182,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "Your ATH Móvil payment request expired before we could confirm your order. You were not charged for a confirmed order. Please return to the menu and check out again.",
     orderConfirmationInvalidSession:
       "This confirmation link is incomplete or invalid. Please return to the menu and start checkout again.",
-    paymentIntentLabel: "Payment intent",
+    orderConfirmationUnknownTitle: "We could not confirm your order",
+    orderConfirmationUnknownMessage:
+      "Your payment may have gone through, but we could not verify your order. Call us before ordering again.",
+    orderConfirmationCallStore: "Call us at {phone} to check your order status.",
     orderReferenceLabel: "Order reference",
-    transactionSignatureLabel: "Transaction",
-    statusLabel: "Status",
     orderMore: "Order more",
     loading: "Loading…",
     languageLabel: "Language",
@@ -183,6 +196,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     navOrderOnline: "Order online",
     navFindUs: "Find Us",
     navEmployment: "Employment",
+    themeToggleToDark: "Switch to dark mode",
+    themeToggleToLight: "Switch to light mode",
     checkoutSelectPaymentMethod: "Choose how you would like to pay.",
     paymentMethodStripeLabel: "Card, bank & digital wallets",
     paymentMethodStripeDescription:
@@ -203,6 +218,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     athMovilStubTitle: "ATH Móvil",
     athMovilStubBody: "Pay {total} with ATH Móvil on the phone number you entered.",
     athMovilWaitingHint: "Open the ATH Móvil app and approve the payment request. This page updates automatically once payment is confirmed.",
+    athMovilCustomerOwnPhoneError:
+      "This phone number can't be used for ATH Móvil checkout. Enter a personal ATH Móvil number that is not the same as the business account, or use a different customer's phone number.",
     pickupContactHeading: "Contact info",
     customerNameLabel: "Name",
     customerPhoneLabel: "Phone",
@@ -232,6 +249,13 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Customize item",
     scrollCategoriesLeft: "Scroll categories left",
     scrollCategoriesRight: "Scroll categories right",
+    menuSearchLabel: "Search menu",
+    menuSearchPlaceholder: "Search menu",
+    menuSearchClear: "Clear search",
+    menuSearchShowingResults: "Showing {count} items for '{query}'",
+    menuSearchNoResults: "No results for '{query}'",
+    announcementCtaDefault: "Learn more",
+    announcementDismiss: "Dismiss announcement",
     findUsTitle: "Find Us",
     findUsIntro: "Visit us in person, call the store, or find our social channels.",
     findUsMapHeading: "RicoS location map",
@@ -297,8 +321,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     paymentFailedFallback: "El pago fallo",
     paymentUnexpectedError: "Algo salio mal. Intentalo de nuevo.",
     orderConfirmed: "Orden confirmada",
-    orderConfirmedMessage:
-      "Gracias por tu orden. Empezaremos a prepararla. Puedes mostrar esta confirmacion en caja si hace falta.",
+    orderConfirmedMessage: "Gracias por tu orden. Empezaremos a prepararla.",
+    orderConfirmedCallStore:
+      "Llamanos al {phone} si necesitas actualizaciones o cambios a tu orden.",
     orderConfirmationVerifying: "Verificando tu orden…",
     orderConfirmationErrorTitle: "Hay un problema con tu orden",
     orderConfirmationMissingOrder:
@@ -311,10 +336,11 @@ const APP_STRINGS: Record<Language, AppStrings> = {
       "La solicitud de pago con ATH Móvil venció antes de que pudiéramos confirmar tu orden. No se te cobró una orden confirmada. Vuelve al menú e inicia el pago de nuevo.",
     orderConfirmationInvalidSession:
       "Este enlace de confirmacion esta incompleto o no es valido. Vuelve al menu e inicia el pago de nuevo.",
-    paymentIntentLabel: "Intento de pago",
+    orderConfirmationUnknownTitle: "No pudimos confirmar tu orden",
+    orderConfirmationUnknownMessage:
+      "Es posible que el pago se haya procesado, pero no pudimos verificar tu orden. Llamanos antes de ordenar de nuevo.",
+    orderConfirmationCallStore: "Llamanos al {phone} para verificar el estado de tu orden.",
     orderReferenceLabel: "Referencia de orden",
-    transactionSignatureLabel: "Transacción",
-    statusLabel: "Estado",
     orderMore: "Ordenar mas",
     loading: "Cargando…",
     languageLabel: "Idioma",
@@ -322,8 +348,10 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     englishLabel: "Inglés",
     siteMenuLabel: "Menu",
     navOrderOnline: "Ordenar",
-    navFindUs: "Ubicacion",
+    navFindUs: "Encuentranos",
     navEmployment: "Empleo",
+    themeToggleToDark: "Cambiar a modo oscuro",
+    themeToggleToLight: "Cambiar a modo claro",
     checkoutSelectPaymentMethod: "Elige como quieres pagar.",
     paymentMethodStripeLabel: "Tarjeta, banco y billeteras digitales",
     paymentMethodStripeDescription:
@@ -333,9 +361,9 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     changePaymentMethod: "Cambiar metodo de pago",
     serviceModeHeading: "Como recibiras tu orden?",
     takeoutLabel: "Takeout",
-    takeoutDescription: "Recoge tu orden en el mostrador.",
+    takeoutDescription: "Recoger para llevar.",
     dineInLabel: "Dine-in",
-    dineInDescription: "Come tu orden en el local.",
+    dineInDescription: "Consumir en el local.",
     dineInUnavailableDuringLastCall: "Comer aqui no esta disponible durante ultima hora. Para llevar sigue disponible.",
     continueToContact: "Continuar a contacto",
     editServiceMode: "Editar tipo de orden",
@@ -344,6 +372,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     athMovilStubTitle: "ATH Movil",
     athMovilStubBody: "Paga {total} con ATH Movil usando el telefono que ingresaste.",
     athMovilWaitingHint: "Abre la app ATH Movil y aprueba la solicitud de pago. Esta pagina se actualizara automaticamente cuando se confirme el pago.",
+    athMovilCustomerOwnPhoneError:
+      "Este numero no se puede usar para pagar con ATH Movil. Ingresa un numero personal de ATH Movil que no sea el mismo de la cuenta del negocio, o usa el telefono de otro cliente.",
     pickupContactHeading: "Informacion de contacto",
     customerNameLabel: "Nombre",
     customerPhoneLabel: "Telefono",
@@ -374,6 +404,13 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     openItemAria: "Personalizar articulo",
     scrollCategoriesLeft: "Desplazar categorias a la izquierda",
     scrollCategoriesRight: "Desplazar categorias a la derecha",
+    menuSearchLabel: "Buscar menu",
+    menuSearchPlaceholder: "Buscar menu",
+    menuSearchClear: "Borrar busqueda",
+    menuSearchShowingResults: "Mostrando {count} articulos para '{query}'",
+    menuSearchNoResults: "Sin resultados para '{query}'",
+    announcementCtaDefault: "Ver mas",
+    announcementDismiss: "Cerrar anuncio",
     findUsTitle: "Encuentranos",
     findUsIntro: "Visitanos, llama a la tienda o visita nuestras redes sociales.",
     findUsMapHeading: "Mapa de ubicacion de RicoS",

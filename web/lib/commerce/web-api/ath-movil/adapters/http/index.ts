@@ -24,6 +24,12 @@ import {
 } from "@/lib/infrastructure/turso/webhook-db";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import { ATH_SETTLEMENT_BUDGET_MS } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-constants";
+import { AthPaymentApiError } from "@/lib/commerce/web-api/ath-movil/adapters/http/athm-payment-api-client";
+import {
+  ATH_PAYMENT_ERROR_CODE,
+  isUserFixableAthApiError,
+  mapAthApiErrorCode,
+} from "@/lib/commerce/web-api/ath-movil/domain/ath-payment-error-codes";
 import { startAthPaymentOrchestration } from "@/lib/commerce/web-api/ath-movil/use-cases/start-ath-payment-orchestration";
 import { athSettlePayment } from "@/lib/commerce/web-api/ath-movil/workflows/ath-settle-payment";
 
@@ -267,10 +273,44 @@ export async function handleAthMovilReferenceRegistrationRequest(
 
     return NextResponse.json({ reference: orderReference });
   } catch (err) {
+    if (err instanceof AthPaymentApiError && err.params.code === "api_error") {
+      const code = mapAthApiErrorCode(err.params.errorCode);
+      const userFixable = isUserFixableAthApiError(err.params.errorCode);
+      console.error(
+        JSON.stringify({
+          scope: "ath_reference_api_error",
+          phase: err.params.phase,
+          httpStatus: err.params.status,
+          athErrorCode: err.params.errorCode,
+          clientCode: code,
+          message: err.message,
+        }),
+      );
+      return NextResponse.json(
+        {
+          error: "Failed to generate ATH Móvil reference",
+          code,
+          detail: err.message,
+          athErrorCode: err.params.errorCode,
+        },
+        { status: userFixable ? 400 : 502 },
+      );
+    }
+
     const message = err instanceof Error ? err.message : String(err);
-    console.error("Failed to generate ATH Móvil reference:", err);
+    console.error(
+      JSON.stringify({
+        scope: "ath_reference_unexpected_error",
+        message,
+        errorName: err instanceof Error ? err.name : "unknown",
+      }),
+    );
     return NextResponse.json(
-      { error: "Failed to generate ATH Móvil reference", detail: message },
+      {
+        error: "Failed to generate ATH Móvil reference",
+        code: ATH_PAYMENT_ERROR_CODE.ATH_API_ERROR,
+        detail: message,
+      },
       { status: 500 },
     );
   }

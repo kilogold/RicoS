@@ -17,11 +17,16 @@ import {
 } from "@/lib/commerce/domain/store-hours";
 import { MENU_VERSION_CONFLICT_CODE } from "@/lib/commerce/domain/menu-version-policy";
 import { ORDER_CONFIRMATION_ERROR_CODE } from "@/lib/commerce/order-confirmation";
+import { athReferenceErrorMessageForCode } from "@/lib/commerce/ath-movil-client";
 import {
   errorMessageForCode,
   fetchOrderConfirmationStatus,
   isOrderConfirmed,
 } from "@/lib/commerce/order-confirmation-client";
+import {
+  ATH_PAYMENT_ERROR_CODE,
+  type AthPaymentErrorCode,
+} from "@/lib/commerce/web-api/ath-movil/domain/ath-payment-error-codes";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useMenuRuntime } from "@/lib/menu-runtime-context";
@@ -31,6 +36,12 @@ import { formatUsd, orderTotalsForCart } from "@/lib/pricing";
 const ATH_MIN_GRAND_TOTAL_CENTS = 100;
 const ATH_MAX_GRAND_TOTAL_CENTS = 150000;
 const ATH_POLL_INTERVAL_MS = 1_000;
+
+const ATH_PAYMENT_ERROR_CODES = new Set<string>(Object.values(ATH_PAYMENT_ERROR_CODE));
+
+function isAthPaymentErrorCode(code: string | undefined): code is AthPaymentErrorCode {
+  return typeof code === "string" && ATH_PAYMENT_ERROR_CODES.has(code);
+}
 
 type AthPaymentPhase = "preparing" | "waiting" | "error";
 
@@ -151,7 +162,11 @@ export function AthMovilStub({
           setPhase("error");
           return;
         }
-        setError(referenceBody?.error ?? copy.checkoutErrorTitle);
+        setError(
+          isAthPaymentErrorCode(referenceBody?.code)
+            ? athReferenceErrorMessageForCode(referenceBody.code, copy)
+            : (referenceBody?.error ?? copy.checkoutErrorTitle),
+        );
         setPhase("error");
         return;
       }
@@ -253,13 +268,13 @@ export function AthMovilStub({
   }, [phase, reference, copy]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-white">
+    <div className="rounded-xl border border-foreground/10 bg-surface p-6 text-foreground">
       <header className="flex items-baseline justify-between gap-4">
-        <h2 className="text-lg font-semibold text-[#f4c430]">{copy.athMovilStubTitle}</h2>
+        <h2 className="text-lg font-semibold text-accent">{copy.athMovilStubTitle}</h2>
         <StatusPill phase={phase} />
       </header>
 
-      <p className="mt-2 text-sm text-white/75">
+      <p className="mt-2 text-sm text-muted">
         {snapshot.grandTotalCents > 0
           ? copy.athMovilStubBody.replace(
               "{total}",
@@ -270,23 +285,23 @@ export function AthMovilStub({
 
       {error ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-red-300">{error}</p>
+          <p className="text-sm text-accent">{error}</p>
           <button
             type="button"
             onClick={() => setRetryKey((n) => n + 1)}
-            className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white hover:border-[#f4c430]/60"
+            className="rounded-lg border border-foreground/15 px-3 py-2 text-xs text-foreground hover:border-accent/60"
           >
             Retry
           </button>
         </div>
       ) : phase === "preparing" ? (
-        <div className="mt-4 rounded-lg border border-dashed border-white/15 bg-white/3 p-4 text-xs text-white/60">
+        <div className="mt-4 rounded-lg border border-dashed border-foreground/15 bg-background p-4 text-xs text-muted">
           {copy.preparingSecureCheckout}
         </div>
       ) : reference ? (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-white/80">{copy.athMovilWaitingHint}</p>
-          <p className="break-all rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/70">
+          <p className="text-sm text-foreground/80">{copy.athMovilWaitingHint}</p>
+          <p className="break-all rounded-lg bg-background px-3 py-2 font-mono text-xs text-muted">
             {copy.orderReferenceLabel}: {reference}
           </p>
         </div>
@@ -303,7 +318,7 @@ function StatusPill({ phase }: { phase: AthPaymentPhase }) {
         ? "Waiting for payment"
         : "Error";
   return (
-    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/70">
+    <span className="rounded-full border border-foreground/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted">
       {label}
     </span>
   );

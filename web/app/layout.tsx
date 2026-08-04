@@ -1,8 +1,10 @@
 import { Providers } from "@/components/providers";
-import { HiringAnnouncementRibbon } from "@/components/site/hiring-announcement-ribbon";
+import { parseAnnouncementConfig } from "@/lib/announcement-config";
 import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
+import { parseTheme, THEME_COOKIE } from "@/lib/theme";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -32,9 +34,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   await connection();
+  const cookieStore = await cookies();
+  const theme = parseTheme(cookieStore.get(THEME_COOKIE)?.value);
   const menu = await getLatestMenuRuntime();
   const session = getStoreSession(new Date());
-  const hiringAnnouncementMessage = process.env.HIRING_ANNOUNCEMENT_MESSAGE;
+  const announcement = parseAnnouncementConfig();
   const storeSession = {
     status: session.status,
     shoppingEnabled: shoppingEnabled(session),
@@ -43,16 +47,17 @@ export default async function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased${theme === "dark" ? " dark" : ""}`}
     >
-      <body className="min-h-full flex flex-col bg-[#07182b]">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers
           menuCatalog={menu.catalog}
           menuVersion={menu.version}
           storeSession={storeSession}
+          announcement={announcement}
+          theme={theme}
         >
           {children}
-          <HiringAnnouncementRibbon message={hiringAnnouncementMessage} />
         </Providers>
       </body>
     </html>

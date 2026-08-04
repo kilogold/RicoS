@@ -23,6 +23,7 @@ const sandwichCatalog: MenuDocument = {
           station: "B",
           salesTaxRate: 0.105,
           municipalTaxRate: 0.01,
+          thumbnailPathname: "menu-thumbnails/fallback.webp",
           modifierGroups: [
             {
               id: "mod_sandwich_format",

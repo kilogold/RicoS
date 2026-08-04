@@ -1,10 +1,11 @@
 "use client";
 
+import { ConfirmationCard, ConfirmationLoadingCard } from "@/components/order/confirmation-card";
+import { SiteHeader } from "@/components/site/site-header";
 import {
   parseOrderConfirmationProvider,
   type OrderConfirmationProvider,
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-confirmation-provider";
-import { SiteHeader } from "@/components/site/site-header";
 import { useCart } from "@/lib/cart-context";
 import {
   ORDER_CONFIRMATION_ERROR_CODE,
@@ -14,10 +15,12 @@ import {
   errorMessageForCode,
   fetchOrderConfirmationStatus,
   isOrderConfirmed,
+  failureKindForCode,
   type ConfirmationApiResponse,
 } from "@/lib/commerce/order-confirmation-client";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { STORE_INFO } from "@/lib/site/store-info";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -25,11 +28,35 @@ import { Suspense, useEffect, useState } from "react";
 type ConfirmationState =
   | { phase: "loading" }
   | { phase: "confirmed" }
-  | {
-      phase: "error";
-      message: string;
-      code?: OrderConfirmationErrorCode;
-    };
+  | { phase: "failed"; message: string }
+  | { phase: "unknown"; message: string };
+
+function failureState(
+  code: OrderConfirmationErrorCode | undefined,
+  message: string,
+): ConfirmationState {
+  return failureKindForCode(code) === "definitive"
+    ? { phase: "failed", message }
+    : { phase: "unknown", message };
+}
+
+function withStorePhone(template: string): string {
+  return template.replace("{phone}", STORE_INFO.phoneDisplay);
+}
+
+function orderReferenceForProvider(
+  provider: OrderConfirmationProvider | null,
+  paymentIntent: string | null,
+  paymentReference: string | null,
+): string | null {
+  if (provider === "stripe" && paymentIntent) {
+    return paymentIntent;
+  }
+  if ((provider === "solana" || provider === "ath-movil") && paymentReference) {
+    return paymentReference;
+  }
+  return null;
+}
 
 function SuccessContent() {
   const { language } = useLanguage();
@@ -49,29 +76,32 @@ function SuccessContent() {
 
     async function verify() {
       if (!provider) {
-        setState({
-          phase: "error",
-          message: strings.orderConfirmationInvalidSession,
-          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
-        });
+        setState(
+          failureState(
+            ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
+            strings.orderConfirmationInvalidSession,
+          ),
+        );
         return;
       }
 
       if (provider === "stripe" && !paymentIntent) {
-        setState({
-          phase: "error",
-          message: strings.orderConfirmationInvalidSession,
-          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
-        });
+        setState(
+          failureState(
+            ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
+            strings.orderConfirmationInvalidSession,
+          ),
+        );
         return;
       }
 
       if ((provider === "solana" || provider === "ath-movil") && !paymentReference) {
-        setState({
-          phase: "error",
-          message: strings.orderConfirmationInvalidSession,
-          code: ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
-        });
+        setState(
+          failureState(
+            ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
+            strings.orderConfirmationInvalidSession,
+          ),
+        );
         return;
       }
 
@@ -95,8 +125,8 @@ function SuccessContent() {
 
       if (!body) {
         setState({
-          phase: "error",
-          message: strings.orderConfirmationNotConfirmed,
+          phase: "unknown",
+          message: strings.orderConfirmationUnknownMessage,
         });
         return;
       }
@@ -108,32 +138,24 @@ function SuccessContent() {
           return;
         }
         if (body.orderStatus === "expired") {
-          setState({
-            phase: "error",
-            message: errorMessageForCode(
+          setState(
+            failureState(
               ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED,
-              strings,
+              errorMessageForCode(ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED, strings),
             ),
-            code: ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED,
-          });
+          );
           return;
         }
-        setState({
-          phase: "error",
-          message: errorMessageForCode(
+        setState(
+          failureState(
             ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
-            strings,
+            errorMessageForCode(ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED, strings),
           ),
-          code: ORDER_CONFIRMATION_ERROR_CODE.ORDER_NOT_CONFIRMED,
-        });
+        );
         return;
       }
 
-      setState({
-        phase: "error",
-        message: errorMessageForCode(body.code, strings),
-        code: body.code,
-      });
+      setState(failureState(body.code, errorMessageForCode(body.code, strings)));
     }
 
     void verify();
@@ -150,109 +172,78 @@ function SuccessContent() {
     language,
   ]);
 
-  const paymentRefBlock = paymentRefForProvider(provider, {
-    paymentIntent,
-    paymentReference,
-    copy,
-  });
-
-  const signatureBlock =
-    provider === "solana" && transactionSignature ? (
-      <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-white/80 break-all">
-        {copy.transactionSignatureLabel}: {transactionSignature}
-      </p>
-    ) : null;
+  const orderReference = orderReferenceForProvider(provider, paymentIntent, paymentReference);
 
   if (state.phase === "loading") {
+    return <ConfirmationLoadingCard message={copy.orderConfirmationVerifying} />;
+  }
+
+  if (state.phase === "failed") {
     return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
-          <p className="text-white/75">{copy.orderConfirmationVerifying}</p>
-        </div>
-      </div>
+      <ConfirmationCard
+        variant="failed"
+        title={copy.orderConfirmationErrorTitle}
+        message={state.message}
+        orderReference={orderReference}
+        orderReferenceLabel={copy.orderReferenceLabel}
+        callStoreMessage={withStorePhone(copy.orderConfirmationCallStore)}
+      >
+        <Link
+          href="/"
+          className="inline-flex w-full max-w-xs justify-center rounded-full bg-accent px-8 py-3.5 text-lg font-semibold text-white shadow-lg hover:brightness-95"
+        >
+          {copy.backToMenu}
+        </Link>
+      </ConfirmationCard>
     );
   }
 
-  if (state.phase === "error") {
+  if (state.phase === "unknown") {
+    const callAriaLabel = withStorePhone(copy.orderConfirmationCallStore);
+
     return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <div className="rounded-2xl border border-red-400/50 bg-[#0c2340]/90 p-10 shadow-2xl">
-          <p className="text-sm font-medium uppercase tracking-widest text-red-300">
-            RicoS
-          </p>
-          <h1 className="mt-3 text-3xl font-bold text-white" role="alert">
-            {copy.orderConfirmationErrorTitle}
-          </h1>
-          <p className="mt-4 text-left text-white/85" role="alert">
-            {state.message}
-          </p>
-          {paymentRefBlock}
-          {signatureBlock}
-          {redirectStatus ? (
-            <p className="mt-2 text-xs text-white/50">
-              {copy.statusLabel}: {redirectStatus}
-            </p>
-          ) : null}
-          <Link
-            href="/"
-            className="mt-10 inline-flex rounded-xl bg-[#f4c430] px-6 py-3 font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
-          >
-            {copy.backToMenu}
-          </Link>
-        </div>
-      </div>
+      <ConfirmationCard
+        variant="unknown"
+        title={copy.orderConfirmationUnknownTitle}
+        message={state.message}
+        orderReference={orderReference}
+        orderReferenceLabel={copy.orderReferenceLabel}
+        callStoreMessage={withStorePhone(copy.orderConfirmationCallStore)}
+      >
+        <a
+          href={`tel:${STORE_INFO.phoneDial}`}
+          aria-label={callAriaLabel}
+          className="inline-flex w-full max-w-xs justify-center rounded-full bg-accent px-8 py-3.5 text-lg font-semibold text-white shadow-lg hover:brightness-95"
+        >
+          {STORE_INFO.phoneDisplay}
+        </a>
+        <Link
+          href="/"
+          className="text-base font-medium text-muted underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {copy.backToMenu}
+        </Link>
+      </ConfirmationCard>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-20 text-center">
-      <div className="rounded-2xl border border-[#f4c430]/40 bg-[#0c2340]/90 p-10 shadow-2xl">
-        <p className="text-sm font-medium uppercase tracking-widest text-[#f4c430]">
-          RicoS
-        </p>
-        <h1 className="mt-3 text-3xl font-bold text-white">{copy.orderConfirmed}</h1>
-        <p className="mt-4 text-white/75">{copy.orderConfirmedMessage}</p>
-        {paymentRefBlock}
-        {signatureBlock}
-        {redirectStatus ? (
-          <p className="mt-2 text-xs text-white/50">
-            {copy.statusLabel}: {redirectStatus}
-          </p>
-        ) : null}
-        <Link
-          href="/"
-          className="mt-10 inline-flex rounded-xl bg-[#f4c430] px-6 py-3 font-semibold text-[#0c2340] shadow-lg hover:brightness-95"
-        >
-          {copy.orderMore}
-        </Link>
-      </div>
-    </div>
+    <ConfirmationCard
+      variant="confirmed"
+      title={copy.orderConfirmed}
+      message={copy.orderConfirmedMessage}
+      callStoreMessage={withStorePhone(copy.orderConfirmedCallStore)}
+      orderReference={orderReference}
+      orderReferenceLabel={copy.orderReferenceLabel}
+    >
+      <Link
+        href="/"
+        className="inline-flex w-full max-w-xs justify-center rounded-full bg-accent px-8 py-3.5 text-lg font-semibold text-white shadow-lg hover:brightness-95"
+      >
+        {copy.orderMore}
+      </Link>
+    </ConfirmationCard>
   );
-}
-
-function paymentRefForProvider(
-  provider: OrderConfirmationProvider | null,
-  refs: {
-    paymentIntent: string | null;
-    paymentReference: string | null;
-    copy: ReturnType<typeof getAppStrings>;
-  },
-) {
-  if (provider === "stripe" && refs.paymentIntent) {
-    return (
-      <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90">
-        {refs.copy.paymentIntentLabel}: {refs.paymentIntent}
-      </p>
-    );
-  }
-  if ((provider === "solana" || provider === "ath-movil") && refs.paymentReference) {
-    return (
-      <p className="mt-6 rounded-lg bg-black/20 px-3 py-2 font-mono text-sm text-white/90 break-all">
-        {refs.copy.orderReferenceLabel}: {refs.paymentReference}
-      </p>
-    );
-  }
-  return null;
 }
 
 export default function OrderSuccessPage() {
@@ -261,7 +252,7 @@ export default function OrderSuccessPage() {
       <SiteHeader />
       <Suspense
         fallback={
-          <div className="py-24 text-center text-white/70">{getAppStrings("es").loading}</div>
+          <ConfirmationLoadingCard message={getAppStrings("es").orderConfirmationVerifying} />
         }
       >
         <SuccessContent />

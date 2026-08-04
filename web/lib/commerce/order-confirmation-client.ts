@@ -20,6 +20,26 @@ export function isOrderConfirmed(orderStatus: string): boolean {
   return CONFIRMED_ORDER_STATUSES.has(orderStatus);
 }
 
+export type ConfirmationFailureKind = "definitive" | "indeterminate";
+
+const DEFINITIVE_FAILURE_CODES: ReadonlySet<OrderConfirmationErrorCode> = new Set([
+  ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_NOT_SUCCEEDED,
+  ORDER_CONFIRMATION_ERROR_CODE.PAYMENT_EXPIRED,
+  ORDER_CONFIRMATION_ERROR_CODE.INVALID_PAYMENT_INTENT,
+  ORDER_CONFIRMATION_ERROR_CODE.INVALID_REFERENCE,
+  ORDER_CONFIRMATION_ERROR_CODE.INVALID_PROVIDER,
+  ORDER_CONFIRMATION_ERROR_CODE.INVALID_SESSION,
+]);
+
+export function failureKindForCode(
+  code: OrderConfirmationErrorCode | undefined,
+): ConfirmationFailureKind {
+  if (code === undefined) {
+    return "indeterminate";
+  }
+  return DEFINITIVE_FAILURE_CODES.has(code) ? "definitive" : "indeterminate";
+}
+
 export function errorMessageForCode(
   code: OrderConfirmationErrorCode,
   copy: ReturnType<typeof getAppStrings>,

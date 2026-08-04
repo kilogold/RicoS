@@ -18,16 +18,16 @@ export function CheckoutTotalsBreakdown({ totals }: { totals: OrderTotals }) {
   ];
 
   return (
-    <dl className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
+    <dl className="mt-4 space-y-2 border-t border-foreground/10 pt-4 text-sm">
       {rows.map(({ label, cents, emphasize }) => (
         <div
           key={label}
           className={`flex items-baseline justify-between gap-4 ${
-            emphasize ? "text-base font-semibold text-white" : "text-white/85"
+            emphasize ? "text-base font-semibold text-foreground" : "text-foreground/85"
           }`}
         >
           <dt>{label}</dt>
-          <dd className={emphasize ? "text-[#f4c430]" : undefined}>{formatUsd(cents, language)}</dd>
+          <dd className={emphasize ? "text-accent" : undefined}>{formatUsd(cents, language)}</dd>
         </div>
       ))}
     </dl>
