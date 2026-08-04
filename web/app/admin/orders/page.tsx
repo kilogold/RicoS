@@ -8,10 +8,6 @@ import {
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { useCallback, useEffect, useState } from "react";
 
-const MS_PER_SECOND = 1000;
-const ORDERS_POLL_INTERVAL_SECONDS = 12;
-const ORDERS_POLL_INTERVAL_MS = ORDERS_POLL_INTERVAL_SECONDS * MS_PER_SECOND;
-
 /** Major currency units (e.g. dollars) per minor unit (cents). */
 const CENTS_PER_MAJOR_UNIT = 100;
 
@@ -58,8 +54,8 @@ type OrderRow = {
 };
 
 type OrdersFetchResult =
-  | { ok: true; orders: OrderRow[]; from: number; fetchedAt: number }
-  | { ok: false; error: string; from: number };
+  | { ok: true; orders: OrderRow[]; fetchedAt: number }
+  | { ok: false; error: string };
 
 function isRefundOrderStatus(status: string): boolean {
   return status === "refunding" || status === "refunded";
@@ -81,21 +77,25 @@ function abbreviateForTable(value: string, maxLength: number): string {
   return `${value.slice(0, keptCharactersPerSide)}…${value.slice(-keptCharactersPerSide)}`;
 }
 
-function localDayBoundsMs(): { from: number; to: number } {
-  const now = new Date();
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    ...LOCAL_MIDNIGHT_HMS,
-  );
-  const end = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    ...LOCAL_END_OF_DAY_HMS,
-  );
-  return { from: start.getTime(), to: end.getTime() };
+/** Local `YYYY-MM-DD`, matching the value an `<input type="date">` needs/gives. */
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Inverse of `formatDateInputValue` — parses a `YYYY-MM-DD` date-input value into a local-midnight `Date`. */
+function parseDateInputValue(value: string): Date {
+  const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, DECIMAL_RADIX));
+  return new Date(year, month - 1, day, ...LOCAL_MIDNIGHT_HMS);
+}
+
+/** Local calendar-day bounds (ms) containing `day`. */
+function dayBoundsMs(day: Date): { from: number; to: number } {
+  const from = new Date(day.getFullYear(), day.getMonth(), day.getDate(), ...LOCAL_MIDNIGHT_HMS).getTime();
+  const to = new Date(day.getFullYear(), day.getMonth(), day.getDate(), ...LOCAL_END_OF_DAY_HMS).getTime();
+  return { from, to };
 }
 
 function formatMoney(amountCents: number, currency: string): string {
@@ -117,8 +117,7 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
-async function requestOrders(): Promise<OrdersFetchResult> {
-  const { from, to } = localDayBoundsMs();
+async function requestOrders(from: number, to: number): Promise<OrdersFetchResult> {
   try {
     const searchParams = new URLSearchParams({
       from: String(from),
@@ -129,14 +128,13 @@ async function requestOrders(): Promise<OrdersFetchResult> {
     });
     const responseBody = (await response.json()) as { orders?: OrderRow[]; error?: string };
     if (!response.ok) {
-      return { ok: false, error: responseBody.error ?? `HTTP ${response.status}`, from };
+      return { ok: false, error: responseBody.error ?? `HTTP ${response.status}` };
     }
-    return { ok: true, orders: responseBody.orders ?? [], from, fetchedAt: Date.now() };
+    return { ok: true, orders: responseBody.orders ?? [], fetchedAt: Date.now() };
   } catch (requestError) {
     return {
       ok: false,
       error: requestError instanceof Error ? requestError.message : String(requestError),
-      from,
     };
   }
 }
@@ -221,10 +219,11 @@ function OrderPayloadCartView({
   );
 }
 
-export default function AdminOrderTestPage() {
-  const [dayLabel, setDayLabel] = useState(() =>
-    new Date(localDayBoundsMs().from).toDateString(),
-  );
+export default function AdminOrdersPage() {
+  const [selectedDateInput, setSelectedDateInput] = useState(() => formatDateInputValue(new Date()));
+  const selectedDate = parseDateInputValue(selectedDateInput);
+  const { from, to } = dayBoundsMs(selectedDate);
+  const dayLabel = selectedDate.toDateString();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,8 +243,7 @@ export default function AdminOrderTestPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await requestOrders();
-      setDayLabel(new Date(result.from).toDateString());
+      const result = await requestOrders(from, to);
       if (!result.ok) {
         setError(result.error);
         setOrders([]);
@@ -256,35 +254,10 @@ export default function AdminOrderTestPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadInitialOrders() {
-      const result = await requestOrders();
-      if (cancelled) return;
-      setDayLabel(new Date(result.from).toDateString());
-      if (!result.ok) {
-        setError(result.error);
-        setOrders([]);
-        return;
-      }
-      setError(null);
-      setOrders(result.orders);
-      setLastFetchedAt(result.fetchedAt);
-    }
-
-    void loadInitialOrders();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchOrders();
-    }, ORDERS_POLL_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
+    void fetchOrders();
   }, [fetchOrders]);
 
   const visibleOrders = showPendingOrders
@@ -372,20 +345,33 @@ export default function AdminOrderTestPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
-      <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
+    <main className="min-h-dvh bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 sm:px-4 sm:pt-8">
+      <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin orders</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
-        Passkey-gated admin panel for manual UX testing. Refunds require a second passkey approval
-        in the refund modal. Orders shown use your browser&apos;s local calendar day ({dayLabel}).
+        Passkey-gated admin panel for order management. Refunds require a second passkey approval
+        in the refund modal. Orders shown are for the selected calendar day ({dayLabel}).
       </p>
 
 
       <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <span>Order date</span>
+          <input
+            type="date"
+            value={selectedDateInput}
+            onChange={(changeEvent) => {
+              if (!changeEvent.target.value) return;
+              setSelectedDateInput(changeEvent.target.value);
+            }}
+            className="min-h-11 rounded-lg border border-slate-600 bg-slate-800/60 px-3 py-2.5 text-base text-slate-100 outline-none touch-manipulation focus:border-sky-500 sm:text-sm"
+          />
+        </label>
         <button
           type="button"
           onClick={() => void fetchOrders()}
           disabled={loading}
-          className="min-h-[44px] shrink-0 rounded-lg bg-sky-600 px-4 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-sky-500 active:bg-sky-700 disabled:opacity-50 sm:text-sm"
+          className="min-h-11 shrink-0 rounded-lg bg-sky-600 px-4 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-sky-500 active:bg-sky-700 disabled:opacity-50 sm:text-sm"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
@@ -393,7 +379,7 @@ export default function AdminOrderTestPage() {
           type="button"
           aria-pressed={showPendingOrders}
           onClick={() => setShowPendingOrders((show) => !show)}
-          className={`min-h-[44px] shrink-0 rounded-lg border px-4 py-2.5 text-base font-medium touch-manipulation sm:text-sm ${
+          className={`min-h-11 shrink-0 rounded-lg border px-4 py-2.5 text-base font-medium touch-manipulation sm:text-sm ${
             showPendingOrders
               ? "border-amber-600 bg-amber-900/50 text-amber-100 hover:bg-amber-800/50 active:bg-amber-950/50"
               : "border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700/60 active:bg-slate-900/60"
@@ -414,8 +400,7 @@ export default function AdminOrderTestPage() {
 
       {lastFetchedAt ? (
         <p className="mt-2 text-xs text-slate-500">
-          Last updated: {formatTime(lastFetchedAt)} · auto-refresh every{" "}
-          {ORDERS_POLL_INTERVAL_SECONDS}s
+          Last updated: {formatTime(lastFetchedAt)}
         </p>
       ) : null}
 
@@ -429,7 +414,7 @@ export default function AdminOrderTestPage() {
               orderReference: selectedOrder.orderReference,
             })
           }
-          className="min-h-[48px] rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
+          className="min-h-12 rounded-lg border border-emerald-700 bg-emerald-900/40 px-4 py-3 text-base font-medium text-emerald-100 touch-manipulation hover:bg-emerald-800/50 active:bg-emerald-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Fulfill
         </button>
@@ -442,7 +427,7 @@ export default function AdminOrderTestPage() {
               orderReference: selectedOrder.orderReference,
             })
           }
-          className="min-h-[48px] rounded-lg border border-violet-700 bg-violet-900/40 px-4 py-3 text-base font-medium text-violet-100 touch-manipulation hover:bg-violet-800/50 active:bg-violet-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
+          className="min-h-12 rounded-lg border border-violet-700 bg-violet-900/40 px-4 py-3 text-base font-medium text-violet-100 touch-manipulation hover:bg-violet-800/50 active:bg-violet-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Print receipt
         </button>
@@ -450,7 +435,7 @@ export default function AdminOrderTestPage() {
           type="button"
           disabled={!selectedOrder || actionBusy}
           onClick={openRefundModal}
-          className="min-h-[48px] rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-3 text-base font-medium text-amber-100 touch-manipulation hover:bg-amber-800/50 active:bg-amber-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
+          className="min-h-12 rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-3 text-base font-medium text-amber-100 touch-manipulation hover:bg-amber-800/50 active:bg-amber-950/50 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Refund…
         </button>
@@ -458,7 +443,7 @@ export default function AdminOrderTestPage() {
           type="button"
           disabled={!selectedOrder}
           onClick={() => selectedOrder && setDetailsOpen(true)}
-          className="min-h-[48px] rounded-lg border border-slate-600 bg-slate-800/60 px-4 py-3 text-base font-medium text-slate-100 touch-manipulation hover:bg-slate-700/60 active:bg-slate-900/60 disabled:opacity-40 sm:py-2 sm:text-sm"
+          className="min-h-12 rounded-lg border border-slate-600 bg-slate-800/60 px-4 py-3 text-base font-medium text-slate-100 touch-manipulation hover:bg-slate-700/60 active:bg-slate-900/60 disabled:opacity-40 sm:py-2 sm:text-sm"
         >
           Order details…
         </button>
@@ -555,7 +540,7 @@ export default function AdminOrderTestPage() {
 
       {/* Desktop: full table */}
       <div className="mt-6 hidden overflow-x-auto rounded-lg border border-slate-700 bg-slate-900/40 md:block">
-        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+        <table className="w-full min-w-180 border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-slate-700 text-slate-400">
               <th className="w-10 p-3" />
@@ -609,7 +594,7 @@ export default function AdminOrderTestPage() {
                               </div>
                             ) : null}
                           </td>
-                          <td className="max-w-[280px] p-3 font-mono text-xs text-amber-200/80">
+                          <td className="max-w-70 p-3 font-mono text-xs text-amber-200/80">
                             <div>↳ Refund ID {refund.id}</div>
                             <div
                               className="mt-1 truncate font-mono text-[11px] text-amber-100/95"
@@ -651,7 +636,7 @@ export default function AdminOrderTestPage() {
                   <td className="whitespace-nowrap p-3 font-mono text-xs text-slate-300">
                     {formatTime(order.createdAt)}
                   </td>
-                  <td className="max-w-[200px] truncate p-3 font-mono text-xs" title={order.orderReference}>
+                  <td className="max-w-50 truncate p-3 font-mono text-xs" title={order.orderReference}>
                     {order.orderReference}
                   </td>
                   <td className="p-3">{order.paymentProvider}</td>
@@ -659,13 +644,13 @@ export default function AdminOrderTestPage() {
                   <td className="p-3">{formatMoney(order.grandTotalCents, order.currency)}</td>
                   <td className="p-3">{order.status}</td>
                   <td className="p-3">{order.lineCount}</td>
-                  <td className="max-w-[140px] truncate p-3 text-slate-300" title={order.customerName ?? ""}>
+                  <td className="max-w-35 truncate p-3 text-slate-300" title={order.customerName ?? ""}>
                     {order.customerName ?? "—"}
                   </td>
-                  <td className="max-w-[120px] truncate p-3 font-mono text-xs text-slate-300" title={order.customerPhone ?? ""}>
+                  <td className="max-w-30 truncate p-3 font-mono text-xs text-slate-300" title={order.customerPhone ?? ""}>
                     {order.customerPhone ?? "—"}
                   </td>
-                  <td className="max-w-[160px] truncate p-3 text-slate-400" title={order.customerEmail ?? ""}>
+                  <td className="max-w-40 truncate p-3 text-slate-400" title={order.customerEmail ?? ""}>
                     {order.customerEmail ?? "—"}
                   </td>
                 </tr>,
@@ -727,7 +712,7 @@ export default function AdminOrderTestPage() {
               <button
                 type="button"
                 onClick={() => setDetailsOpen(false)}
-                className="min-h-[44px] min-w-[88px] rounded-lg bg-slate-700 px-5 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-slate-600 active:bg-slate-800 sm:text-sm"
+                className="min-h-11 min-w-22 rounded-lg bg-slate-700 px-5 py-2.5 text-base font-medium text-white touch-manipulation hover:bg-slate-600 active:bg-slate-800 sm:text-sm"
               >
                 Close
               </button>
@@ -779,7 +764,7 @@ export default function AdminOrderTestPage() {
                   setRefundAmountCents(changeEvent.target.value);
                   clearRefundFieldError();
                 }}
-                className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
+                className="min-h-11 rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-sm"
               />
             </label>
 
@@ -793,7 +778,7 @@ export default function AdminOrderTestPage() {
                     setRefundIdempotency(changeEvent.target.value);
                     clearRefundFieldError();
                   }}
-                  className="min-h-[44px] rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
+                  className="min-h-11 rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2.5 font-mono text-base outline-none focus:border-sky-500 sm:text-xs"
                 />
               </label>
             ) : null}
@@ -802,7 +787,7 @@ export default function AdminOrderTestPage() {
               <button
                 type="button"
                 onClick={() => setRefundOpen(false)}
-                className="min-h-[48px] rounded-lg px-4 py-3 text-base text-slate-300 touch-manipulation hover:bg-slate-800 sm:min-h-0 sm:py-2 sm:text-sm"
+                className="min-h-12 rounded-lg px-4 py-3 text-base text-slate-300 touch-manipulation hover:bg-slate-800 sm:min-h-0 sm:py-2 sm:text-sm"
               >
                 Cancel
               </button>
@@ -810,7 +795,7 @@ export default function AdminOrderTestPage() {
                 type="button"
                 disabled={actionBusy}
                 onClick={() => void submitRefund()}
-                className="min-h-[48px] rounded-lg bg-amber-700 px-4 py-3 text-base font-medium text-white touch-manipulation hover:bg-amber-600 active:bg-amber-800 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
+                className="min-h-12 rounded-lg bg-amber-700 px-4 py-3 text-base font-medium text-white touch-manipulation hover:bg-amber-600 active:bg-amber-800 disabled:opacity-50 sm:min-h-0 sm:py-2 sm:text-sm"
               >
                 {actionBusy ? "Approving…" : "Submit refund"}
               </button>
@@ -818,6 +803,7 @@ export default function AdminOrderTestPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </main>
   );
 }

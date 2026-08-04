@@ -4,14 +4,14 @@ import {
   ADMIN_SESSION_COOKIE_NAME,
   verifyAdminCookie,
 } from "@/lib/admin-passkey/admin-cookie";
-import { AdminPasskeyLogin } from "../admin-order-test/admin-passkey-login";
+import { AdminPasskeyLogin } from "@/lib/admin-passkey/admin-passkey-login";
 
 export const viewport: Viewport = {
   themeColor: "#07182b",
   viewportFit: "cover",
 };
 
-export default async function AdminMenuLayout({
+export default async function AdminOrdersLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const cookieStore = await cookies();
