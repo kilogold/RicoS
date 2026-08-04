@@ -54,8 +54,8 @@ type OrderRow = {
 };
 
 type OrdersFetchResult =
-  | { ok: true; orders: OrderRow[]; from: number; fetchedAt: number }
-  | { ok: false; error: string; from: number };
+  | { ok: true; orders: OrderRow[]; fetchedAt: number }
+  | { ok: false; error: string };
 
 function isRefundOrderStatus(status: string): boolean {
   return status === "refunding" || status === "refunded";
@@ -77,21 +77,25 @@ function abbreviateForTable(value: string, maxLength: number): string {
   return `${value.slice(0, keptCharactersPerSide)}…${value.slice(-keptCharactersPerSide)}`;
 }
 
-function localDayBoundsMs(): { from: number; to: number } {
-  const now = new Date();
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    ...LOCAL_MIDNIGHT_HMS,
-  );
-  const end = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    ...LOCAL_END_OF_DAY_HMS,
-  );
-  return { from: start.getTime(), to: end.getTime() };
+/** Local `YYYY-MM-DD`, matching the value an `<input type="date">` needs/gives. */
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Inverse of `formatDateInputValue` — parses a `YYYY-MM-DD` date-input value into a local-midnight `Date`. */
+function parseDateInputValue(value: string): Date {
+  const [year, month, day] = value.split("-").map((part) => Number.parseInt(part, DECIMAL_RADIX));
+  return new Date(year, month - 1, day, ...LOCAL_MIDNIGHT_HMS);
+}
+
+/** Local calendar-day bounds (ms) containing `day`. */
+function dayBoundsMs(day: Date): { from: number; to: number } {
+  const from = new Date(day.getFullYear(), day.getMonth(), day.getDate(), ...LOCAL_MIDNIGHT_HMS).getTime();
+  const to = new Date(day.getFullYear(), day.getMonth(), day.getDate(), ...LOCAL_END_OF_DAY_HMS).getTime();
+  return { from, to };
 }
 
 function formatMoney(amountCents: number, currency: string): string {
@@ -113,8 +117,7 @@ function formatTime(ms: number): string {
   return new Date(ms).toLocaleString();
 }
 
-async function requestOrders(): Promise<OrdersFetchResult> {
-  const { from, to } = localDayBoundsMs();
+async function requestOrders(from: number, to: number): Promise<OrdersFetchResult> {
   try {
     const searchParams = new URLSearchParams({
       from: String(from),
@@ -125,14 +128,13 @@ async function requestOrders(): Promise<OrdersFetchResult> {
     });
     const responseBody = (await response.json()) as { orders?: OrderRow[]; error?: string };
     if (!response.ok) {
-      return { ok: false, error: responseBody.error ?? `HTTP ${response.status}`, from };
+      return { ok: false, error: responseBody.error ?? `HTTP ${response.status}` };
     }
-    return { ok: true, orders: responseBody.orders ?? [], from, fetchedAt: Date.now() };
+    return { ok: true, orders: responseBody.orders ?? [], fetchedAt: Date.now() };
   } catch (requestError) {
     return {
       ok: false,
       error: requestError instanceof Error ? requestError.message : String(requestError),
-      from,
     };
   }
 }
@@ -218,9 +220,10 @@ function OrderPayloadCartView({
 }
 
 export default function AdminOrderTestPage() {
-  const [dayLabel, setDayLabel] = useState(() =>
-    new Date(localDayBoundsMs().from).toDateString(),
-  );
+  const [selectedDateInput, setSelectedDateInput] = useState(() => formatDateInputValue(new Date()));
+  const selectedDate = parseDateInputValue(selectedDateInput);
+  const { from, to } = dayBoundsMs(selectedDate);
+  const dayLabel = selectedDate.toDateString();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,8 +243,7 @@ export default function AdminOrderTestPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await requestOrders();
-      setDayLabel(new Date(result.from).toDateString());
+      const result = await requestOrders(from, to);
       if (!result.ok) {
         setError(result.error);
         setOrders([]);
@@ -252,29 +254,11 @@ export default function AdminOrderTestPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadInitialOrders() {
-      const result = await requestOrders();
-      if (cancelled) return;
-      setDayLabel(new Date(result.from).toDateString());
-      if (!result.ok) {
-        setError(result.error);
-        setOrders([]);
-        return;
-      }
-      setError(null);
-      setOrders(result.orders);
-      setLastFetchedAt(result.fetchedAt);
-    }
-
-    void loadInitialOrders();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void fetchOrders();
+  }, [fetchOrders]);
 
   const visibleOrders = showPendingOrders
     ? orders
@@ -365,11 +349,23 @@ export default function AdminOrderTestPage() {
       <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
         Passkey-gated admin panel for manual UX testing. Refunds require a second passkey approval
-        in the refund modal. Orders shown use your browser&apos;s local calendar day ({dayLabel}).
+        in the refund modal. Orders shown are for the selected calendar day ({dayLabel}).
       </p>
 
 
       <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <span>Order date</span>
+          <input
+            type="date"
+            value={selectedDateInput}
+            onChange={(changeEvent) => {
+              if (!changeEvent.target.value) return;
+              setSelectedDateInput(changeEvent.target.value);
+            }}
+            className="min-h-11 rounded-lg border border-slate-600 bg-slate-800/60 px-3 py-2.5 text-base text-slate-100 outline-none touch-manipulation focus:border-sky-500 sm:text-sm"
+          />
+        </label>
         <button
           type="button"
           onClick={() => void fetchOrders()}
