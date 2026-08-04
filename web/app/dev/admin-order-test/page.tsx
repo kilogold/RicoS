@@ -8,10 +8,6 @@ import {
 } from "@/lib/commerce/web-api/staff-order-management/lib/order-service-mode";
 import { useCallback, useEffect, useState } from "react";
 
-const MS_PER_SECOND = 1000;
-const ORDERS_POLL_INTERVAL_SECONDS = 12;
-const ORDERS_POLL_INTERVAL_MS = ORDERS_POLL_INTERVAL_SECONDS * MS_PER_SECOND;
-
 /** Major currency units (e.g. dollars) per minor unit (cents). */
 const CENTS_PER_MAJOR_UNIT = 100;
 
@@ -280,13 +276,6 @@ export default function AdminOrderTestPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchOrders();
-    }, ORDERS_POLL_INTERVAL_MS);
-    return () => window.clearInterval(intervalId);
-  }, [fetchOrders]);
-
   const visibleOrders = showPendingOrders
     ? orders
     : orders.filter((order) => !isPendingOrderStatus(order.status));
@@ -414,8 +403,7 @@ export default function AdminOrderTestPage() {
 
       {lastFetchedAt ? (
         <p className="mt-2 text-xs text-slate-500">
-          Last updated: {formatTime(lastFetchedAt)} · auto-refresh every{" "}
-          {ORDERS_POLL_INTERVAL_SECONDS}s
+          Last updated: {formatTime(lastFetchedAt)}
         </p>
       ) : null}
 
