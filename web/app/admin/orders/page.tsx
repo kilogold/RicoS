@@ -345,7 +345,8 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
+    <main className="min-h-dvh bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 sm:px-4 sm:pt-8">
       <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin orders</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
         Passkey-gated admin panel for order management. Refunds require a second passkey approval
@@ -802,6 +803,7 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       ) : null}
+      </div>
     </main>
   );
 }
