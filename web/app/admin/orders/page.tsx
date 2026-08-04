@@ -219,7 +219,7 @@ function OrderPayloadCartView({
   );
 }
 
-export default function AdminOrderTestPage() {
+export default function AdminOrdersPage() {
   const [selectedDateInput, setSelectedDateInput] = useState(() => formatDateInputValue(new Date()));
   const selectedDate = parseDateInputValue(selectedDateInput);
   const { from, to } = dayBoundsMs(selectedDate);
@@ -346,9 +346,9 @@ export default function AdminOrderTestPage() {
 
   return (
     <main className="mx-auto min-h-dvh max-w-6xl px-3 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] pt-6 text-slate-100 sm:px-4 sm:pt-8">
-      <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin order flow (dev)</h1>
+      <h1 className="text-lg font-semibold tracking-tight sm:text-xl">Admin orders</h1>
       <p className="mt-2 max-w-2xl text-xs text-slate-400 sm:text-sm">
-        Passkey-gated admin panel for manual UX testing. Refunds require a second passkey approval
+        Passkey-gated admin panel for order management. Refunds require a second passkey approval
         in the refund modal. Orders shown are for the selected calendar day ({dayLabel}).
       </p>
 
