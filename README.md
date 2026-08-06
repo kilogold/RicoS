@@ -48,7 +48,8 @@ Core vars to set:
 Menu publish vars:
 
 - `MENU_PUBLISH_MENU_JSON_URL` (raw GitHub URL to `RicoS-Menu` — `preview/menu.json` or `main/menu.json` per deployment)
-- `STAFF_OPERATIONS_SECRET`
+- `STAFF_OPERATIONS_SECRET` (bearer token for server-to-server staff API calls)
+- `ADMIN_SESSION_SIGNING_SECRET` (signs the admin session cookie — must differ from `STAFF_OPERATIONS_SECRET`, or holders of that bearer token could forge admin sessions)
 - `GITHUB_TOKEN` (PAT with **write** access to `RicoS-Menu` for staff publish; omit for public read-only)
 
 Optional vars are documented in `.env.example`.

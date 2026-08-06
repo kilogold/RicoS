@@ -3,7 +3,7 @@ import { requireStaffPublishAuth } from "@/lib/commerce/web-api/staff-order-mana
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const unauthorized = requireStaffPublishAuth(req);
+  const unauthorized = await requireStaffPublishAuth(req);
   if (unauthorized) return unauthorized;
 
   let body: { orderReference?: unknown };

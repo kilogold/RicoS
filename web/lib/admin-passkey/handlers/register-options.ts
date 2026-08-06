@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { challengeFromClientDataJSON } from "@/lib/admin-passkey/challenge-from-assertion";
-import { persistRegisterChallenge } from "@/lib/admin-passkey/challenges";
+import {
+  persistRegisterChallenge,
+  persistRegisterGateChallenge,
+} from "@/lib/admin-passkey/challenges";
 import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
 import { passkeyLimitResponse } from "@/lib/admin-passkey/passkey-limit-guard";
 import type { ParsedRegisterOptionsBody } from "@/lib/admin-passkey/register-options-payload";
+import { logSecurityEvent } from "@/lib/admin-passkey/security-log";
 import {
   isAdminSetupConfigured,
   verifyAdminSetupSecret,
@@ -62,8 +66,18 @@ export async function handleAdminPasskeyRegisterOptionsRequest(
       response: approval,
     });
     if (!verified.ok) {
+      logSecurityEvent({
+        event: "passkey_enrollment_gate",
+        outcome: "denied",
+        reason: verified.error,
+      });
       return jsonError(verified.error, 403);
     }
+    logSecurityEvent({
+      event: "passkey_enrollment_gate",
+      outcome: "ok",
+      credentialId: verified.passkey.credentialId,
+    });
     await updatePasskeyCounter(db, verified.passkey.credentialId, verified.newCounter);
 
     const { options, challenge: regChallenge } = await generatePasskeyRegistrationOptions();
@@ -76,14 +90,20 @@ export async function handleAdminPasskeyRegisterOptionsRequest(
       return jsonError("setup_not_configured", 503);
     }
     if (!verifyAdminSetupSecret(setupSecret)) {
+      logSecurityEvent({
+        event: "passkey_bootstrap",
+        outcome: "denied",
+        reason: "invalid_setup_secret",
+      });
       return jsonError("unauthorized", 401);
     }
+    logSecurityEvent({ event: "passkey_bootstrap", outcome: "ok" });
     const { options, challenge } = await generatePasskeyRegistrationOptions();
     await persistRegisterChallenge(db, challenge);
     return NextResponse.json({ step: "register", options });
   }
 
   const { options, challenge } = await generateRegisterAuthenticationOptions(db);
-  await persistRegisterChallenge(db, challenge);
+  await persistRegisterGateChallenge(db, challenge);
   return NextResponse.json({ step: "authenticate", options });
 }

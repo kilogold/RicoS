@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { signAdminCookie, verifyAdminCookie } from "./admin-cookie";
 
 describe("admin-cookie", () => {
-  const secret = "test-staff-secret-for-hmac";
+  const secret = "test-session-secret-for-hmac";
 
   test("sign and verify round trip", () => {
-    process.env.STAFF_OPERATIONS_SECRET = secret;
+    process.env.ADMIN_SESSION_SIGNING_SECRET = secret;
     const value = signAdminCookie("cred-abc", 1_000_000);
     expect(value).not.toBeNull();
     const verified = verifyAdminCookie(value, 1_000_000);
@@ -16,7 +16,7 @@ describe("admin-cookie", () => {
   });
 
   test("rejects tampered mac", () => {
-    process.env.STAFF_OPERATIONS_SECRET = secret;
+    process.env.ADMIN_SESSION_SIGNING_SECRET = secret;
     const value = signAdminCookie("cred-abc", 1_000_000);
     expect(value).not.toBeNull();
     const tampered = `${value}x`;
@@ -24,8 +24,14 @@ describe("admin-cookie", () => {
   });
 
   test("rejects expired cookie", () => {
-    process.env.STAFF_OPERATIONS_SECRET = secret;
+    process.env.ADMIN_SESSION_SIGNING_SECRET = secret;
     const value = signAdminCookie("cred-abc", 1_000_000);
     expect(verifyAdminCookie(value, 1_000_000 + 13 * 60 * 60 * 1000).ok).toBe(false);
+  });
+
+  test("fails closed when secret is unset", () => {
+    delete process.env.ADMIN_SESSION_SIGNING_SECRET;
+    expect(signAdminCookie("cred-abc", 1_000_000)).toBeNull();
+    expect(verifyAdminCookie("cred-abc.2000000.fakemac", 1_000_000).ok).toBe(false);
   });
 });

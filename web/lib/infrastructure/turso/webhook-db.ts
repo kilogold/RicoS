@@ -1210,7 +1210,7 @@ export type AdminPasskeyRecord = {
 
 export type PasskeyChallengeRecord = {
   challenge: string;
-  type: "register" | "action";
+  type: "register" | "register_gate" | "action";
   actionName: string | null;
   payloadHash: string | null;
   expiresAt: number;
@@ -1270,6 +1270,26 @@ export async function listAdminPasskeyCredentials(
           : String(row.NAME)
         : String(row.name),
   }));
+}
+
+/**
+ * The passkey allowed to approve new enrollments. Deletion of passkeys is an
+ * all-or-nothing, hand-edit-the-DB operation (see admin_passkeys docs) — there
+ * is no supported way to remove only this row and leave others behind, so the
+ * "first created" identity is stable for the lifetime of any given passkey set.
+ */
+export async function getEnrollingAdminPasskey(
+  client: Client,
+): Promise<AdminPasskeyRecord | null> {
+  const result = await client.execute(`
+    SELECT credential_id, public_key, counter, name, created_at, last_used_at
+    FROM admin_passkeys
+    ORDER BY created_at ASC, credential_id ASC
+    LIMIT 1
+  `);
+  const rows = (result.rows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return null;
+  return rowToAdminPasskey(rows[0]);
 }
 
 export async function getPasskeyByCredentialId(

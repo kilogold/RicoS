@@ -32,10 +32,12 @@ export function maxAllowedPasskeys(): number {
 export const SESSION_PAYLOAD_HASH = "";
 
 function parseAllowedOrigins(): Set<string> {
-  const origins = new Set<string>([
-    LOCAL_ORIGIN,
-    `https://${WEBAUTHN_RP_ID}`,
-  ]);
+  const origins = new Set<string>([`https://${WEBAUTHN_RP_ID}`]);
+  // Dev convenience only — never trust localhost as a WebAuthn origin in
+  // production, or the origin allowlist stops being a real guarantee.
+  if (process.env.NODE_ENV !== "production") {
+    origins.add(LOCAL_ORIGIN);
+  }
   const extra = process.env.WEBAUTHN_ALLOWED_ORIGINS?.trim();
   if (extra) {
     for (const part of extra.split(",")) {
