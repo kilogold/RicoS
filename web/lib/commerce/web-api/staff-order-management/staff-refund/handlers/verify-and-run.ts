@@ -1,6 +1,7 @@
 import { challengeFromClientDataJSON } from "@/lib/admin-passkey/challenge-from-assertion";
 import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
+import { logSecurityEvent } from "@/lib/admin-passkey/security-log";
 import { verifyActionAuthentication } from "@/lib/admin-passkey/webauthn";
 import { hashRefundPayload } from "@/lib/commerce/web-api/staff-order-management/staff-refund/payload-hash";
 import type { ParsedStaffRefundVerifyBody } from "@/lib/commerce/web-api/staff-order-management/staff-refund/verify-payload";
@@ -42,12 +43,23 @@ export async function handleStaffAdminRefundVerifyAndRunRequest(
   });
 
   if (!verified.ok) {
+    logSecurityEvent({
+      event: "refund_approval",
+      outcome: "denied",
+      reason: verified.error,
+    });
     const status =
       verified.error === "challenge_not_found" || verified.error === "challenge_expired"
         ? 401
         : 403;
     return jsonError(verified.error, status);
   }
+
+  logSecurityEvent({
+    event: "refund_approval",
+    outcome: "ok",
+    credentialId: verified.passkey.credentialId,
+  });
 
   await updatePasskeyCounter(db, verified.passkey.credentialId, verified.newCounter);
 

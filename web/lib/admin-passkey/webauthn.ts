@@ -11,15 +11,24 @@ import {
 } from "@simplewebauthn/server";
 import type { Client } from "@libsql/client";
 import {
+  getEnrollingAdminPasskey,
   getPasskeyByCredentialId,
   listAdminPasskeyCredentials,
   type AdminPasskeyRecord,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { WEBAUTHN_RP_ID, WEBAUTHN_RP_NAME } from "@/lib/admin-passkey/config";
 import { consumeChallenge, loadChallenge } from "@/lib/admin-passkey/challenges";
+import { logSecurityEvent } from "@/lib/admin-passkey/security-log";
 
-/** Prefer biometrics; allow device PIN/passcode when the platform offers it. */
-const USER_VERIFICATION = "preferred" as const;
+/**
+ * Required, not merely preferred: WebAuthn's user-verification bit (biometric
+ * or device PIN/passcode — either counts) is the only signal distinguishing
+ * "the owner is present" from "a device is present". Refunds rely on that
+ * distinction for step-up auth; pairing "preferred" with
+ * requireUserVerification: false would accept assertions where the bit was
+ * never set, silently degrading refund approval to a mere device tap.
+ */
+const USER_VERIFICATION = "required" as const;
 
 function rpConfig() {
   return {
@@ -46,13 +55,25 @@ export async function generateActionAuthenticationOptions(
   return { options, challenge: options.challenge };
 }
 
+/**
+ * Only the enrolling (first-created) passkey may approve new enrollments —
+ * `allowCredentials` narrows the browser's picker, but is a hint only and
+ * carries no security weight; the real enforcement is in
+ * `verifyRegisterGateAuthentication` below.
+ */
 export async function generateRegisterAuthenticationOptions(
   client: Client,
 ): Promise<{
   options: PublicKeyCredentialRequestOptionsJSON;
   challenge: string;
 }> {
-  return generateActionAuthenticationOptions(client);
+  const enroller = await getEnrollingAdminPasskey(client);
+  const options = await generateAuthenticationOptions({
+    ...rpConfig(),
+    allowCredentials: enroller ? [{ id: enroller.credentialId }] : [],
+    userVerification: USER_VERIFICATION,
+  });
+  return { options, challenge: options.challenge };
 }
 
 export async function generatePasskeyRegistrationOptions(): Promise<{
@@ -89,6 +110,12 @@ export async function verifyActionAuthentication(params: {
   }
   const record = loaded.record;
   if (record.type !== "action") {
+    logSecurityEvent({
+      event: "challenge_type_mismatch",
+      outcome: "denied",
+      reason: `expected action, got ${record.type}`,
+      severity: "high",
+    });
     return { ok: false, error: "invalid_challenge_type" };
   }
   if (
@@ -98,9 +125,11 @@ export async function verifyActionAuthentication(params: {
     return { ok: false, error: "action_mismatch" };
   }
   if (
-    params.expectedPayloadHash &&
+    params.expectedPayloadHash !== undefined &&
     record.payloadHash !== params.expectedPayloadHash
   ) {
+    // Explicit undefined check, not truthiness: SESSION_PAYLOAD_HASH is "",
+    // which is falsy but must still be enforced as a real binding.
     return { ok: false, error: "payload_hash_mismatch" };
   }
 
@@ -121,7 +150,7 @@ export async function verifyActionAuthentication(params: {
       counter: passkey.counter,
       transports: [] as AuthenticatorTransportFuture[],
     },
-    requireUserVerification: false,
+    requireUserVerification: true,
   });
 
   if (!verification.verified || !verification.authenticationInfo) {
@@ -149,13 +178,31 @@ export async function verifyRegisterGateAuthentication(params: {
   if (!loaded.ok) {
     return { ok: false, error: loaded.error };
   }
-  if (loaded.record.type !== "register") {
+  if (loaded.record.type !== "register_gate") {
+    logSecurityEvent({
+      event: "challenge_type_mismatch",
+      outcome: "denied",
+      reason: `expected register_gate, got ${loaded.record.type}`,
+      severity: "high",
+    });
     return { ok: false, error: "invalid_challenge_type" };
   }
 
   const passkey = await getPasskeyByCredentialId(params.client, params.response.id);
   if (!passkey) {
     return { ok: false, error: "unknown_credential" };
+  }
+
+  const enroller = await getEnrollingAdminPasskey(params.client);
+  if (!enroller || enroller.credentialId !== passkey.credentialId) {
+    logSecurityEvent({
+      event: "register_gate_non_enrolling_passkey",
+      outcome: "denied",
+      reason: "credential is not the enrolling passkey",
+      credentialId: passkey.credentialId,
+      severity: "high",
+    });
+    return { ok: false, error: "not_enrolling_passkey" };
   }
 
   const verification = await verifyAuthenticationResponse({
@@ -169,7 +216,7 @@ export async function verifyRegisterGateAuthentication(params: {
       counter: passkey.counter,
       transports: [] as AuthenticatorTransportFuture[],
     },
-    requireUserVerification: false,
+    requireUserVerification: true,
   });
 
   if (!verification.verified || !verification.authenticationInfo) {
@@ -203,6 +250,12 @@ export async function verifyPasskeyRegistration(params: {
     return { ok: false, error: loaded.error };
   }
   if (loaded.record.type !== "register") {
+    logSecurityEvent({
+      event: "challenge_type_mismatch",
+      outcome: "denied",
+      reason: `expected register, got ${loaded.record.type}`,
+      severity: "high",
+    });
     return { ok: false, error: "invalid_challenge_type" };
   }
 
@@ -211,7 +264,7 @@ export async function verifyPasskeyRegistration(params: {
     expectedChallenge: params.expectedChallenge,
     expectedOrigin: params.expectedOrigin,
     expectedRPID: WEBAUTHN_RP_ID,
-    requireUserVerification: false,
+    requireUserVerification: true,
   });
 
   if (!verification.verified || !verification.registrationInfo) {

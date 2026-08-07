@@ -27,6 +27,22 @@ export async function persistRegisterChallenge(
   });
 }
 
+/**
+ * Gate challenge for approving a new enrollment. Deliberately a distinct type
+ * from "register" so it can only ever be redeemed by the gate verifier, never
+ * by /register/verify — see docs/security notes on the enrollment bypass.
+ */
+export async function persistRegisterGateChallenge(
+  client: Client,
+  challenge: string,
+): Promise<void> {
+  await insertPasskeyChallenge(client, {
+    challenge,
+    type: "register_gate",
+    expiresAt: challengeExpiresAt(),
+  });
+}
+
 export async function persistActionChallenge(
   client: Client,
   params: {

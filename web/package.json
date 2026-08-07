@@ -30,6 +30,7 @@
     "workflow": "^4.5.0"
   },
   "devDependencies": {
+    "@levischuck/tiny-cbor": "^0.2.11",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -1,7 +1,6 @@
 import { fulfillPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/fulfill-purchase-order";
 import { manualPrintPurchaseOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/manual-print-purchase-order";
 import { recoverSolanaPendingPayment } from "@/lib/commerce/web-api/staff-order-management/use-cases/recover-solana-pending-payment";
-import { staffRefundOrder } from "@/lib/commerce/web-api/staff-order-management/use-cases/staff-refund-order";
 import { NextResponse } from "next/server";
 import {
   listPurchaseOrdersCreatedBetween,
@@ -123,66 +122,6 @@ export async function handleStaffPrintReceiptRequest(orderReference: string): Pr
   }
 
   return new NextResponse(null, { status: 204 });
-}
-
-export async function handleStaffRefundRequest(req: Request): Promise<Response> {
-  let body: {
-    orderReference?: unknown;
-    amountCents?: unknown;
-    idempotencyKey?: unknown;
-  };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
-  }
-
-  const orderReference = body.orderReference;
-  const amountCents = body.amountCents;
-  if (typeof orderReference !== "string" || !orderReference.trim()) {
-    return NextResponse.json({ error: "invalid_orderReference" }, { status: 400 });
-  }
-  if (
-    typeof amountCents !== "number" ||
-    !Number.isInteger(amountCents) ||
-    amountCents <= 0
-  ) {
-    return NextResponse.json({ error: "invalid_amountCents" }, { status: 400 });
-  }
-
-  const db = await getWebhookDb();
-  const result = await staffRefundOrder(db, {
-    orderReference: orderReference.trim(),
-    amountCents,
-    idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,
-  });
-
-  if (!result.ok) {
-    const statusByCode: Record<
-      NonNullable<(typeof result)["code"]>,
-      number
-    > = {
-      order_not_found: 404,
-      already_refunded: 409,
-      cannot_refund_order_status: 409,
-      refund_exceeds_order_total: 409,
-      server_misconfigured: 500,
-      stripe_refund_failed: 502,
-      solana_refund_failed: 502,
-      payment_payer_not_found: 404,
-      missing_payment_reference: 400,
-    };
-    const status = statusByCode[result.code];
-    const payload: Record<string, string> = { error: result.code };
-    if (result.detail) payload.detail = result.detail;
-    return NextResponse.json(payload, { status });
-  }
-
-  return NextResponse.json({
-    orderReference: result.orderReference,
-    refundedTotalCents: result.refundedTotalCents,
-    status: result.status,
-  });
 }
 
 export async function handleSolanaManualRecoverRequest(req: Request): Promise<Response> {

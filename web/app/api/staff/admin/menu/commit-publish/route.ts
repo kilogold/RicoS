@@ -49,7 +49,7 @@ function buildNextMenu(submittedMenu: MenuCatalogFile, currentMenu: MenuCatalogF
 }
 
 export async function POST(req: Request) {
-  const unauthorized = requireStaffPublishAuth(req);
+  const unauthorized = await requireStaffPublishAuth(req);
   if (unauthorized) return unauthorized;
 
   let body: { menu?: unknown; baseContentHash?: unknown };

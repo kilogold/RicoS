@@ -15,8 +15,8 @@ function jsonError(message: string, status: number): Response {
 }
 
 /** Staff auth + Blob RW token, or an error Response. */
-function requireAuthAndToken(req: Request): string | Response {
-  const unauthorized = requireStaffPublishAuth(req);
+async function requireAuthAndToken(req: Request): Promise<string | Response> {
+  const unauthorized = await requireStaffPublishAuth(req);
   if (unauthorized) return unauthorized;
 
   const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
@@ -32,7 +32,7 @@ function parsePathnameParam(raw: unknown): string | null {
 }
 
 export async function GET(req: Request) {
-  const tokenOrError = requireAuthAndToken(req);
+  const tokenOrError = await requireAuthAndToken(req);
   if (typeof tokenOrError !== "string") return tokenOrError;
 
   try {
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const tokenOrError = requireAuthAndToken(req);
+  const tokenOrError = await requireAuthAndToken(req);
   if (typeof tokenOrError !== "string") return tokenOrError;
 
   let form: FormData;
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const tokenOrError = requireAuthAndToken(req);
+  const tokenOrError = await requireAuthAndToken(req);
   if (typeof tokenOrError !== "string") return tokenOrError;
 
   const url = new URL(req.url);

@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin-passkey/admin-cookie";
 import { expectedOrigin, SESSION_PAYLOAD_HASH } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
+import { logSecurityEvent } from "@/lib/admin-passkey/security-log";
 import type { ParsedSessionVerifyBody } from "@/lib/admin-passkey/session-verify-payload";
 import { verifyActionAuthentication } from "@/lib/admin-passkey/webauthn";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
@@ -44,6 +45,11 @@ export async function handleStaffAdminSessionVerifyRequest(
   });
 
   if (!verified.ok) {
+    logSecurityEvent({
+      event: "admin_session_verify",
+      outcome: "denied",
+      reason: verified.error,
+    });
     const status =
       verified.error === "challenge_not_found" || verified.error === "challenge_expired"
         ? 401
@@ -55,8 +61,20 @@ export async function handleStaffAdminSessionVerifyRequest(
 
   const cookieValue = signAdminCookie(verified.passkey.credentialId);
   if (!cookieValue) {
+    logSecurityEvent({
+      event: "admin_session_verify",
+      outcome: "error",
+      reason: "server_misconfigured",
+      credentialId: verified.passkey.credentialId,
+    });
     return jsonError("server_misconfigured", 503);
   }
+
+  logSecurityEvent({
+    event: "admin_session_verify",
+    outcome: "ok",
+    credentialId: verified.passkey.credentialId,
+  });
 
   const setCookie = adminSessionSetCookieHeader(cookieValue, cookieShouldBeSecure(req));
 

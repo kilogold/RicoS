@@ -4,6 +4,7 @@ import { expectedOrigin } from "@/lib/admin-passkey/config";
 import { jsonError } from "@/lib/admin-passkey/http";
 import { passkeyLimitResponse } from "@/lib/admin-passkey/passkey-limit-guard";
 import type { ParsedRegisterVerifyBody } from "@/lib/admin-passkey/register-verify-payload";
+import { logSecurityEvent } from "@/lib/admin-passkey/security-log";
 import { verifyPasskeyRegistration } from "@/lib/admin-passkey/webauthn";
 import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 import {
@@ -44,11 +45,22 @@ export async function handleAdminPasskeyRegisterVerifyRequest(
   });
 
   if (!verified.ok) {
+    logSecurityEvent({
+      event: "passkey_enrollment",
+      outcome: "denied",
+      reason: verified.error,
+    });
     return jsonError(verified.error, 403);
   }
 
   const existing = await getPasskeyByCredentialId(db, verified.credentialId);
   if (existing) {
+    logSecurityEvent({
+      event: "passkey_enrollment",
+      outcome: "denied",
+      reason: "credential_already_registered",
+      credentialId: verified.credentialId,
+    });
     return jsonError("credential_already_registered", 409);
   }
 
@@ -57,6 +69,12 @@ export async function handleAdminPasskeyRegisterVerifyRequest(
     publicKey: verified.publicKey,
     counter: verified.counter,
     name: body.name,
+  });
+
+  logSecurityEvent({
+    event: "passkey_enrollment",
+    outcome: "ok",
+    credentialId: verified.credentialId,
   });
 
   return NextResponse.json({ registered: true, credentialId: verified.credentialId });

@@ -140,7 +140,6 @@ export async function registerAdminPasskey(params: {
   });
 
   const optionsRaw = await optionsRes.json().catch(() => ({}));
-  console.log("[passkey register/options]", optionsRes.status, optionsRaw);
 
   if (!optionsRes.ok) {
     const message =
@@ -198,7 +197,6 @@ export async function registerAdminPasskey(params: {
   });
 
   const verifyRaw = await verifyRes.json().catch(() => ({}));
-  console.log("[passkey register/verify]", verifyRes.status, verifyRaw);
 
   if (!verifyRes.ok) {
     const message =

@@ -2,7 +2,7 @@ import type { Viewport } from "next";
 import { cookies } from "next/headers";
 import {
   ADMIN_SESSION_COOKIE_NAME,
-  verifyAdminCookie,
+  verifyAdminSession,
 } from "@/lib/admin-passkey/admin-cookie";
 import { AdminPasskeyLogin } from "@/lib/admin-passkey/admin-passkey-login";
 
@@ -15,7 +15,7 @@ export default async function AdminOrdersLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const cookieStore = await cookies();
-  const session = verifyAdminCookie(cookieStore.get(ADMIN_SESSION_COOKIE_NAME)?.value);
+  const session = await verifyAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE_NAME)?.value);
 
   if (!session.ok) {
     return <AdminPasskeyLogin />;

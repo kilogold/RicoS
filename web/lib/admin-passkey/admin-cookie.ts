@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getPasskeyByCredentialId } from "@/lib/infrastructure/turso/webhook-db";
+import { getWebhookDb } from "@/lib/infrastructure/turso/webhook-db-runtime";
 
 export const ADMIN_SESSION_COOKIE_NAME = "ricos_admin";
 
@@ -7,8 +9,13 @@ const SECONDS_PER_HOUR = 60 * 60;
 const SESSION_MAX_AGE_HOURS = 12;
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_HOURS * SECONDS_PER_HOUR * MS_PER_SECOND;
 
-function staffOperationsSecret(): string | null {
-  const secret = process.env.STAFF_OPERATIONS_SECRET?.trim();
+/**
+ * The sole secret behind the admin session cookie. No fallback: if this is
+ * unset, signing/verification must fail closed rather than silently accept
+ * an unsigned or weakly-signed session.
+ */
+function adminSessionSigningSecret(): string | null {
+  const secret = process.env.ADMIN_SESSION_SIGNING_SECRET?.trim();
   return secret || null;
 }
 
@@ -24,7 +31,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function signAdminCookie(credentialId: string, now = Date.now()): string | null {
-  const secret = staffOperationsSecret();
+  const secret = adminSessionSigningSecret();
   if (!secret) return null;
   const expiresAt = now + SESSION_MAX_AGE_MS;
   const payload = `${credentialId}.${expiresAt}`;
@@ -36,7 +43,7 @@ export function verifyAdminCookie(
   value: string | null | undefined,
   now = Date.now(),
 ): { ok: true; credentialId: string } | { ok: false } {
-  const secret = staffOperationsSecret();
+  const secret = adminSessionSigningSecret();
   if (!secret || !value?.trim()) {
     return { ok: false };
   }
@@ -63,6 +70,33 @@ export function verifyAdminCookie(
   }
 
   return { ok: true, credentialId };
+}
+
+/**
+ * Full session check: HMAC + expiry (pure, see `verifyAdminCookie`) plus a
+ * live lookup that the signing credential still exists in `admin_passkeys`.
+ *
+ * Passkey removal is a hand-edit-the-DB-only operation with no supported
+ * partial-delete path (see admin_passkeys docs), so the store is either
+ * untouched or wiped entirely. Without this check, wiping it to re-open
+ * bootstrap would leave any already-issued cookie valid as an admin session
+ * for up to its remaining lifetime, even though the system believes it has
+ * no admins.
+ */
+export async function verifyAdminSession(
+  value: string | null | undefined,
+  now = Date.now(),
+): Promise<{ ok: true; credentialId: string } | { ok: false }> {
+  const hmacResult = verifyAdminCookie(value, now);
+  if (!hmacResult.ok) return hmacResult;
+
+  const db = await getWebhookDb();
+  const passkey = await getPasskeyByCredentialId(db, hmacResult.credentialId);
+  if (!passkey) {
+    return { ok: false };
+  }
+
+  return hmacResult;
 }
 
 export function adminSessionSetCookieHeader(value: string, secure: boolean): string {
