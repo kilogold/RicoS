@@ -52,3 +52,16 @@ export type AthAuthorizationResponse = {
   metadata1?: string;
   totalCents?: number;
 };
+
+export type AthRefundRequest = {
+  publicToken: string;
+  privateToken: string;
+  referenceNumber: string;
+  amount: string;
+  message?: string;
+};
+
+export type AthRefundResponse = {
+  refundReferenceNumber: string;
+  refundedTotalCents?: number;
+};

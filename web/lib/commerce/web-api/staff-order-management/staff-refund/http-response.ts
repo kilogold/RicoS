@@ -13,6 +13,7 @@ export function jsonResponseForStaffRefundResult(result: StaffRefundResult): Res
       server_misconfigured: 500,
       stripe_refund_failed: 502,
       solana_refund_failed: 502,
+      ath_refund_failed: 502,
       payment_payer_not_found: 404,
       missing_payment_reference: 400,
     };

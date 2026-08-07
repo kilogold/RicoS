@@ -5,6 +5,8 @@ import {
   type AthCreatePaymentResponse,
   type AthEcommerceStatus,
   type AthFindPaymentResponse,
+  type AthRefundRequest,
+  type AthRefundResponse,
 } from "@/lib/commerce/web-api/ath-movil/domain/ath-orchestration-types";
 
 const ATH_API_BASE_URL = "https://payments.athmovil.com/api/business-transaction/ecommerce";
@@ -24,7 +26,7 @@ export class AthPaymentApiError extends Error {
       code: "transport" | "bad_response" | "api_error";
       status?: number;
       errorCode?: string;
-      phase: "payment" | "findPayment" | "authorization";
+      phase: "payment" | "findPayment" | "authorization" | "refund";
     },
   ) {
     super(message);
@@ -75,6 +77,38 @@ export async function authorizePayment(params: { authToken: string }): Promise<A
   return toAthStatusResponse(envelope.data ?? {}, undefined, "authorization");
 }
 
+export async function refundPayment(input: AthRefundRequest): Promise<AthRefundResponse> {
+  const envelope = await postAthEnvelope({
+    phase: "refund",
+    path: "/refund",
+    body: {
+      publicToken: input.publicToken,
+      privateToken: input.privateToken,
+      referenceNumber: input.referenceNumber,
+      amount: input.amount,
+      ...(input.message ? { message: input.message } : {}),
+    },
+  });
+  const refundData = envelope.data?.refund;
+  if (!isRecord(refundData)) {
+    throw new AthPaymentApiError("ATH refund response missing refund data", {
+      code: "bad_response",
+      phase: "refund",
+    });
+  }
+  const refundReferenceNumber = readString(refundData, ["referenceNumber"]);
+  if (!refundReferenceNumber) {
+    throw new AthPaymentApiError("ATH refund response missing refund referenceNumber", {
+      code: "bad_response",
+      phase: "refund",
+    });
+  }
+  return {
+    refundReferenceNumber,
+    refundedTotalCents: readDollarsAsCents(refundData, ["refundedAmount"]),
+  };
+}
+
 function toAthStatusResponse(
   data: Record<string, unknown>,
   fallbackEcommerceId: string | undefined,
@@ -99,7 +133,7 @@ function toAthStatusResponse(
 }
 
 async function postAthEnvelope(params: {
-  phase: "payment" | "findPayment" | "authorization";
+  phase: "payment" | "findPayment" | "authorization" | "refund";
   path: string;
   body: unknown;
   bearerToken?: string;
