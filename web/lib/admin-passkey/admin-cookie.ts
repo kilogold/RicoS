@@ -10,11 +10,9 @@ const SESSION_MAX_AGE_HOURS = 12;
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_HOURS * SECONDS_PER_HOUR * MS_PER_SECOND;
 
 /**
- * Deliberately distinct from STAFF_OPERATIONS_SECRET (the API bearer token).
- * Sharing one secret between the two would let anyone holding the bearer
- * token forge an admin session cookie by hand, bypassing passkeys entirely.
- * No fallback to the old secret: if this is unset, signing/verification must
- * fail closed rather than silently reuse the weaker shared value.
+ * The sole secret behind the admin session cookie. No fallback: if this is
+ * unset, signing/verification must fail closed rather than silently accept
+ * an unsigned or weakly-signed session.
  */
 function adminSessionSigningSecret(): string | null {
   const secret = process.env.ADMIN_SESSION_SIGNING_SECRET?.trim();
