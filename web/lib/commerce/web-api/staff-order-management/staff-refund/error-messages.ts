@@ -6,8 +6,9 @@ export const STAFF_REFUND_ERROR_MESSAGES: Record<string, string> = {
   server_misconfigured: "Refund could not be processed (server misconfigured).",
   stripe_refund_failed: "Stripe refund failed. Try again or check Stripe.",
   solana_refund_failed: "Solana refund failed. Try again or check server logs.",
+  ath_refund_failed: "ATH Móvil refund failed. Try again or check server logs.",
   payment_payer_not_found: "Could not find the original Solana payer for this order.",
-  missing_payment_reference: "This order has no Solana payment reference for automated refund.",
+  missing_payment_reference: "This order has no payment reference for automated refund.",
 };
 
 export function staffRefundBusinessMessage(errorCode: string): string {

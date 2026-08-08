@@ -10,6 +10,7 @@ import {
   updateRefundConfirmation,
 } from "@/lib/infrastructure/turso/webhook-db";
 import { executeSolanaStaffRefund } from "@/lib/commerce/web-api/staff-order-management/staff-refund/execute-solana-refund";
+import { executeAthStaffRefund } from "@/lib/commerce/web-api/staff-order-management/staff-refund/execute-ath-refund";
 
 export type StaffRefundOrderInput = {
   orderReference: string;
@@ -34,13 +35,15 @@ export type StaffRefundOrderResult =
         | "server_misconfigured"
         | "stripe_refund_failed"
         | "solana_refund_failed"
+        | "ath_refund_failed"
         | "payment_payer_not_found"
         | "missing_payment_reference";
       detail?: string;
     };
 
 /**
- * Staff refund: Stripe Refund API or Solana proof row; status → `refunding` / `refunded`.
+ * Staff refund: Stripe Refund API, ATH Móvil Refund API, or Solana proof row;
+ * status → `refunding` / `refunded`.
  */
 export async function staffRefundOrder(
   db: Client,
@@ -98,7 +101,44 @@ export async function staffRefundOrder(
     await updateRefundConfirmation(db, reserved.id, {
       stripeRefundConfirmation: stripeRefundId,
     });
-  } else {
+  } else if (order.paymentProvider === "athmovil") {
+    const reserved = await tryInsertRefundIfWithinOrderTotal(db, {
+      orderReference,
+      amountCents,
+    });
+    if (!reserved) return { ok: false, code: "refund_exceeds_order_total" };
+
+    const sent = await executeAthStaffRefund({ order, amountCents });
+    if (!sent.ok) {
+      try {
+        await deleteRefund(db, reserved.id);
+      } catch (rollbackErr) {
+        const rollbackMessage =
+          rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+        console.error("refund reservation rollback failed:", rollbackMessage);
+      }
+      return { ok: false, code: sent.code, detail: sent.detail };
+    }
+
+    try {
+      await updateRefundConfirmation(db, reserved.id, {
+        athRefundReferenceNumber: sent.athRefundReferenceNumber,
+      });
+    } catch (confirmErr) {
+      const confirmMessage =
+        confirmErr instanceof Error ? confirmErr.message : String(confirmErr);
+      console.error(
+        "ath refund sent but confirmation update failed:",
+        sent.athRefundReferenceNumber,
+        confirmMessage,
+      );
+      return {
+        ok: false,
+        code: "ath_refund_failed",
+        detail: `ATH refund sent (${sent.athRefundReferenceNumber}) but confirmation failed`,
+      };
+    }
+  } else if (order.paymentProvider === "helius") {
     const reserved = await tryInsertRefundIfWithinOrderTotal(db, {
       orderReference,
       amountCents,
@@ -135,6 +175,10 @@ export async function staffRefundOrder(
         detail: `On-chain refund sent (${sent.transactionSignature}) but confirmation failed`,
       };
     }
+  } else {
+    // Exhaustiveness guard: fails the build if IngressProvider grows without a matching branch here.
+    const unhandledProvider: never = order.paymentProvider;
+    throw new Error(`staffRefundOrder: unsupported payment provider "${String(unhandledProvider)}"`);
   }
 
   const total = await sumConfirmedRefundsForOrder(db, orderReference);

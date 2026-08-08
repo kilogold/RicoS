@@ -4,6 +4,7 @@ import type { KitchenOrderPayload } from "@/lib/commerce/domain";
 import {
   getPurchaseOrderByReference,
   insertPendingPurchaseOrderIfNew,
+  markAthMovilPurchaseOrderPaidIfNew,
   markSolanaPurchaseOrderPaidIfNew,
   migrate,
   sumConfirmedRefundsForOrder,
@@ -16,6 +17,15 @@ const executeSolanaStaffRefundMock = mock(async () => ({
 
 mock.module("@/lib/commerce/web-api/staff-order-management/staff-refund/execute-solana-refund", () => ({
   executeSolanaStaffRefund: executeSolanaStaffRefundMock,
+}));
+
+const executeAthStaffRefundMock = mock(async () => ({
+  ok: true as const,
+  athRefundReferenceNumber: "402894d56b240610016b2e6c78a6003a",
+}));
+
+mock.module("@/lib/commerce/web-api/staff-order-management/staff-refund/execute-ath-refund", () => ({
+  executeAthStaffRefund: executeAthStaffRefundMock,
 }));
 
 function orderPayload(overrides: Partial<KitchenOrderPayload> = {}): KitchenOrderPayload {
@@ -106,6 +116,85 @@ describe("staffRefundOrder Helius branch", () => {
     expect(result).toEqual({
       ok: false,
       code: "solana_refund_failed",
+      detail: "simulated failure",
+    });
+
+    const total = await sumConfirmedRefundsForOrder(db, orderReference);
+    expect(total).toBe(0);
+  });
+});
+
+describe("staffRefundOrder ATH Móvil branch", () => {
+  let db: Client;
+  const orderReference = "ath_order_1";
+
+  beforeEach(async () => {
+    db = createClient({ url: ":memory:" });
+    await migrate(db);
+    executeAthStaffRefundMock.mockClear();
+
+    await insertPendingPurchaseOrderIfNew(db, {
+      orderReference,
+      paymentProvider: "athmovil",
+      paymentIntentExpiresAt: null,
+      grandTotalCents: 500,
+      currency: "usd",
+      payload: orderPayload({ paymentReferenceId: orderReference, currency: "usd" }),
+      customerName: "Ada",
+      customerPhone: "555-0100",
+      customerEmail: null,
+    });
+    await markAthMovilPurchaseOrderPaidIfNew(db, {
+      orderReference,
+      payload: orderPayload({
+        paymentReferenceId: orderReference,
+        paymentIngressEventId: "evt_ath_1024264030-8a36",
+        currency: "usd",
+      }),
+    });
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  test("reserves, sends ATH refund, confirms proof, updates status", async () => {
+    const { staffRefundOrder } = await import("./staff-refund-order");
+    const result = await staffRefundOrder(db, {
+      orderReference,
+      amountCents: 200,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(executeAthStaffRefundMock).toHaveBeenCalledTimes(1);
+    expect(result.refundedTotalCents).toBe(200);
+    expect(result.status).toBe("refunding");
+
+    const total = await sumConfirmedRefundsForOrder(db, orderReference);
+    expect(total).toBe(200);
+
+    const order = await getPurchaseOrderByReference(db, orderReference);
+    expect(order?.status).toBe("refunding");
+  });
+
+  test("rolls back reservation when ATH refund call fails", async () => {
+    executeAthStaffRefundMock.mockImplementationOnce(async () => ({
+      ok: false as const,
+      code: "ath_refund_failed" as const,
+      detail: "simulated failure",
+    }));
+
+    const { staffRefundOrder } = await import("./staff-refund-order");
+    const result = await staffRefundOrder(db, {
+      orderReference,
+      amountCents: 100,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      code: "ath_refund_failed",
       detail: "simulated failure",
     });
 
