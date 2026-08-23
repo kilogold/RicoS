@@ -15,10 +15,6 @@ export function isHeliusWebhookDebugEnabled(): boolean {
   return process.env.HELIUS_WEBHOOK_DEBUG?.trim() === "1";
 }
 
-export function isHeliusWebhookEnabled(): boolean {
-  return process.env.HELIUS_WEBHOOK_ENABLED?.trim() === "1";
-}
-
 export function getMerchantPrivateKey(): string {
   return requiredEnv("HELIUS_MERCHANT_PRIVATE_KEY");
 }

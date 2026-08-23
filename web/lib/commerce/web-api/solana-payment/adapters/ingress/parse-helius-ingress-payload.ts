@@ -1,5 +1,6 @@
 import { CART_B64_KEY, CART_CODEC_ID_V1, CART_CODEC_KEY } from "@ricos/shared";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
+import { isHeliusWebhookDebugEnabled } from "@/lib/commerce/web-api/solana-payment/config";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -51,6 +52,9 @@ export function parseHeliusIngressPayload(params: {
     if (maybeEvent.kind === "ignore") {
       ignoredCount += 1;
       ignoredDetails.push({ signature: maybeEvent.signature, reason: maybeEvent.reason });
+      if (isHeliusWebhookDebugEnabled()) {
+        console.info("Helius ingress discarded:", candidate);
+      }
       continue;
     }
     normalizedEvents.push(maybeEvent.event);
