@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import { generateKeyPairSigner } from "@solana/signers";
+import { generateKeyPairSigner } from "@solana/kit";
 import { NextResponse } from "next/server";
 import {
   DINE_IN_UNAVAILABLE_CODE,

@@ -22,7 +22,7 @@ import {
   type MenuDocument,
   sleep,
 } from "@ricos/shared";
-import type { Address } from "@solana/addresses";
+import type { Address } from "@solana/kit";
 import { createSolanaClient } from "gill";
 
 import { useCart } from "@/lib/cart-context";
