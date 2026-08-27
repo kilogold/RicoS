@@ -1,8 +1,14 @@
-import { createTransfer } from "@solana/pay";
 import { address } from "@solana/kit";
 import { getHeliusIngressConfig } from "@/lib/commerce/web-api/solana-payment/config";
+import {
+  centsToBaseUnits,
+  createUsdcTransferInstruction,
+} from "@/lib/commerce/web-api/staff-order-management/staff-refund/solana/create-usdc-transfer";
 import { getMerchantRefundSigner } from "@/lib/commerce/web-api/staff-order-management/staff-refund/solana/merchant-signer";
 import { getSolanaKitRpc, sendSignedInstructions } from "@/lib/infrastructure/helius/solana-kit-rpc";
+
+/** USDC and USDC-devnet mints use 6 decimals. */
+const USDC_MINT_DECIMALS = 6;
 
 export async function sendUsdcReimbursement(params: {
   payerAddress: string;
@@ -21,19 +27,21 @@ export async function sendUsdcReimbursement(params: {
   const mint = address(expectedUsdcMint);
   const payer = address(params.payerAddress);
   const reference = address(params.orderReference);
-  const amount = params.amountCents / 100;
+  const amountBaseUnits = centsToBaseUnits(params.amountCents, USDC_MINT_DECIMALS);
 
   try {
     const rpc = getSolanaKitRpc();
-    const instructions = await createTransfer(rpc, merchant.signer, {
+    const instruction = await createUsdcTransferInstruction({
+      rpc,
+      sender: merchant.signer,
       recipient: payer,
-      amount,
-      splToken: mint,
+      mint,
+      amountBaseUnits,
       reference,
     });
     const transactionSignature = await sendSignedInstructions({
       feePayer: merchant.signer,
-      instructions,
+      instructions: [instruction],
     });
     return { ok: true, transactionSignature };
   } catch (err) {
