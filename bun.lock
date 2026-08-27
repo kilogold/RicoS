@@ -44,6 +44,7 @@
         "@solana-program/token": "^0.16.0",
         "@solana-program/token-2022": "^0.16.0",
         "@solana/kit": "^8.1.0",
+        "@solana/transaction-introspection": "^8.1.0",
         "@stripe/react-stripe-js": "^3.7.0",
         "@stripe/stripe-js": "^5.10.0",
         "@vercel/blob": "^2.6.1",
