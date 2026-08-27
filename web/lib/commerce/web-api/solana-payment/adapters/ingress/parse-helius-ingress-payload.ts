@@ -1,16 +1,37 @@
 import { CART_B64_KEY, CART_CODEC_ID_V1, CART_CODEC_KEY } from "@ricos/shared";
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData,
+  type AccountMeta
+} from "@solana/kit";
+import {
+  decodeTransactionFromRpcResponse,
+  getAccountMetasFromCompiledTransactionMessage,
+  walkInstructions,
+  type TracedInstruction,
+} from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseTransferCheckedInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction,
+} from "@solana-program/token";
+import {
+  identifyToken2022Instruction,
+  parseTransferCheckedInstruction as parseTransferCheckedInstruction2022,
+  TOKEN_2022_PROGRAM_ADDRESS,
+  Token2022Instruction,
+} from "@solana-program/token-2022";
 import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { isHeliusWebhookDebugEnabled } from "@/lib/commerce/web-api/solana-payment/config";
 
 type UnknownRecord = Record<string, unknown>;
 
-type HeliusInstruction = {
-  accounts?: string[];
-};
-
-type HeliusTransactionCandidate = {
-  instructions?: HeliusInstruction[];
-};
+const MEMO_PROGRAM_V2 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr";
+const MEMO_PROGRAM_V1 = "Memo1UhkJRfHyvLMcVucLZWowqXF4asSHPmIhcyAn2F";
+/** USDC and USDC-devnet mints use 6 decimals. */
+const USDC_DECIMALS = 6;
 
 export type HeliusIngressConfig = {
   authHeaderName: string;
@@ -92,32 +113,54 @@ function parseCandidate(
 ):
   | { kind: "ignore"; signature: string; reason: string }
   | { kind: "event"; event: NormalizedIngressEvent } {
-  const signature = firstString(candidate, [
-    ["signature"],
-    ["transactionSignature"],
-    ["txSignature"],
-  ]);
+  const signature = extractSignature(candidate);
   if (!signature) {
     return { kind: "ignore", signature: "missing_signature", reason: "missing_signature" };
   }
 
-  const memo = extractMemo(candidate);
-  const matchingTransfer = findMatchingTransfer(
-    candidate,
+  const meta = isRecord(candidate.meta) ? candidate.meta : null;
+  if (meta && meta.err != null) {
+    return { kind: "ignore", signature, reason: "failed_transaction" };
+  }
+
+  let decoded;
+  try {
+    decoded = decodeTransactionFromRpcResponse(candidate as never);
+  } catch {
+    return { kind: "ignore", signature, reason: "undecodable_transaction" };
+  }
+
+  const { compiledMessage, loadedAddresses } = decoded;
+  const instructions = walkInstructions({
+    compiledMessage,
+    loadedAddresses,
+    meta: meta as never,
+  });
+
+  const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+    compiledMessage,
+    loadedAddresses,
+  );
+  const accountAddresses = accountMetas.map((meta) => String(meta.address));
+  const tokenAccountOwners = buildTokenAccountOwnerMap(meta, accountAddresses);
+
+  const memo = extractMemoFromInstructions(instructions) ?? extractMemoFromLogs(meta);
+  const matchingTransfer = findMatchingTransferChecked(
+    instructions,
+    tokenAccountOwners,
     config.expectedUsdcMint,
     config.expectedRecipient,
   );
 
   const hasMemo = Boolean(memo);
-  const hasAnyTransfer = listTokenTransfers(candidate).length > 0;
+  const hasAnyTransfer = matchingTransfer.kind !== "none";
   if (!hasMemo && !hasAnyTransfer) {
     return { kind: "ignore", signature, reason: "non_solana_pay_candidate" };
   }
-
   if (!hasMemo) {
     return { kind: "ignore", signature, reason: "missing_memo" };
   }
-  if (!hasAnyTransfer) {
+  if (matchingTransfer.kind === "none") {
     return { kind: "ignore", signature, reason: "missing_token_transfer" };
   }
   if (matchingTransfer.kind === "mint_or_recipient_mismatch") {
@@ -126,9 +169,7 @@ function parseCandidate(
   if (matchingTransfer.kind === "no_amount") {
     return { kind: "ignore", signature, reason: "invalid_transfer_amount" };
   }
-
-  const orderReference = extractSolanaPayOrderReferencePubkey(candidate);
-  if (!orderReference) {
+  if (matchingTransfer.kind === "missing_reference") {
     return { kind: "ignore", signature, reason: "missing_solana_pay_order_reference" };
   }
 
@@ -137,78 +178,72 @@ function parseCandidate(
     event: {
       provider: "helius",
       paymentIngressEventId: `evt_helius_${signature}`,
-      paymentReferenceId: orderReference,
+      paymentReferenceId: matchingTransfer.orderReference,
       grandTotalCents: matchingTransfer.grandTotalCents,
       currency: "usdc",
       metadata: {
         [CART_CODEC_KEY]: CART_CODEC_ID_V1,
-        [CART_B64_KEY]: memo,
+        [CART_B64_KEY]: memo!,
       },
     },
   };
 }
 
-/**
- * Helius enhanced webhooks expose the Solana Pay reference at the sixth account
- * on the fourth top-level instruction for our SPL token transfer payload.
- */
-function extractSolanaPayOrderReferencePubkey(
-  candidate: UnknownRecord,
-): string | undefined {
-  const TOKEN_TRANSFER_INSTRUCTION_INDEX = 3;
-  const SOLANA_PAY_REFERENCE_ACCOUNT_INDEX = 5;
-  const heliusCandidate = candidate as HeliusTransactionCandidate;
-  const reference =
-    heliusCandidate.instructions?.[TOKEN_TRANSFER_INSTRUCTION_INDEX]?.accounts?.[
-      SOLANA_PAY_REFERENCE_ACCOUNT_INDEX
-    ];
-  return typeof reference === "string" ? reference : undefined;
-}
-
-function extractMemo(candidate: UnknownRecord): string | undefined {
-  const directMemo = firstString(candidate, [
-    ["memo"],
-    ["events", "memo"],
-  ]);
-  if (directMemo && directMemo.trim()) return directMemo.trim();
-
-  const logMemo = extractMemoFromLogs(candidate);
-  if (logMemo) return logMemo;
-
-  const instructions = firstArray(candidate, [
-    ["instructions"],
-    ["transaction", "message", "instructions"],
-  ]);
-  if (!instructions) return undefined;
-
-  for (const value of instructions) {
-    if (!isRecord(value)) continue;
-    const program = toLower(firstString(value, [["program"], ["programId"], ["type"]]));
-    const parsedType = toLower(firstString(value, [["parsed", "type"], ["instructionType"], ["type"]]));
-    const isMemoInstruction = program?.includes("memo") || parsedType === "memo";
-    if (!isMemoInstruction) continue;
-
-    const parsedMemo = firstString(value, [["parsed", "info", "memo"], ["memo"]]);
-    if (parsedMemo?.trim()) {
-      return parsedMemo.trim();
-    }
-
-    const rawData = firstString(value, [["data"]]);
-    if (!rawData?.trim()) continue;
-    const decodedMemo = decodeBase58MemoData(rawData.trim());
-    if (decodedMemo) return decodedMemo;
+function extractSignature(candidate: UnknownRecord): string | undefined {
+  const transaction = candidate.transaction;
+  if (isRecord(transaction) && Array.isArray(transaction.signatures)) {
+    const first = transaction.signatures[0];
+    if (typeof first === "string" && first.trim()) return first.trim();
   }
-
   return undefined;
 }
 
-function extractMemoFromLogs(candidate: UnknownRecord): string | undefined {
-  const logMessages = firstArray(candidate, [
-    ["logMessages"],
-    ["meta", "logMessages"],
-    ["transaction", "meta", "logMessages"],
-  ]);
-  if (!logMessages) return undefined;
+type TokenAccountInfo = { owner: string; mint: string };
+
+function buildTokenAccountOwnerMap(
+  meta: UnknownRecord | null,
+  accountAddresses: string[],
+): Map<string, TokenAccountInfo> {
+  const map = new Map<string, TokenAccountInfo>();
+  if (!meta) return map;
+
+  const balances = [
+    ...(Array.isArray(meta.preTokenBalances) ? meta.preTokenBalances : []),
+    ...(Array.isArray(meta.postTokenBalances) ? meta.postTokenBalances : []),
+  ];
+
+  for (const entry of balances) {
+    if (!isRecord(entry)) continue;
+    const accountIndex = typeof entry.accountIndex === "number" ? entry.accountIndex : null;
+    const owner = typeof entry.owner === "string" ? entry.owner : null;
+    const mint = typeof entry.mint === "string" ? entry.mint : null;
+    if (accountIndex === null || !owner || !mint) continue;
+    const address = accountAddresses[accountIndex];
+    if (!address || map.has(address)) continue;
+    map.set(address, { owner, mint });
+  }
+  return map;
+}
+
+function extractMemoFromInstructions(instructions: readonly TracedInstruction[]): string | undefined {
+  for (const ix of instructions) {
+    const program = String(ix.programAddress);
+    if (program !== MEMO_PROGRAM_V2 && program !== MEMO_PROGRAM_V1) continue;
+    if (!ix.data || ix.data.length === 0) continue;
+    try {
+      const memo = new TextDecoder("utf-8", { fatal: true }).decode(ix.data).trim();
+      if (memo) return memo;
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
+}
+
+function extractMemoFromLogs(meta: UnknownRecord | null): string | undefined {
+  if (!meta) return undefined;
+  const logMessages = meta.logMessages;
+  if (!Array.isArray(logMessages)) return undefined;
 
   for (const value of logMessages) {
     if (typeof value !== "string") continue;
@@ -218,157 +253,117 @@ function extractMemoFromLogs(candidate: UnknownRecord): string | undefined {
   return undefined;
 }
 
-function findMatchingTransfer(
-  candidate: UnknownRecord,
+type MatchingTransfer =
+  | { kind: "ok"; grandTotalCents: number; orderReference: string }
+  | { kind: "none" }
+  | { kind: "mint_or_recipient_mismatch" }
+  | { kind: "no_amount" }
+  | { kind: "missing_reference" };
+
+function findMatchingTransferChecked(
+  instructions: readonly TracedInstruction[],
+  tokenAccountOwners: Map<string, TokenAccountInfo>,
   expectedMint: string,
   expectedRecipient: string,
-):
-  | { kind: "ok"; grandTotalCents: number }
-  | { kind: "mint_or_recipient_mismatch" }
-  | { kind: "no_amount" } {
-  const transfers = listTokenTransfers(candidate);
-  if (transfers.length === 0) return { kind: "mint_or_recipient_mismatch" };
+): MatchingTransfer {
+  const expectedMintLower = expectedMint.toLowerCase();
+  const expectedRecipientLower = expectedRecipient.toLowerCase();
 
-  for (const transfer of transfers) {
-    const mint = toLower(firstString(transfer, [["mint"], ["tokenMint"]]));
-    const recipient = toLower(
-      firstString(transfer, [
-        ["toUserAccount"],
-        ["toAccount"],
-        ["to"],
-        ["destination"],
-      ]),
-    );
-    const mintMatches = mint === toLower(expectedMint);
-    const recipientMatches = recipient === toLower(expectedRecipient);
-    if (!mintMatches || !recipientMatches) continue;
+  let sawAnyTransferChecked = false;
+  let sawMintOrRecipientMismatch = false;
+  let sawInvalidAmount = false;
+  let sawMissingReference = false;
 
-    const grandTotalCents = extractAmountCents(transfer);
-    if (grandTotalCents === null) return { kind: "no_amount" };
-    return { kind: "ok", grandTotalCents };
-  }
+  for (const ix of instructions) {
+    if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
 
-  return { kind: "mint_or_recipient_mismatch" };
-}
+    let parsed:
+      | {
+          accounts: {
+            mint: { address: string };
+            destination: { address: string };
+          };
+          data: { amount: bigint; decimals: number };
+        }
+      | null = null;
 
-function listTokenTransfers(candidate: UnknownRecord): UnknownRecord[] {
-  const transfers = firstArray(candidate, [
-    ["tokenTransfers"],
-    ["events", "tokenTransfers"],
-  ]);
-  if (!transfers) return [];
-  return transfers.filter(isRecord);
-}
-
-function extractAmountCents(transfer: UnknownRecord): number | null {
-  const uiAmount = firstNumber(transfer, [["tokenAmount"], ["amount"], ["uiAmount"]]);
-  if (uiAmount !== null) {
-    if (!Number.isFinite(uiAmount) || uiAmount <= 0) return null;
-    const cents = Math.round(uiAmount * 100);
-    return cents > 0 ? cents : null;
-  }
-
-  const rawTokenAmount = getPath(transfer, ["rawTokenAmount"]);
-  if (!isRecord(rawTokenAmount)) return null;
-  const raw = firstString(rawTokenAmount, [["tokenAmount"], ["amount"]]);
-  const decimals = firstNumber(rawTokenAmount, [["decimals"]]);
-  if (!raw || decimals === null || !Number.isInteger(decimals)) return null;
-  if (!/^\d+$/.test(raw)) return null;
-
-  try {
-    const rawUnits = BigInt(raw);
-    if (rawUnits <= BigInt(0)) return null;
-    if (decimals < 2) return null;
-    const divisor = BigInt(10) ** BigInt(decimals - 2);
-    if (divisor <= BigInt(0)) return null;
-    if (rawUnits % divisor !== BigInt(0)) return null;
-    const cents = rawUnits / divisor;
-    const asNumber = Number(cents);
-    return Number.isSafeInteger(asNumber) ? asNumber : null;
-  } catch {
-    return null;
-  }
-}
-
-function firstArray(record: UnknownRecord, paths: string[][]): unknown[] | undefined {
-  for (const path of paths) {
-    const value = getPath(record, path);
-    if (Array.isArray(value)) return value;
-  }
-  return undefined;
-}
-
-function firstString(record: UnknownRecord, paths: string[][]): string | undefined {
-  for (const path of paths) {
-    const value = getPath(record, path);
-    if (typeof value === "string") return value;
-  }
-  return undefined;
-}
-
-function firstNumber(record: UnknownRecord, paths: string[][]): number | null {
-  for (const path of paths) {
-    const value = getPath(record, path);
-    if (typeof value === "number") return value;
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
+    if (isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) {
+      if (identifyTokenInstruction(ix) !== TokenInstruction.TransferChecked) continue;
+      sawAnyTransferChecked = true;
+      parsed = parseTransferCheckedInstruction(ix);
+    } else if (isInstructionForProgram(ix, TOKEN_2022_PROGRAM_ADDRESS)) {
+      if (identifyToken2022Instruction(ix) !== Token2022Instruction.TransferChecked) continue;
+      sawAnyTransferChecked = true;
+      parsed = parseTransferCheckedInstruction2022(ix);
+    } else {
+      continue;
     }
+
+    const mintAddress = String(parsed.accounts.mint.address);
+    const destinationAta = String(parsed.accounts.destination.address);
+    const destInfo = tokenAccountOwners.get(destinationAta);
+    const owner = destInfo?.owner;
+    const balanceMint = destInfo?.mint;
+
+    const mintMatches =
+      mintAddress.toLowerCase() === expectedMintLower ||
+      (balanceMint != null && balanceMint.toLowerCase() === expectedMintLower);
+    const recipientMatches =
+      owner != null && owner.toLowerCase() === expectedRecipientLower;
+
+    if (!mintMatches || !recipientMatches) {
+      sawMintOrRecipientMismatch = true;
+      continue;
+    }
+
+    if (parsed.data.decimals !== USDC_DECIMALS) {
+      sawInvalidAmount = true;
+      continue;
+    }
+
+    const grandTotalCents = baseUnitsToCents(parsed.data.amount);
+    if (grandTotalCents === null) {
+      sawInvalidAmount = true;
+      continue;
+    }
+
+    const orderReference = extractSolanaPayReference(ix.accounts);
+    if (!orderReference) {
+      sawMissingReference = true;
+      continue;
+    }
+
+    return { kind: "ok", grandTotalCents, orderReference };
   }
-  return null;
+
+  if (!sawAnyTransferChecked) return { kind: "none" };
+  if (sawMissingReference) return { kind: "missing_reference" };
+  if (sawInvalidAmount) return { kind: "no_amount" };
+  if (sawMintOrRecipientMismatch) return { kind: "mint_or_recipient_mismatch" };
+  return { kind: "none" };
 }
 
-function getPath(value: unknown, path: string[]): unknown {
-  let current: unknown = value;
-  for (const key of path) {
-    if (!isRecord(current)) return undefined;
-    current = current[key];
-  }
-  return current;
+/**
+ * Solana Pay appends the order reference as a readonly account after the four
+ * TransferChecked accounts (source, mint, destination, authority). Prefer the
+ * last remaining account so both the 5-account (spec) and 6-account (wallet)
+ * shapes resolve to the reference.
+ */
+function extractSolanaPayReference(accounts: readonly AccountMeta[]): string | undefined {
+  if (accounts.length <= 4) return undefined;
+  const reference = accounts[accounts.length - 1]?.address;
+  return typeof reference === "string" && reference.trim() ? String(reference).trim() : undefined;
+}
+
+function baseUnitsToCents(rawUnits: bigint): number | null {
+  if (rawUnits <= BigInt(0)) return null;
+  const divisor = BigInt(10) ** BigInt(USDC_DECIMALS - 2);
+  if (rawUnits % divisor !== BigInt(0)) return null;
+  const cents = rawUnits / divisor;
+  const asNumber = Number(cents);
+  return Number.isSafeInteger(asNumber) && asNumber > 0 ? asNumber : null;
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function toLower(value: string | undefined): string | undefined {
-  return value?.toLowerCase();
-}
-
-function decodeBase58MemoData(input: string): string | undefined {
-  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  const map = new Map<string, number>();
-  for (let i = 0; i < alphabet.length; i += 1) {
-    map.set(alphabet[i], i);
-  }
-
-  const bytes: number[] = [0];
-  for (const char of input) {
-    const value = map.get(char);
-    if (value === undefined) return undefined;
-    let carry = value;
-    for (let i = 0; i < bytes.length; i += 1) {
-      const next = bytes[i] * 58 + carry;
-      bytes[i] = next & 0xff;
-      carry = next >> 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-
-  let leadingOnes = 0;
-  while (leadingOnes < input.length && input[leadingOnes] === "1") {
-    bytes.push(0);
-    leadingOnes += 1;
-  }
-
-  const decodedBytes = Uint8Array.from(bytes.reverse());
-  try {
-    const memo = new TextDecoder("utf-8", { fatal: true }).decode(decodedBytes).trim();
-    return memo || undefined;
-  } catch {
-    return undefined;
-  }
 }
