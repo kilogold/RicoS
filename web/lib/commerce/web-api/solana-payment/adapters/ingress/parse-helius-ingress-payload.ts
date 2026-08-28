@@ -3,7 +3,7 @@ import {
   isInstructionForProgram,
   isInstructionWithAccounts,
   isInstructionWithData,
-  type AccountMeta
+  type AccountMeta,
 } from "@solana/kit";
 import {
   decodeTransactionFromRpcResponse,
@@ -23,7 +23,6 @@ import {
   TOKEN_2022_PROGRAM_ADDRESS,
   Token2022Instruction,
 } from "@solana-program/token-2022";
-import type { NormalizedIngressEvent } from "@/lib/commerce/domain";
 import { isHeliusWebhookDebugEnabled } from "@/lib/commerce/web-api/solana-payment/config";
 
 type UnknownRecord = Record<string, unknown>;
@@ -40,11 +39,20 @@ export type HeliusIngressConfig = {
   expectedRecipient: string;
 };
 
+/** Parsed Helius payment before DB resolves which remaining account is the order reference. */
+export type HeliusIngressPayment = {
+  paymentIngressEventId: string;
+  orderReferenceCandidates: string[];
+  grandTotalCents: number;
+  currency: "usdc";
+  metadata: Record<string, string | undefined>;
+};
+
 export type HeliusIngressParseResult =
   | { kind: "error"; status: number; message: string }
   | {
       kind: "ok";
-      events: NormalizedIngressEvent[];
+      events: HeliusIngressPayment[];
       ignoredCount: number;
       ignoredDetails: { signature: string; reason: string }[];
     };
@@ -64,7 +72,7 @@ export function parseHeliusIngressPayload(params: {
     return { kind: "error", status: 400, message: "Invalid Helius payload: no events" };
   }
 
-  const normalizedEvents: NormalizedIngressEvent[] = [];
+  const events: HeliusIngressPayment[] = [];
   let ignoredCount = 0;
   const ignoredDetails: { signature: string; reason: string }[] = [];
 
@@ -78,10 +86,10 @@ export function parseHeliusIngressPayload(params: {
       }
       continue;
     }
-    normalizedEvents.push(maybeEvent.event);
+    events.push(maybeEvent.event);
   }
 
-  return { kind: "ok", events: normalizedEvents, ignoredCount, ignoredDetails };
+  return { kind: "ok", events, ignoredCount, ignoredDetails };
 }
 
 function verifyAuth(
@@ -112,7 +120,7 @@ function parseCandidate(
   config: HeliusIngressConfig,
 ):
   | { kind: "ignore"; signature: string; reason: string }
-  | { kind: "event"; event: NormalizedIngressEvent } {
+  | { kind: "event"; event: HeliusIngressPayment } {
   const signature = extractSignature(candidate);
   if (!signature) {
     return { kind: "ignore", signature: "missing_signature", reason: "missing_signature" };
@@ -141,7 +149,7 @@ function parseCandidate(
     compiledMessage,
     loadedAddresses,
   );
-  const accountAddresses = accountMetas.map((meta) => String(meta.address));
+  const accountAddresses = accountMetas.map((m) => String(m.address));
   const tokenAccountOwners = buildTokenAccountOwnerMap(meta, accountAddresses);
 
   const memo = extractMemoFromInstructions(instructions) ?? extractMemoFromLogs(meta);
@@ -176,9 +184,8 @@ function parseCandidate(
   return {
     kind: "event",
     event: {
-      provider: "helius",
       paymentIngressEventId: `evt_helius_${signature}`,
-      paymentReferenceId: matchingTransfer.orderReference,
+      orderReferenceCandidates: matchingTransfer.orderReferenceCandidates,
       grandTotalCents: matchingTransfer.grandTotalCents,
       currency: "usdc",
       metadata: {
@@ -254,7 +261,7 @@ function extractMemoFromLogs(meta: UnknownRecord | null): string | undefined {
 }
 
 type MatchingTransfer =
-  | { kind: "ok"; grandTotalCents: number; orderReference: string }
+  | { kind: "ok"; grandTotalCents: number; orderReferenceCandidates: string[] }
   | { kind: "none" }
   | { kind: "mint_or_recipient_mismatch" }
   | { kind: "no_amount" }
@@ -327,13 +334,13 @@ function findMatchingTransferChecked(
       continue;
     }
 
-    const orderReference = extractSolanaPayReference(ix.accounts);
-    if (!orderReference) {
+    const orderReferenceCandidates = collectSolanaPayOrderReferenceCandidates(ix.accounts);
+    if (orderReferenceCandidates.length === 0) {
       sawMissingReference = true;
       continue;
     }
 
-    return { kind: "ok", grandTotalCents, orderReference };
+    return { kind: "ok", grandTotalCents, orderReferenceCandidates };
   }
 
   if (!sawAnyTransferChecked) return { kind: "none" };
@@ -344,15 +351,20 @@ function findMatchingTransferChecked(
 }
 
 /**
- * Solana Pay appends the order reference as a readonly account after the four
- * TransferChecked accounts (source, mint, destination, authority). Prefer the
- * last remaining account so both the 5-account (spec) and 6-account (wallet)
- * shapes resolve to the reference.
+ * Solana Pay appends reference key(s) after the four TransferChecked accounts
+ * (source, mint, destination, authority). Collect all remaining addresses;
+ * DB lookup later picks the one that matches a purchase order.
  */
-function extractSolanaPayReference(accounts: readonly AccountMeta[]): string | undefined {
-  if (accounts.length <= 4) return undefined;
-  const reference = accounts[accounts.length - 1]?.address;
-  return typeof reference === "string" && reference.trim() ? String(reference).trim() : undefined;
+function collectSolanaPayOrderReferenceCandidates(accounts: readonly AccountMeta[]): string[] {
+  if (accounts.length <= 4) return [];
+  const out: string[] = [];
+  for (let i = 4; i < accounts.length; i += 1) {
+    const address = accounts[i]?.address;
+    if (typeof address !== "string") continue;
+    const trimmed = String(address).trim();
+    if (trimmed) out.push(trimmed);
+  }
+  return out;
 }
 
 function baseUnitsToCents(rawUnits: bigint): number | null {

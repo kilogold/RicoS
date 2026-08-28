@@ -14,6 +14,7 @@ const config: HeliusIngressConfig = {
 const sourceTokenAccount = "9krqYuH38RuHgQKQvGVismCD6UwzScgCEP6CmzLH2KnK";
 const destinationTokenAccount = "FoA9SJA9ApdQXggzFjMGB5tRWX2YZ8oLyYwGcminepoG";
 const orderReference = "8aRWDWCFdJQMYujW1Z22LZbU7Mtki12QJSh6utd3kQ8Z";
+const extraReference = "2nT8kNX7YvTBMekVWKqpRdDKQ7z9r8FVq4VNSS3bH4Qo";
 const feePayer = "9vd5MkFDviku42mFPrcnLyznVMXfRHQ6Ze5EMjcHcPNJ";
 const signature =
   "5STBAon61eFZzjSdZf7kQ2zwGJYYWjFHow61YWHnmKkwuuxCxBw1iUr4ir3DFwGeydfsu1j3obxQsZbJ28QexV7v";
@@ -22,8 +23,19 @@ const memo = "AQQBEwEBAQE";
 function rawSolanaPayCandidate(params?: {
   err?: unknown;
   transferAccounts?: number[];
+  accountKeys?: string[];
 }): Record<string, unknown> {
   const transferAccounts = params?.transferAccounts ?? [1, 4, 2, 0, 3];
+  const accountKeys = params?.accountKeys ?? [
+    feePayer,
+    sourceTokenAccount,
+    destinationTokenAccount,
+    orderReference,
+    config.expectedUsdcMint,
+    "ComputeBudget111111111111111111111111111111",
+    "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  ];
   return {
     blockTime: 1778564083,
     meta: {
@@ -67,30 +79,21 @@ function rawSolanaPayCandidate(params?: {
     slot: 461782731,
     transaction: {
       message: {
-        accountKeys: [
-          feePayer,
-          sourceTokenAccount,
-          destinationTokenAccount,
-          orderReference,
-          config.expectedUsdcMint,
-          "ComputeBudget111111111111111111111111111111",
-          "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
-          "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-        ],
+        accountKeys,
         addressTableLookups: null,
         header: {
           numReadonlySignedAccounts: 0,
-          numReadonlyUnsignedAccounts: 5,
+          numReadonlyUnsignedAccounts: accountKeys.length - 3,
           numRequiredSignatures: 1,
         },
         instructions: [
-          { accounts: [], data: "3qYtvzaABqpT", programIdIndex: 5 },
-          { accounts: [], data: "KqoHBD", programIdIndex: 5 },
-          { accounts: [], data: "HCSAtjXz9PM9wqE", programIdIndex: 6 },
+          { accounts: [], data: "3qYtvzaABqpT", programIdIndex: accountKeys.length - 3 },
+          { accounts: [], data: "KqoHBD", programIdIndex: accountKeys.length - 3 },
+          { accounts: [], data: "HCSAtjXz9PM9wqE", programIdIndex: accountKeys.length - 2 },
           {
             accounts: transferAccounts,
             data: "jAnGYWKPAzhvm",
-            programIdIndex: 7,
+            programIdIndex: accountKeys.length - 1,
           },
         ],
         recentBlockhash: "3NRncb7FJuDruQjMDxnHvJBQkvkHa7KSUBqBsxG21roZ",
@@ -101,7 +104,7 @@ function rawSolanaPayCandidate(params?: {
 }
 
 describe("parseHeliusIngressPayload", () => {
-  test("parses a Raw Solana Pay TransferChecked webhook into a normalized event", () => {
+  test("parses a Raw Solana Pay TransferChecked webhook with reference candidates", () => {
     const result = parseHeliusIngressPayload({
       headers: { "x-helius-auth": "test-secret" },
       config,
@@ -114,9 +117,8 @@ describe("parseHeliusIngressPayload", () => {
       ignoredDetails: [],
       events: [
         {
-          provider: "helius",
           paymentIngressEventId: `evt_helius_${signature}`,
-          paymentReferenceId: orderReference,
+          orderReferenceCandidates: [orderReference],
           grandTotalCents: 399,
           currency: "usdc",
           metadata: {
@@ -128,7 +130,7 @@ describe("parseHeliusIngressPayload", () => {
     });
   });
 
-  test("uses the last extra TransferChecked account as the Solana Pay reference", () => {
+  test("includes all remaining TransferChecked accounts as reference candidates", () => {
     // 6-account wallet shape: source, mint, dest, authority, feePayer, reference
     const result = parseHeliusIngressPayload({
       headers: { "x-helius-auth": "test-secret" },
@@ -138,7 +140,36 @@ describe("parseHeliusIngressPayload", () => {
 
     expect(result.kind).toBe("ok");
     if (result.kind !== "ok") return;
-    expect(result.events[0]?.paymentReferenceId).toBe(orderReference);
+    expect(result.events[0]?.orderReferenceCandidates).toEqual([feePayer, orderReference]);
+  });
+
+  test("emits both remaining accounts when two references are present", () => {
+    const accountKeys = [
+      feePayer,
+      sourceTokenAccount,
+      destinationTokenAccount,
+      orderReference,
+      extraReference,
+      config.expectedUsdcMint,
+      "ComputeBudget111111111111111111111111111111",
+      "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    ];
+    const result = parseHeliusIngressPayload({
+      headers: { "x-helius-auth": "test-secret" },
+      config,
+      body: [
+        rawSolanaPayCandidate({
+          accountKeys,
+          // source, mint, dest, authority, ref1, ref2
+          transferAccounts: [1, 5, 2, 0, 3, 4],
+        }),
+      ],
+    });
+
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.events[0]?.orderReferenceCandidates).toEqual([orderReference, extraReference]);
   });
 
   test("ignores failed transactions", () => {
@@ -156,7 +187,7 @@ describe("parseHeliusIngressPayload", () => {
     });
   });
 
-  test("ignores TransferChecked without a Solana Pay reference account", () => {
+  test("ignores TransferChecked without remaining reference accounts", () => {
     const result = parseHeliusIngressPayload({
       headers: { "x-helius-auth": "test-secret" },
       config,
