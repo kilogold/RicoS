@@ -2,7 +2,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { CART_B64_KEY, CART_CODEC_ID_V1, CART_CODEC_KEY } from "@ricos/shared";
+import { getBase58Decoder } from "@solana/kit";
+import { getTransferInstructionDataEncoder, TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
+import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
 import { parseHeliusIngressPayload, type HeliusIngressConfig } from "./parse-helius-ingress-payload";
+import solflareTransfer from "./fixtures/solflare-transfer-devnet.json";
 
 const config: HeliusIngressConfig = {
   authHeaderName: "x-helius-auth",
@@ -24,7 +28,7 @@ function rawSolanaPayCandidate(params?: {
   err?: unknown;
   transferAccounts?: number[];
   accountKeys?: string[];
-}): Record<string, unknown> {
+}) {
   const transferAccounts = params?.transferAccounts ?? [1, 4, 2, 0, 3];
   const accountKeys = params?.accountKeys ?? [
     feePayer,
@@ -104,6 +108,33 @@ function rawSolanaPayCandidate(params?: {
 }
 
 describe("parseHeliusIngressPayload", () => {
+  test("parses the confirmed Solflare devnet Transfer payment for order 2im2A4", () => {
+    const result = parseHeliusIngressPayload({
+      headers: { "x-helius-auth": "test-secret" },
+      config,
+      body: [solflareTransfer],
+    });
+
+    expect(result).toEqual({
+      kind: "ok",
+      ignoredCount: 0,
+      ignoredDetails: [],
+      events: [
+        {
+          paymentIngressEventId:
+            "evt_helius_2QZhnuLAzqVw2LHavqGExNvZNx1SgL1U6MsAC9nLL6e7E8EBAVrxtAeJmiXy2LVURQ1HjWn6N5j163VJnxJpPYQo",
+          orderReferenceCandidates: ["2im2A4NiydVdBa46rmF7oRp2HFUkKMGZNsVCStSixt9c"],
+          grandTotalCents: 673,
+          currency: "usdc",
+          metadata: {
+            [CART_CODEC_KEY]: CART_CODEC_ID_V1,
+            [CART_B64_KEY]: "ATQBZQEB",
+          },
+        },
+      ],
+    });
+  });
+
   test("parses a Raw Solana Pay TransferChecked webhook with reference candidates", () => {
     const result = parseHeliusIngressPayload({
       headers: { "x-helius-auth": "test-secret" },
@@ -127,6 +158,113 @@ describe("parseHeliusIngressPayload", () => {
           },
         },
       ],
+    });
+  });
+
+  for (const instruction of ["Transfer", "TransferChecked"] as const) {
+    function candidate() {
+      return instruction === "Transfer" ? structuredClone(solflareTransfer) : rawSolanaPayCandidate();
+    }
+
+    for (const program of [TOKEN_PROGRAM_ADDRESS, TOKEN_2022_PROGRAM_ADDRESS]) {
+      test(`parses ${instruction} for token program ${program}`, () => {
+        const body = candidate();
+        const transfer = body.transaction.message.instructions[3];
+        body.transaction.message.accountKeys[transfer.programIdIndex] = program;
+        const result = parseHeliusIngressPayload({
+          headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+        });
+
+        expect(result.kind).toBe("ok");
+        if (result.kind !== "ok") return;
+        expect(result.ignoredCount).toBe(0);
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].grandTotalCents).toBe(instruction === "Transfer" ? 673 : 399);
+      });
+    }
+
+    test(`ignores ${instruction} without reference accounts`, () => {
+      const body = candidate();
+      const transfer = body.transaction.message.instructions[3];
+      transfer.accounts = transfer.accounts.slice(0, instruction === "Transfer" ? 3 : 4);
+      const result = parseHeliusIngressPayload({
+        headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+      });
+      expect(result).toMatchObject({
+        kind: "ok", events: [], ignoredCount: 1,
+        ignoredDetails: [{ reason: "missing_solana_pay_order_reference" }],
+      });
+    });
+
+    for (const field of ["mint", "owner"] as const) {
+      test(`rejects ${instruction} with a different destination ${field}`, () => {
+        const body = candidate();
+        for (const balance of [...body.meta.preTokenBalances, ...body.meta.postTokenBalances]) {
+          if (balance.accountIndex === 2) balance[field] = extraReference;
+        }
+        const result = parseHeliusIngressPayload({
+          headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+        });
+        expect(result).toMatchObject({
+          kind: "ok", events: [], ignoredCount: 1,
+          ignoredDetails: [{ reason: "mint_or_recipient_mismatch" }],
+        });
+      });
+    }
+
+    test(`rejects ${instruction} without destination token balances`, () => {
+      const body = candidate();
+      body.meta.preTokenBalances = body.meta.preTokenBalances.filter((balance) => balance.accountIndex !== 2);
+      body.meta.postTokenBalances = [];
+      const result = parseHeliusIngressPayload({
+        headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+      });
+      expect(result).toMatchObject({
+        kind: "ok", events: [], ignoredCount: 1,
+        ignoredDetails: [{ reason: "mint_or_recipient_mismatch" }],
+      });
+    });
+
+    test(`rejects ${instruction} when token balances have non-USDC decimals`, () => {
+      const body = candidate();
+      for (const balance of [...body.meta.preTokenBalances, ...body.meta.postTokenBalances]) {
+        balance.uiTokenAmount.decimals = 9;
+      }
+      const result = parseHeliusIngressPayload({
+        headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+      });
+      expect(result).toMatchObject({
+        kind: "ok", events: [], ignoredCount: 1,
+        ignoredDetails: [{ reason: "invalid_transfer_amount" }],
+      });
+    });
+  }
+
+  test("collects all remaining Transfer accounts starting after authority", () => {
+    const body = structuredClone(solflareTransfer);
+    body.transaction.message.instructions[3].accounts = [1, 2, 0, 0, 5];
+    const result = parseHeliusIngressPayload({
+      headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+    });
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") return;
+    expect(result.events[0]?.orderReferenceCandidates).toEqual([
+      "ExpHx8YCgNTQHf58xCuErXQTCFpmLJ3qdACh9t9txSwT",
+      "2im2A4NiydVdBa46rmF7oRp2HFUkKMGZNsVCStSixt9c",
+    ]);
+  });
+
+  test.each([0n, 6_730_001n])("rejects Transfer amount %s outside positive whole cents", (amount) => {
+    const body = structuredClone(solflareTransfer);
+    body.transaction.message.instructions[3].data = getBase58Decoder().decode(
+      getTransferInstructionDataEncoder().encode({ amount }),
+    );
+    const result = parseHeliusIngressPayload({
+      headers: { "x-helius-auth": "test-secret" }, config, body: [body],
+    });
+    expect(result).toMatchObject({
+      kind: "ok", events: [], ignoredCount: 1,
+      ignoredDetails: [{ reason: "invalid_transfer_amount" }],
     });
   });
 

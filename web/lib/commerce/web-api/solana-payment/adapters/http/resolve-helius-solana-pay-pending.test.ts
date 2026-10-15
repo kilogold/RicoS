@@ -7,6 +7,8 @@ import type { KitchenOrderPayload } from "../../../../domain";
 import type { HeliusIngressPayment } from "../ingress/parse-helius-ingress-payload";
 import {
   insertPendingPurchaseOrderIfNew,
+  getPurchaseOrderByReference,
+  listPrintJobs,
   markSolanaPurchaseOrderPaidIfNew,
   migrate,
 } from "../../../../../infrastructure/turso/webhook-db";
@@ -14,6 +16,9 @@ import {
   heliusPaymentToNormalizedEvent,
   resolveHeliusSolanaPayPending,
 } from "./resolve-helius-solana-pay-pending";
+import { parseHeliusIngressPayload } from "../ingress/parse-helius-ingress-payload";
+import solflareTransfer from "../ingress/fixtures/solflare-transfer-devnet.json";
+import { executeSolanaIngressEvent } from "../../../kitchen-order-dispatch/use-cases/execute-ingress-event";
 
 const orderReference = "8aRWDWCFdJQMYujW1Z22LZbU7Mtki12QJSh6utd3kQ8Z";
 const otherReference = "2nT8kNX7YvTBMekVWKqpRdDKQ7z9r8FVq4VNSS3bH4Qo";
@@ -92,6 +97,52 @@ describe("resolveHeliusSolanaPayPending", () => {
       detail: "no_pending_order_row",
       orderReference: "",
     });
+  });
+
+  test("settles the Solflare Transfer regression once and recognizes a replay", async () => {
+    const confirmedReference = "2im2A4NiydVdBa46rmF7oRp2HFUkKMGZNsVCStSixt9c";
+    const confirmedSignature = solflareTransfer.transaction.signatures[0];
+    const parsed = parseHeliusIngressPayload({
+      headers: {},
+      config: {
+        authHeaderName: "x-helius-auth",
+        expectedUsdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+        expectedRecipient: "EEHj6a2oScEN2nKT7rN9n2UKT2jLbGQtJnNK5cC5MDJb",
+      },
+      body: [solflareTransfer],
+    });
+    expect(parsed.kind).toBe("ok");
+    if (parsed.kind !== "ok") return;
+    expect(parsed.events).toHaveLength(1);
+    const confirmedPayment = parsed.events[0];
+    await insertPending(db, confirmedReference, { grandTotalCents: 673 });
+
+    const resolved = await resolveHeliusSolanaPayPending(db, confirmedPayment, confirmedSignature);
+    expect(resolved).toEqual({ ok: true, orderReference: confirmedReference, duplicateWebhook: false });
+    if (!resolved.ok) return;
+
+    // Exercise settlement against the in-memory DB without notifying a real kitchen relay.
+    const queueUrl = process.env.PRINT_BELL_QUEUE_URL;
+    process.env.PRINT_BELL_QUEUE_URL = "";
+    try {
+      const event = heliusPaymentToNormalizedEvent(confirmedPayment, resolved.orderReference);
+      const context = { orderReference: resolved.orderReference, transactionSignature: confirmedSignature };
+      expect(await executeSolanaIngressEvent(db, event, context)).toEqual({ ok: true });
+      expect(await getPurchaseOrderByReference(db, confirmedReference)).toMatchObject({
+        status: "paid",
+        grandTotalCents: 673,
+        paymentIngressEventId: `evt_helius_${confirmedSignature}`,
+      });
+
+      expect(await resolveHeliusSolanaPayPending(db, confirmedPayment, confirmedSignature)).toEqual({
+        ok: true, orderReference: confirmedReference, duplicateWebhook: true,
+      });
+      expect(await executeSolanaIngressEvent(db, event, context)).toEqual({ ok: true });
+      expect(await listPrintJobs(db)).toHaveLength(1);
+    } finally {
+      if (queueUrl === undefined) delete process.env.PRINT_BELL_QUEUE_URL;
+      else process.env.PRINT_BELL_QUEUE_URL = queueUrl;
+    }
   });
 
   test("rejects when two candidates match purchase orders", async () => {

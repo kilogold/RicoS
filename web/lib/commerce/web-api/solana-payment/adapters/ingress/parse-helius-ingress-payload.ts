@@ -14,12 +14,14 @@ import {
 import {
   identifyTokenInstruction,
   parseTransferCheckedInstruction,
+  parseTransferInstruction,
   TOKEN_PROGRAM_ADDRESS,
   TokenInstruction,
 } from "@solana-program/token";
 import {
   identifyToken2022Instruction,
   parseTransferCheckedInstruction as parseTransferCheckedInstruction2022,
+  parseTransferInstruction as parseTransferInstruction2022,
   TOKEN_2022_PROGRAM_ADDRESS,
   Token2022Instruction,
 } from "@solana-program/token-2022";
@@ -153,7 +155,7 @@ function parseCandidate(
   const tokenAccountOwners = buildTokenAccountOwnerMap(meta, accountAddresses);
 
   const memo = extractMemoFromInstructions(instructions) ?? extractMemoFromLogs(meta);
-  const matchingTransfer = findMatchingTransferChecked(
+  const matchingTransfer = findMatchingTransfer(
     instructions,
     tokenAccountOwners,
     config.expectedUsdcMint,
@@ -205,7 +207,7 @@ function extractSignature(candidate: UnknownRecord): string | undefined {
   return undefined;
 }
 
-type TokenAccountInfo = { owner: string; mint: string };
+type TokenAccountInfo = { owner: string; mint: string; decimals: number };
 
 function buildTokenAccountOwnerMap(
   meta: UnknownRecord | null,
@@ -224,10 +226,12 @@ function buildTokenAccountOwnerMap(
     const accountIndex = typeof entry.accountIndex === "number" ? entry.accountIndex : null;
     const owner = typeof entry.owner === "string" ? entry.owner : null;
     const mint = typeof entry.mint === "string" ? entry.mint : null;
-    if (accountIndex === null || !owner || !mint) continue;
+    const tokenAmount = isRecord(entry.uiTokenAmount) ? entry.uiTokenAmount : null;
+    const decimals = typeof tokenAmount?.decimals === "number" ? tokenAmount.decimals : null;
+    if (accountIndex === null || !owner || !mint || decimals === null) continue;
     const address = accountAddresses[accountIndex];
     if (!address || map.has(address)) continue;
-    map.set(address, { owner, mint });
+    map.set(address, { owner, mint, decimals });
   }
   return map;
 }
@@ -267,16 +271,13 @@ type MatchingTransfer =
   | { kind: "no_amount" }
   | { kind: "missing_reference" };
 
-function findMatchingTransferChecked(
+function findMatchingTransfer(
   instructions: readonly TracedInstruction[],
   tokenAccountOwners: Map<string, TokenAccountInfo>,
   expectedMint: string,
   expectedRecipient: string,
 ): MatchingTransfer {
-  const expectedMintLower = expectedMint.toLowerCase();
-  const expectedRecipientLower = expectedRecipient.toLowerCase();
-
-  let sawAnyTransferChecked = false;
+  let sawAnyTransfer = false;
   let sawMintOrRecipientMismatch = false;
   let sawInvalidAmount = false;
   let sawMissingReference = false;
@@ -284,46 +285,60 @@ function findMatchingTransferChecked(
   for (const ix of instructions) {
     if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
 
-    let parsed:
-      | {
-          accounts: {
-            mint: { address: string };
-            destination: { address: string };
-          };
-          data: { amount: bigint; decimals: number };
-        }
-      | null = null;
+    let parsed: {
+      accounts: {
+        mint?: { address: string };
+        destination: { address: string };
+      };
+      data: { amount: bigint; decimals?: number };
+    };
+    let referenceAccountOffset: number;
 
     if (isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) {
-      if (identifyTokenInstruction(ix) !== TokenInstruction.TransferChecked) continue;
-      sawAnyTransferChecked = true;
-      parsed = parseTransferCheckedInstruction(ix);
+      const instruction = identifyTokenInstruction(ix);
+      if (instruction === TokenInstruction.TransferChecked) {
+        parsed = parseTransferCheckedInstruction(ix);
+        referenceAccountOffset = 4;
+      } else if (instruction === TokenInstruction.Transfer) {
+        parsed = parseTransferInstruction(ix);
+        referenceAccountOffset = 3;
+      } else {
+        continue;
+      }
     } else if (isInstructionForProgram(ix, TOKEN_2022_PROGRAM_ADDRESS)) {
-      if (identifyToken2022Instruction(ix) !== Token2022Instruction.TransferChecked) continue;
-      sawAnyTransferChecked = true;
-      parsed = parseTransferCheckedInstruction2022(ix);
+      const instruction = identifyToken2022Instruction(ix);
+      if (instruction === Token2022Instruction.TransferChecked) {
+        parsed = parseTransferCheckedInstruction2022(ix);
+        referenceAccountOffset = 4;
+      } else if (instruction === Token2022Instruction.Transfer) {
+        parsed = parseTransferInstruction2022(ix);
+        referenceAccountOffset = 3;
+      } else {
+        continue;
+      }
     } else {
       continue;
     }
 
-    const mintAddress = String(parsed.accounts.mint.address);
+    sawAnyTransfer = true;
     const destinationAta = String(parsed.accounts.destination.address);
     const destInfo = tokenAccountOwners.get(destinationAta);
-    const owner = destInfo?.owner;
-    const balanceMint = destInfo?.mint;
-
-    const mintMatches =
-      mintAddress.toLowerCase() === expectedMintLower ||
-      (balanceMint != null && balanceMint.toLowerCase() === expectedMintLower);
-    const recipientMatches =
-      owner != null && owner.toLowerCase() === expectedRecipientLower;
-
-    if (!mintMatches || !recipientMatches) {
+    // Transfer omits the mint and decimals. Resolve them from the destination's
+    // transaction token balances; TransferChecked must agree with those balances.
+    if (
+      !destInfo ||
+      destInfo.mint !== expectedMint ||
+      destInfo.owner !== expectedRecipient ||
+      (parsed.accounts.mint && String(parsed.accounts.mint.address) !== expectedMint)
+    ) {
       sawMintOrRecipientMismatch = true;
       continue;
     }
 
-    if (parsed.data.decimals !== USDC_DECIMALS) {
+    if (
+      destInfo.decimals !== USDC_DECIMALS ||
+      (parsed.data.decimals !== undefined && parsed.data.decimals !== USDC_DECIMALS)
+    ) {
       sawInvalidAmount = true;
       continue;
     }
@@ -334,7 +349,10 @@ function findMatchingTransferChecked(
       continue;
     }
 
-    const orderReferenceCandidates = collectSolanaPayOrderReferenceCandidates(ix.accounts);
+    const orderReferenceCandidates = collectSolanaPayOrderReferenceCandidates(
+      ix.accounts,
+      referenceAccountOffset,
+    );
     if (orderReferenceCandidates.length === 0) {
       sawMissingReference = true;
       continue;
@@ -343,7 +361,7 @@ function findMatchingTransferChecked(
     return { kind: "ok", grandTotalCents, orderReferenceCandidates };
   }
 
-  if (!sawAnyTransferChecked) return { kind: "none" };
+  if (!sawAnyTransfer) return { kind: "none" };
   if (sawMissingReference) return { kind: "missing_reference" };
   if (sawInvalidAmount) return { kind: "no_amount" };
   if (sawMintOrRecipientMismatch) return { kind: "mint_or_recipient_mismatch" };
@@ -351,14 +369,17 @@ function findMatchingTransferChecked(
 }
 
 /**
- * Solana Pay appends reference key(s) after the four TransferChecked accounts
- * (source, mint, destination, authority). Collect all remaining addresses;
+ * Solana Pay appends reference key(s) after the three Transfer accounts or four
+ * TransferChecked accounts. Collect all remaining addresses;
  * DB lookup later picks the one that matches a purchase order.
  */
-function collectSolanaPayOrderReferenceCandidates(accounts: readonly AccountMeta[]): string[] {
-  if (accounts.length <= 4) return [];
+function collectSolanaPayOrderReferenceCandidates(
+  accounts: readonly AccountMeta[],
+  referenceAccountOffset: number,
+): string[] {
+  if (accounts.length <= referenceAccountOffset) return [];
   const out: string[] = [];
-  for (let i = 4; i < accounts.length; i += 1) {
+  for (let i = referenceAccountOffset; i < accounts.length; i += 1) {
     const address = accounts[i]?.address;
     if (typeof address !== "string") continue;
     const trimmed = String(address).trim();
