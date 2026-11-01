@@ -3,6 +3,7 @@ import { parseAnnouncementConfig } from "@/lib/announcement-config";
 import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
 import { parseTheme, THEME_COOKIE } from "@/lib/theme";
+import { LANGUAGE_COOKIE, parseLanguage } from "@/lib/language";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
@@ -36,6 +37,7 @@ export default async function RootLayout({
   await connection();
   const cookieStore = await cookies();
   const theme = parseTheme(cookieStore.get(THEME_COOKIE)?.value);
+  const language = parseLanguage(cookieStore.get(LANGUAGE_COOKIE)?.value);
   const menu = await getLatestMenuRuntime();
   const session = getStoreSession(new Date());
   const announcement = parseAnnouncementConfig();
@@ -46,7 +48,7 @@ export default async function RootLayout({
   };
   return (
     <html
-      lang="es"
+      lang={language}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased${theme === "dark" ? " dark" : ""}`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
@@ -56,6 +58,7 @@ export default async function RootLayout({
           storeSession={storeSession}
           announcement={announcement}
           theme={theme}
+          initialLanguage={language}
         >
           {children}
         </Providers>

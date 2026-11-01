@@ -12,7 +12,7 @@ import {
   StoreSessionProvider,
   type StoreSessionClient,
 } from "@/app/_client/store-session-context";
-import type { MenuDocument } from "@ricos/shared";
+import type { Language, MenuDocument } from "@ricos/shared";
 import type { ReactNode } from "react";
 
 export function Providers({
@@ -22,6 +22,7 @@ export function Providers({
   storeSession,
   announcement,
   theme,
+  initialLanguage,
 }: {
   children: ReactNode;
   menuCatalog: MenuDocument;
@@ -29,10 +30,11 @@ export function Providers({
   storeSession: StoreSessionClient;
   announcement: AnnouncementConfig | null;
   theme: Theme;
+  initialLanguage: Language;
 }) {
   return (
     <ThemeProvider initialTheme={theme}>
-      <LanguageProvider>
+      <LanguageProvider initialLanguage={initialLanguage}>
         <MenuRuntimeProvider catalog={menuCatalog} menuVersion={menuVersion}>
           <StoreSessionProvider value={storeSession}>
             <AnnouncementProvider value={announcement}>

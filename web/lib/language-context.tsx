@@ -1,17 +1,15 @@
 "use client";
 
-import { DEFAULT_LANGUAGE, type Language } from "@ricos/shared";
+import { writeLanguageCookie } from "@/lib/language";
+import type { Language } from "@ricos/shared";
 import {
   createContext,
+  useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-
-const STORAGE_KEY = "ricos.language";
 
 type LanguageContextValue = {
   language: Language;
@@ -20,40 +18,27 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return DEFAULT_LANGUAGE;
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved === "en" || saved === "es") return saved;
-    return DEFAULT_LANGUAGE;
-  });
-  const skipFirstPersist = useRef(true);
+export function LanguageProvider({
+  children,
+  initialLanguage,
+}: {
+  children: ReactNode;
+  initialLanguage: Language;
+}) {
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
 
-  useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved !== "en" && saved !== "es") {
-      document.documentElement.lang = DEFAULT_LANGUAGE;
-      window.localStorage.setItem(STORAGE_KEY, DEFAULT_LANGUAGE);
-      return;
-    }
-    document.documentElement.lang = language;
-  }, [language]);
-
-  useEffect(() => {
-    if (skipFirstPersist.current) {
-      skipFirstPersist.current = false;
-      return;
-    }
-    window.localStorage.setItem(STORAGE_KEY, language);
-    document.documentElement.lang = language;
-  }, [language]);
+  const setLanguage = useCallback((nextLanguage: Language) => {
+    setLanguageState(nextLanguage);
+    document.documentElement.lang = nextLanguage;
+    writeLanguageCookie(nextLanguage);
+  }, []);
 
   const value = useMemo(
     () => ({
       language,
       setLanguage,
     }),
-    [language],
+    [language, setLanguage],
   );
 
   return (
