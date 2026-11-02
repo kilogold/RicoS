@@ -1,10 +1,7 @@
 "use client";
 
-import type { AnnouncementConfig } from "@/lib/announcement-config";
-import { AnnouncementProvider } from "@/lib/announcement-context";
 import { CartProvider } from "@/lib/cart-context";
 import { LanguageProvider } from "@/lib/language-context";
-import { MenuRuntimeProvider } from "@/lib/menu-runtime-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import type { Theme } from "@/lib/theme";
 import {
@@ -12,39 +9,24 @@ import {
   StoreSessionProvider,
   type StoreSessionClient,
 } from "@/app/_client/store-session-context";
-import type { Language, MenuDocument } from "@ricos/shared";
+import type { Language } from "@ricos/shared";
 import type { ReactNode } from "react";
 
-export function Providers({
-  children,
-  menuCatalog,
-  menuVersion,
-  storeSession,
-  announcement,
-  theme,
-  initialLanguage,
-}: {
+export function Providers({ children, storeSession, theme, initialLanguage }: {
   children: ReactNode;
-  menuCatalog: MenuDocument;
-  menuVersion: number;
   storeSession: StoreSessionClient;
-  announcement: AnnouncementConfig | null;
   theme: Theme;
   initialLanguage: Language;
 }) {
   return (
     <ThemeProvider initialTheme={theme}>
       <LanguageProvider initialLanguage={initialLanguage}>
-        <MenuRuntimeProvider catalog={menuCatalog} menuVersion={menuVersion}>
-          <StoreSessionProvider value={storeSession}>
-            <AnnouncementProvider value={announcement}>
-              <CartProvider>
-                <StoreSessionCartSync />
-                {children}
-              </CartProvider>
-            </AnnouncementProvider>
-          </StoreSessionProvider>
-        </MenuRuntimeProvider>
+        <StoreSessionProvider value={storeSession}>
+          <CartProvider>
+            <StoreSessionCartSync />
+            {children}
+          </CartProvider>
+        </StoreSessionProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

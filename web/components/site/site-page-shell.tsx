@@ -1,5 +1,7 @@
 "use client";
 
+import { ORDERING_PATH } from "@/lib/navigation/routes";
+
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import Link from "next/link";
@@ -17,7 +19,7 @@ export function SitePageShell({ title, description, children }: SitePageShellPro
 
   return (
     <main className="site-container px-4 py-8 md:px-6">
-      <Link href="/" className="text-sm text-accent hover:underline">
+      <Link href={ORDERING_PATH} className="text-sm text-accent hover:underline">
         ← {copy.backToMenu}
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-4xl">{title}</h1>

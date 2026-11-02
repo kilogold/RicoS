@@ -74,7 +74,7 @@ Optional vars are documented in `.env.example`.
      bun run dev:web
      bun run dev:kitchen
      ```
-4. Open [http://localhost:3000](http://localhost:3000) and run checkout with Stripe test card `4242 4242 4242 4242`.
+4. Open [http://localhost:3000](http://localhost:3000) for the landing page. Open [http://localhost:3000/order](http://localhost:3000/order) for online ordering and run checkout with Stripe test card `4242 4242 4242 4242`.
 
 ## Root Scripts
 

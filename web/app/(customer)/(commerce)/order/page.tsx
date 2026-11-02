@@ -5,7 +5,6 @@ import { CartDrawer, FloatingCartButton } from "@/components/menu/cart-drawer";
 import { MenuGrid } from "@/components/menu/menu-grid";
 import { MenuSearch } from "@/components/menu/menu-search";
 import { AnnouncementCard } from "@/components/site/announcement-card";
-import { SiteHeader } from "@/components/site/site-header";
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
@@ -18,7 +17,7 @@ import { useStoreLocalNow } from "@/lib/use-store-local-now";
 import { buildThemedMenuSections } from "@ricos/shared";
 import { useMemo, useState } from "react";
 
-export default function Home() {
+export default function OrderPage() {
   const { language } = useLanguage();
   const { catalog, surface } = useMenuRuntime();
   const copy = getAppStrings(language);
@@ -64,7 +63,6 @@ export default function Home() {
 
   return (
     <main className="relative">
-      <SiteHeader />
       <StoreHoursBanners />
       <div className="bg-ink px-4 py-12 md:px-10">
         <div className="site-container">

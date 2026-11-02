@@ -1,7 +1,6 @@
 "use client";
 
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
-import { SiteHeader } from "@/components/site/site-header";
 import { SitePageShell } from "@/components/site/site-page-shell";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
@@ -40,7 +39,6 @@ export default function FindUsPage() {
 
   return (
     <>
-      <SiteHeader />
       <StoreHoursBanners />
       <SitePageShell title={copy.findUsTitle} description={copy.findUsIntro}>
         <section className="overflow-hidden rounded-xl border border-foreground/10 bg-surface">

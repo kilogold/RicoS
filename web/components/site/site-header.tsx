@@ -4,6 +4,7 @@ import { RicoSLogo } from "@/components/site/ricos-logo";
 import { SiteNavDrawer } from "@/components/site/site-nav-drawer";
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
+import { HOME_PATH } from "@/lib/navigation/routes";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -28,7 +29,7 @@ export function SiteHeader() {
               <span className="block h-0.5 w-full rounded-full bg-current" />
             </span>
           </button>
-          <Link href="/" aria-label="RicoS" className="text-foreground">
+          <Link href={HOME_PATH} aria-label="RicoS" className="text-foreground">
             <RicoSLogo height={60} />
           </Link>
           <div className="inline-flex items-center justify-self-end gap-1 rounded-lg border border-foreground/15 bg-background p-1">

@@ -2,6 +2,8 @@ import type { Language } from "@ricos/shared";
 import type { Weekday } from "@ricos/shared";
 
 export type AppStrings = {
+  landingTitle: string;
+  landingDescription: string;
   homeTagline: string;
   homeSubtitle: string;
   add: string;
@@ -139,6 +141,8 @@ export type AppStrings = {
 
 const APP_STRINGS: Record<Language, AppStrings> = {
   en: {
+    landingTitle: "Welcome to RicoS",
+    landingDescription: "Discover RicoS and order your favorites online.",
     homeTagline: "RicoS",
     homeSubtitle: "Order online for pickup. Pay securely with your card — no account needed.",
     add: "Add to order",
@@ -292,6 +296,8 @@ const APP_STRINGS: Record<Language, AppStrings> = {
     employmentSubmitError: "We could not submit your application. Please try again.",
   },
   es: {
+    landingTitle: "Bienvenidos a RicoS",
+    landingDescription: "Conoce RicoS y ordena tus favoritos en línea.",
     homeTagline: "RicoS",
     homeSubtitle:
       "Ordena en linea para recoger. Paga de forma segura con tu tarjeta — no necesitas cuenta.",

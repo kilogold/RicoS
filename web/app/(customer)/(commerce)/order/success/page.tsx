@@ -1,7 +1,8 @@
 "use client";
 
+import { ORDERING_PATH } from "@/lib/navigation/routes";
+
 import { ConfirmationCard, ConfirmationLoadingCard } from "@/components/order/confirmation-card";
-import { SiteHeader } from "@/components/site/site-header";
 import {
   parseOrderConfirmationProvider,
   type OrderConfirmationProvider,
@@ -189,7 +190,7 @@ function SuccessContent() {
         callStoreMessage={withStorePhone(copy.orderConfirmationCallStore)}
       >
         <Link
-          href="/"
+          href={ORDERING_PATH}
           className="inline-flex w-full max-w-xs justify-center rounded-full bg-accent px-8 py-3.5 text-lg font-semibold text-white shadow-lg hover:brightness-95"
         >
           {copy.backToMenu}
@@ -218,7 +219,7 @@ function SuccessContent() {
           {STORE_INFO.phoneDisplay}
         </a>
         <Link
-          href="/"
+          href={ORDERING_PATH}
           className="text-base font-medium text-muted underline-offset-4 hover:text-foreground hover:underline"
         >
           {copy.backToMenu}
@@ -237,7 +238,7 @@ function SuccessContent() {
       orderReferenceLabel={copy.orderReferenceLabel}
     >
       <Link
-        href="/"
+        href={ORDERING_PATH}
         className="inline-flex w-full max-w-xs justify-center rounded-full bg-accent px-8 py-3.5 text-lg font-semibold text-white shadow-lg hover:brightness-95"
       >
         {copy.orderMore}
@@ -249,7 +250,6 @@ function SuccessContent() {
 export default function OrderSuccessPage() {
   return (
     <>
-      <SiteHeader />
       <Suspense
         fallback={
           <ConfirmationLoadingCard message={getAppStrings("es").orderConfirmationVerifying} />

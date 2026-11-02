@@ -1,6 +1,4 @@
 import { Providers } from "@/components/providers";
-import { parseAnnouncementConfig } from "@/lib/announcement-config";
-import { getLatestMenuRuntime } from "@/lib/commerce/web-api/staff-order-management/lib/menu-runtime";
 import { getStoreSession, shoppingEnabled } from "@/lib/commerce/domain/store-hours";
 import { parseTheme, THEME_COOKIE } from "@/lib/theme";
 import { LANGUAGE_COOKIE, parseLanguage } from "@/lib/language";
@@ -24,9 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RicoS — Ordena en linea",
+  title: "RicoS",
   description:
-    "Desayuno todo el dia — ordena para recoger con pago seguro por tarjeta.",
+    "Bienvenidos a RicoS. Conócenos y ordena en línea.",
 };
 
 export default async function RootLayout({
@@ -38,9 +36,7 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const theme = parseTheme(cookieStore.get(THEME_COOKIE)?.value);
   const language = parseLanguage(cookieStore.get(LANGUAGE_COOKIE)?.value);
-  const menu = await getLatestMenuRuntime();
   const session = getStoreSession(new Date());
-  const announcement = parseAnnouncementConfig();
   const storeSession = {
     status: session.status,
     shoppingEnabled: shoppingEnabled(session),
@@ -53,10 +49,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers
-          menuCatalog={menu.catalog}
-          menuVersion={menu.version}
           storeSession={storeSession}
-          announcement={announcement}
           theme={theme}
           initialLanguage={language}
         >

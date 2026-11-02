@@ -3,6 +3,7 @@
 import { getAppStrings } from "@/lib/i18n";
 import { useLanguage } from "@/lib/language-context";
 import { useTheme } from "@/lib/theme-context";
+import { ORDERING_PATH } from "@/lib/navigation/routes";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -14,7 +15,7 @@ type SiteNavDrawerProps = {
 };
 
 const NAV_LINKS = [
-  { href: "/", key: "navOrderOnline" as const },
+  { href: ORDERING_PATH, key: "navOrderOnline" as const },
   { href: "/find-us", key: "navFindUs" as const },
   { href: "/employment", key: "navEmployment" as const },
 ];
@@ -72,6 +73,7 @@ export function SiteNavDrawer({ open, onClose }: SiteNavDrawerProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={item.href === ORDERING_PATH ? false : undefined}
                 onClick={onClose}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active

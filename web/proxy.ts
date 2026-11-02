@@ -1,3 +1,4 @@
+import { ORDERING_PATH } from "@/lib/navigation/routes";
 import { type NextRequest, NextResponse } from "next/server";
 import {
   getStoreSession,
@@ -12,7 +13,7 @@ export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname === "/checkout" && (req.method === "GET" || req.method === "HEAD")) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL(ORDERING_PATH, req.url));
   }
 
   if (

@@ -1,5 +1,6 @@
 "use client";
 
+import { cartForMenuVersion } from "@/lib/cart-menu-version";
 import {
   createContext,
   useCallback,
@@ -18,6 +19,8 @@ export type CartLine = { id: string; quantity: number; selections: LineSelection
 
 type CartContextValue = {
   lines: CartLine[];
+  menuVersion: number | null;
+  synchronizeMenuVersion: (version: number) => void;
   addItem: (id: string, selections?: LineSelections) => void;
   removeItem: (id: string, selections?: LineSelections) => void;
   setQuantity: (id: string, selections: LineSelections, quantity: number) => void;
@@ -27,7 +30,20 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<{ lines: CartLine[]; menuVersion: number | null }>({
+    lines: [],
+    menuVersion: null,
+  });
+  const { lines, menuVersion } = cart;
+  const setLines = useCallback((update: CartLine[] | ((lines: CartLine[]) => CartLine[])) => {
+    setCart((prev) => ({
+      ...prev,
+      lines: typeof update === "function" ? update(prev.lines) : update,
+    }));
+  }, []);
+  const synchronizeMenuVersion = useCallback((version: number) => {
+    setCart((prev) => cartForMenuVersion(prev, version));
+  }, []);
 
   const addItem = useCallback((id: string, selections: LineSelections = {}) => {
     const normalized = normalizeSelections(selections);
@@ -45,14 +61,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { id, quantity: 1, selections: normalized }];
     });
-  }, []);
+  }, [setLines]);
 
   const removeItem = useCallback((id: string, selections: LineSelections = {}) => {
     const sig = selectionSignature(selections);
     setLines((prev) =>
       prev.filter((l) => !(l.id === id && selectionSignature(l.selections) === sig)),
     );
-  }, []);
+  }, [setLines]);
 
   const setQuantity = useCallback(
     (id: string, selections: LineSelections, quantity: number) => {
@@ -77,14 +93,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       });
     },
-    [],
+    [setLines],
   );
 
-  const clear = useCallback(() => setLines([]), []);
+  const clear = useCallback(() => setLines([]), [setLines]);
 
   const value = useMemo(
-    () => ({ lines, addItem, removeItem, setQuantity, clear }),
-    [lines, addItem, removeItem, setQuantity, clear],
+    () => ({ lines, menuVersion, synchronizeMenuVersion, addItem, removeItem, setQuantity, clear }),
+    [lines, menuVersion, synchronizeMenuVersion, addItem, removeItem, setQuantity, clear],
   );
 
   return (

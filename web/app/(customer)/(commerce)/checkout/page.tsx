@@ -1,9 +1,10 @@
 "use client";
 
+import { ORDERING_PATH, ORDERING_MENU_UPDATED_PATH } from "@/lib/navigation/routes";
+
 import { AthMovilStub } from "@/components/ath-movil-stub";
 import { CheckoutForm } from "@/components/checkout-form";
 import { CheckoutOrderSummary } from "@/components/checkout-order-summary";
-import { SiteHeader } from "@/components/site/site-header";
 import { SolanaPayStub } from "@/components/solana-pay-stub";
 import { StoreHoursBanners } from "@/app/_client/store-hours-banners";
 import { useStoreSession } from "@/app/_client/store-session-context";
@@ -154,13 +155,13 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!shoppingEnabled) {
       clear();
-      fullRedirect("/");
+      fullRedirect(ORDERING_PATH);
     }
   }, [clear, shoppingEnabled]);
 
   useEffect(() => {
     if (lines.length === 0) {
-      fullRedirect("/");
+      fullRedirect(ORDERING_PATH);
       return;
     }
 
@@ -171,7 +172,7 @@ export default function CheckoutPage() {
       if (cancelled || !res.ok || typeof data.version !== "number") return;
       if (data.version !== menuVersionSeen) {
         clear();
-        fullRedirect("/?menuUpdated=1");
+        fullRedirect(ORDERING_MENU_UPDATED_PATH);
       }
     })();
     return () => {
@@ -181,7 +182,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (lines.length === 0) {
-      fullRedirect("/");
+      fullRedirect(ORDERING_PATH);
       return;
     }
 
@@ -225,12 +226,12 @@ export default function CheckoutPage() {
         if (cancelled) return;
         if (res.status === 409 && data.code === MENU_VERSION_CONFLICT_CODE) {
           clear();
-          fullRedirect("/?menuUpdated=1");
+          fullRedirect(ORDERING_MENU_UPDATED_PATH);
           return;
         }
         if (res.status === 403 && data.code === STORE_CLOSED_CODE) {
           clear();
-          fullRedirect("/");
+          fullRedirect(ORDERING_PATH);
           return;
         }
         if (res.status === 403 && data.code === DINE_IN_UNAVAILABLE_CODE) {
@@ -268,11 +269,10 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <SiteHeader />
       <div className="mx-auto max-w-lg px-4 py-10">
         <StoreHoursBanners />
         <div className="mb-8">
-          <Link href="/" className="text-sm text-accent hover:underline">
+          <Link href={ORDERING_PATH} className="text-sm text-accent hover:underline">
             ← {copy.backToMenu}
           </Link>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">
@@ -544,7 +544,7 @@ export default function CheckoutPage() {
                   </h2>
                   <p className="mt-2 text-foreground/80">{error}</p>
                   <Link
-                    href="/"
+                    href={ORDERING_PATH}
                     className="mt-6 inline-block rounded-lg bg-accent px-4 py-2 font-medium text-white"
                   >
                     {copy.backToMenu}

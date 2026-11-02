@@ -1,5 +1,7 @@
 "use client";
 
+import { ORDERING_PATH } from "@/lib/navigation/routes";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createCartRequest,
@@ -274,7 +276,7 @@ export function SolanaPayStub({
       } catch (err) {
         if (err instanceof StoreClosedError) {
           clear();
-          fullRedirect("/");
+          fullRedirect(ORDERING_PATH);
           return;
         }
         paymentRef.current.handleError(
@@ -321,7 +323,7 @@ export function SolanaPayStub({
         if (cancelled) return;
         if (err instanceof StoreClosedError) {
           clear();
-          fullRedirect("/");
+          fullRedirect(ORDERING_PATH);
           return;
         }
         paymentRef.current.handleError(

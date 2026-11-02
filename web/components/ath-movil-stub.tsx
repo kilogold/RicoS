@@ -1,5 +1,7 @@
 "use client";
 
+import { ORDERING_PATH, ORDERING_MENU_UPDATED_PATH } from "@/lib/navigation/routes";
+
 import { useEffect, useState } from "react";
 import {
   buildDecodeIndex,
@@ -149,12 +151,12 @@ export function AthMovilStub({
       if (!referenceRes.ok) {
         if (referenceRes.status === 409 && referenceBody?.code === MENU_VERSION_CONFLICT_CODE) {
           clear();
-          fullRedirect("/?menuUpdated=1");
+          fullRedirect(ORDERING_MENU_UPDATED_PATH);
           return;
         }
         if (referenceRes.status === 403 && referenceBody?.code === STORE_CLOSED_CODE) {
           clear();
-          fullRedirect("/");
+          fullRedirect(ORDERING_PATH);
           return;
         }
         if (referenceRes.status === 403 && referenceBody?.code === DINE_IN_UNAVAILABLE_CODE) {
