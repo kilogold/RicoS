@@ -57,11 +57,13 @@ describe("SQS long-poll timeout wiring", () => {
       configProvider?: Promise<{
         connectionTimeout?: number;
         requestTimeout?: number;
+        throwOnRequestTimeout?: boolean;
       }>;
     };
     const cfg = await handler.configProvider;
     expect(cfg?.connectionTimeout).toBe(SQS_CONNECTION_TIMEOUT_MS);
     expect(cfg?.requestTimeout).toBe(SQS_REQUEST_TIMEOUT_MS);
+    expect(cfg?.throwOnRequestTimeout).toBe(true);
   });
 });
 

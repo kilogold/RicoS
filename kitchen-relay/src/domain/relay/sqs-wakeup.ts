@@ -9,7 +9,7 @@
  * - SQS_CONNECTION_TIMEOUT_MS — client connect budget only (DNS/TCP/TLS). Does not
  *   cover waiting for a response after the socket is up.
  * 
- * - SQS_REQUEST_TIMEOUT_MS — client abort for the whole HTTP call
+ * - SQS_REQUEST_TIMEOUT_MS — client abort while waiting for response headers on each HTTP attempt
  *   (WAIT_TIME_MS + SQS_REQUEST_TIMEOUT_SLACK_MS). Must exceed the long-poll window
  *   so normal empty polls succeed; slack covers network overhead after wait ends.
  *
@@ -46,6 +46,7 @@ export function createPrintBellSqsClient(region: string): SQSClient {
     requestHandler: new NodeHttpHandler({
       connectionTimeout: SQS_CONNECTION_TIMEOUT_MS,
       requestTimeout: SQS_REQUEST_TIMEOUT_MS,
+      throwOnRequestTimeout: true,
     }),
   });
 }
